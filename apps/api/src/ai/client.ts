@@ -205,12 +205,15 @@ export async function callClaude(
   }
 }
 
-/** 拼出审计目标文本:system + 所有 user/assistant 消息 */
+/**
+ * 拼出审计目标文本:只 join user/assistant 消息内容。
+ *
+ * 故意不扫 system prompt:system 是从 03-prompts/*.md 加载的固定模板,内含 few-shot 范例
+ * 里的虚构关系名(小雨/小美/小玲),这些字面值跟用户的真实关系无关。如果连 system 一起扫,
+ * 任何用户的"小美"关系都会被范例字面冲撞而误报。
+ */
 function composeAuditTarget(params: CallClaudeParams): string {
-  return [
-    params.system,
-    ...params.messages.map((m) => m.content),
-  ].join('\n')
+  return params.messages.map((m) => m.content).join('\n')
 }
 
 /** Gemini OCR(等 spec-004 实施) */
