@@ -11,7 +11,7 @@
 import { createActor } from 'xstate'
 import type { Session, SessionState } from '@prisma/client'
 import { prisma } from '../../lib/prisma.js'
-import { errors, AppError, ErrorCodes } from '../../lib/error.js'
+import { AppError, ErrorCodes } from '../../lib/error.js'
 import { getSessionById, updateSession } from '../session/session.service.js'
 import {
   replayMachine,
