@@ -1,0 +1,21 @@
+{
+  "user_id": "u-eval",
+  "relationship_id": "r-eval-2",
+  "session_id": "s-eval-02",
+  "relationship_name": "小美",
+  "entry_note": "昨晚吵了一架,她到现在没理我",
+  "messages": [
+    { "speaker": "other", "text": "你今天那样说话我有点不舒服", "timestamp": "昨晚 22:15" },
+    { "speaker": "user", "text": "我哪样了?", "timestamp": "昨晚 22:18" },
+    { "speaker": "other", "text": "你自己心里没数吗", "timestamp": "昨晚 22:19" },
+    { "speaker": "user", "text": "你不说我怎么知道", "timestamp": "昨晚 22:20" },
+    { "speaker": "other", "text": "算了", "timestamp": "昨晚 22:23" },
+    { "speaker": "user", "text": "什么算了 你说清楚", "timestamp": "昨晚 22:24" },
+    { "speaker": "other", "text": "每次都是这样跟你解释累不累", "timestamp": "昨晚 22:31" },
+    { "speaker": "user", "text": "那你倒是说啊", "timestamp": "昨晚 22:32" },
+    { "speaker": "user", "text": "你这样我没法接", "timestamp": "昨晚 22:33" },
+    { "speaker": "user", "text": "随便你", "timestamp": "昨晚 22:45" },
+    { "speaker": "other", "text": "我们先冷一下", "timestamp": "昨晚 23:03" }
+  ],
+  "other_identifiers": []
+}

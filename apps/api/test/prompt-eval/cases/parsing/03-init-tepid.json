@@ -1,0 +1,22 @@
+{
+  "user_id": "u-eval",
+  "relationship_id": "r-eval-3",
+  "session_id": "s-eval-03",
+  "relationship_name": "小玲",
+  "entry_note": "刚加上她 5 天,她回得都很淡,我不知道还要不要继续聊",
+  "messages": [
+    { "speaker": "user", "text": "嗨,加上你了", "timestamp": "周三 21:00" },
+    { "speaker": "other", "text": "嗯", "timestamp": "周三 22:30" },
+    { "speaker": "user", "text": "你今天忙吗", "timestamp": "周四 19:00" },
+    { "speaker": "other", "text": "还好", "timestamp": "周四 21:11" },
+    { "speaker": "user", "text": "我下班了 你呢", "timestamp": "周四 21:12" },
+    { "speaker": "other", "text": "我也下了", "timestamp": "周四 22:10" },
+    { "speaker": "user", "text": "我那天看到一家面馆,你不是说想找个吃面的地方吗", "timestamp": "周五 13:00" },
+    { "speaker": "other", "text": "好", "timestamp": "周五 14:55" },
+    { "speaker": "user", "text": "周末有空吗", "timestamp": "周五 15:00" },
+    { "speaker": "other", "text": "看吧", "timestamp": "周五 17:32" },
+    { "speaker": "user", "text": "你周日下午吧 我那天比较空", "timestamp": "周六 11:00" },
+    { "speaker": "other", "text": "周日我有事 下次吧", "timestamp": "周六 13:48" }
+  ],
+  "other_identifiers": []
+}

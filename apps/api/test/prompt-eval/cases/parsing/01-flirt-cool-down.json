@@ -1,0 +1,24 @@
+{
+  "user_id": "u-eval",
+  "relationship_id": "r-eval-1",
+  "session_id": "s-eval-01",
+  "relationship_name": "小雨",
+  "entry_note": "她两天没回我了",
+  "messages": [
+    { "speaker": "user", "text": "在干嘛", "timestamp": "周一 19:30" },
+    { "speaker": "other", "text": "刚下班,有点累", "timestamp": "周一 20:14" },
+    { "speaker": "user", "text": "那你早点睡,我就是想跟你说一声晚上看那家店开了新店哎", "timestamp": "周一 20:17" },
+    { "speaker": "other", "text": "嗯", "timestamp": "周一 22:03" },
+    { "speaker": "user", "text": "你周末去那边附近吗", "timestamp": "周二 12:08" },
+    { "speaker": "other", "text": "看吧", "timestamp": "周二 14:21" },
+    { "speaker": "user", "text": "那我先订?可以退的", "timestamp": "周二 14:23" },
+    { "speaker": "other", "text": "你订吧", "timestamp": "周二 18:05" },
+    { "speaker": "user", "text": "OK 那我订了", "timestamp": "周二 18:06" },
+    { "speaker": "user", "text": "对了上次你说想看的那个展我查了下还在", "timestamp": "周二 22:11" },
+    { "speaker": "user", "text": "周末一起?", "timestamp": "周二 22:12" },
+    { "speaker": "other", "text": "先这样吧", "timestamp": "周二 22:47" },
+    { "speaker": "user", "text": "怎么了" },
+    { "speaker": "user", "text": "哦你睡了" }
+  ],
+  "other_identifiers": []
+}
