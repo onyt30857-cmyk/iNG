@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-typecheck-test:
+    name: Lint + Typecheck + Test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: lianai
+          POSTGRES_PASSWORD: lianai
+          POSTGRES_DB: lianai
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lianai"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        working-directory: apps/api
+        env:
+          DATABASE_URL: postgresql://lianai:lianai@localhost:5432/lianai
+        run: pnpm prisma generate
+
+      - name: Lint
+        run: pnpm lint
+        continue-on-error: true # M1 阶段先放过,补 lint 配置后取消
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        env:
+          DATABASE_URL: postgresql://lianai:lianai@localhost:5432/lianai
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: ci-test-secret-not-for-production-use
+        run: pnpm test

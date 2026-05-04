@@ -1,0 +1,39 @@
+# 本地开发环境: Postgres 16 (含 pgvector) + Redis 7
+# 用法: pnpm docker:up / pnpm docker:down
+services:
+  postgres:
+    # pgvector/pgvector 镜像 = Postgres 16 + pgvector 扩展预装
+    image: pgvector/pgvector:pg16
+    container_name: lianai-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lianai
+      POSTGRES_PASSWORD: lianai
+      POSTGRES_DB: lianai
+    ports:
+      - '5432:5432'
+    volumes:
+      - lianai-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U lianai -d lianai']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: lianai-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - lianai-redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  lianai-postgres-data:
+  lianai-redis-data:

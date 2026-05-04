@@ -1,0 +1,63 @@
+{
+  "pages": [
+    {
+      "path": "pages/splash/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/auth/login",
+      "style": {
+        "navigationBarTitleText": "登录"
+      }
+    },
+    {
+      "path": "pages/home/index",
+      "style": {
+        "navigationBarTitleText": "练爱"
+      }
+    },
+    {
+      "path": "pages/relationship/list",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/relationship/detail",
+      "style": {
+        "navigationBarTitleText": "",
+        "navigationBarBackgroundColor": "#F4F1EA",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/relationship/edit",
+      "style": {
+        "navigationBarTitleText": "新建关系",
+        "navigationBarBackgroundColor": "#F4F1EA",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/replay/session",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/relationship/conversation",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "练爱",
+    "navigationBarBackgroundColor": "#F4F1EA",
+    "backgroundColor": "#F4F1EA"
+  }
+}

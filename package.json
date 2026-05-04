@@ -1,0 +1,29 @@
+{
+  "name": "lianai",
+  "version": "0.0.1",
+  "private": true,
+  "description": "练爱 - 让不擅社交的男生慢慢学会和喜欢的人正常说话的 AI 产品",
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev:api": "pnpm --filter @lianai/api dev",
+    "dev:mobile": "pnpm --filter @lianai/mobile dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "format": "prettier --write \"**/*.{ts,tsx,vue,json,md,scss}\"",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.3.0",
+    "typescript": "^5.5.0"
+  }
+}

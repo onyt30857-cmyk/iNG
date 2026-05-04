@@ -1,0 +1,7 @@
+node_modules
+dist
+build
+unpackage
+coverage
+lianai-dev-kit/02-architecture/database-schema.prisma
+apps/api/prisma/schema.prisma

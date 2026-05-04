@@ -1,0 +1,98 @@
+// Design Tokens - 来源: lianai-dev-kit/04-design/design-system.md
+// 禁止 hardcode 颜色/字号/间距,全部从这里引用
+//
+// 2026-05-04: 主色从深墨紫改为墨青蓝(配色调研后,见 design-system.md §2)
+
+// ========== 主色 - 墨青蓝 (Ink Navy) ==========
+$color-primary: #2E3A59;
+$color-primary-hover: #374569;
+$color-primary-deep: #1E2740;
+$color-primary-soft: #4B5577;
+$color-primary-subtle: #E5E8EF;
+
+// ========== 辅色 - 茶棕 (Tea Brown,只用于"温度感"小元素) ==========
+$color-accent: #A87C5F;
+$color-accent-soft: #C99A7C;
+$color-accent-subtle: #F5EBE2;
+
+// ========== 中性色 - 暖米 (Warm Cream) ==========
+$color-text-primary: #1E2740;
+$color-text-secondary: #4B5577;
+$color-text-tertiary: #7A8299;
+$color-text-disabled: #A8AEBE;
+$color-border: #E2DDD0;
+$color-surface-subtle: #EBE6DA;
+$color-background: #F4F1EA;
+$color-surface: #FFFFFF;
+
+// ========== 语义色 ==========
+$color-success: #5A8A6F;
+$color-warning: #C77A2C;
+$color-danger: #B84A4A;
+$color-info: #3D6B8C;
+
+// ========== 字号(以 iPhone 14 标准 16pt 为基准) ==========
+$font-display: 64rpx;     // 32pt
+$font-title-1: 48rpx;     // 24pt
+$font-title-2: 40rpx;     // 20pt
+$font-title-3: 36rpx;     // 18pt
+$font-body: 32rpx;        // 16pt
+$font-body-small: 28rpx;  // 14pt
+$font-caption: 26rpx;     // 13pt
+$font-footnote: 24rpx;    // 12pt
+
+// ========== 字重 ==========
+$weight-regular: 400;
+$weight-medium: 500;
+$weight-semibold: 600;
+$weight-bold: 700;
+
+// ========== 间距(8px 基础栅格) ==========
+$space-1: 8rpx;    // 4px
+$space-2: 16rpx;   // 8px
+$space-3: 24rpx;   // 12px
+$space-4: 32rpx;   // 16px
+$space-5: 40rpx;   // 20px
+$space-6: 48rpx;   // 24px
+$space-8: 64rpx;   // 32px
+$space-12: 96rpx;  // 48px
+$space-16: 128rpx; // 64px
+
+// ========== 圆角 ==========
+$radius-sm: 8rpx;     // 4px
+$radius: 16rpx;       // 8px
+$radius-md: 24rpx;    // 12px
+$radius-lg: 32rpx;    // 16px
+$radius-xl: 48rpx;    // 24px
+$radius-full: 9999rpx;
+
+// ========== 阴影 ==========
+$shadow-sm: 0 1rpx 4rpx rgba(30, 39, 64, 0.04);
+$shadow: 0 2rpx 6rpx rgba(30, 39, 64, 0.06);
+$shadow-md: 0 8rpx 12rpx rgba(30, 39, 64, 0.05);
+$shadow-lg: 0 20rpx 30rpx rgba(30, 39, 64, 0.06);
+$shadow-xl: 0 40rpx 50rpx rgba(30, 39, 64, 0.08);
+
+// ========== 字体族 ==========
+$font-family-zh: -apple-system, BlinkMacSystemFont,
+                 "PingFang SC", "Microsoft YaHei",
+                 "HarmonyOS Sans SC", "Source Han Sans SC",
+                 sans-serif;
+
+// ========== 暗色模式覆盖 ==========
+@mixin dark-mode {
+  --color-background: #14181F;
+  --color-surface: #1A2030;
+  --color-surface-elevated: #232A3C;
+  --color-border: #2A3045;
+  --color-text-primary: #E8E8EE;
+  --color-text-secondary: #B8C0D0;
+  --color-text-tertiary: #7A8299;
+  --color-text-disabled: #5C627A;
+  --color-primary: #C9D4EC;
+  --color-primary-deep: #DCE5F5;
+  --color-primary-soft: #8E9CBC;
+  --color-primary-subtle: #2A3045;
+  --color-accent: #C99A7C;
+  --color-accent-soft: #A87C5F;
+}

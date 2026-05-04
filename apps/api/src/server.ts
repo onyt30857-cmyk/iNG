@@ -1,0 +1,119 @@
+// Fastify 入口
+// 启动顺序: config 校验 → app 创建 → 中间件 → 路由 → listen
+
+import Fastify from 'fastify'
+import cors from '@fastify/cors'
+import { config, isDev } from './config/index.js'
+import { logger } from './lib/logger.js'
+import { errorHandler } from './middleware/error-handler.js'
+import { registerRequestLog } from './middleware/request-log.js'
+import { healthRoute } from './routes/health.route.js'
+import { helloRoute } from './routes/hello.route.js'
+import { authRoutes } from './routes/v1/auth.route.js'
+import { relationshipRoutes } from './routes/v1/relationship.route.js'
+import { sessionRoutes } from './routes/v1/session.route.js'
+
+async function buildApp() {
+  // 把 logger 配置交给 Fastify 内部创建 —— 直接传 Pino 实例和 Fastify 4 的类型签名不兼容
+  // 业务代码用 lib/logger.ts 的单例,请求日志走 Fastify 内置
+  const app = Fastify({
+    logger: {
+      level: config.LOG_LEVEL,
+      ...(isDev()
+        ? {
+            transport: {
+              target: 'pino-pretty',
+              options: {
+                colorize: true,
+                translateTime: 'SYS:HH:MM:ss',
+                ignore: 'pid,hostname',
+              },
+            },
+          }
+        : {}),
+      redact: {
+        paths: [
+          'req.headers.authorization',
+          'req.headers.cookie',
+          '*.password',
+          '*.token',
+          '*.secret',
+          '*.api_key',
+        ],
+        censor: '[REDACTED]',
+      },
+    },
+    genReqId: (req) => {
+      const incoming = req.headers['x-request-id']
+      return typeof incoming === 'string' ? incoming : crypto.randomUUID()
+    },
+    trustProxy: true,
+  })
+
+  // 全局错误处理
+  app.setErrorHandler(errorHandler)
+
+  // CORS —— 开发用 *,生产填具体域名
+  await app.register(cors, {
+    origin: config.CORS_ORIGIN === '*' ? true : config.CORS_ORIGIN.split(','),
+    credentials: true,
+  })
+
+  // 请求日志钩子
+  registerRequestLog(app)
+
+  // 路由
+  await app.register(healthRoute)
+  await app.register(helloRoute)
+  await app.register(authRoutes)
+  await app.register(relationshipRoutes)
+  await app.register(sessionRoutes)
+
+  // 404 兜底
+  app.setNotFoundHandler((req, reply) => {
+    reply.status(404).send({
+      ok: false,
+      error: {
+        code: 'NOT_FOUND',
+        message: '这个路径没有,你检查一下',
+        ...(isDev() ? { detail: `${req.method} ${req.url}` } : {}),
+      },
+    })
+  })
+
+  return app
+}
+
+async function main() {
+  const app = await buildApp()
+
+  try {
+    await app.listen({ port: config.PORT, host: '0.0.0.0' })
+    logger.info(
+      { event: 'server.started', port: config.PORT, env: config.NODE_ENV },
+      `Server running on http://localhost:${config.PORT}`,
+    )
+  } catch (err) {
+    logger.fatal({ event: 'server.start.failed', err }, '启动失败')
+    process.exit(1)
+  }
+
+  // 优雅关闭
+  const shutdown = async (signal: string) => {
+    logger.info({ event: 'server.shutdown', signal }, '准备关闭')
+    try {
+      await app.close()
+      process.exit(0)
+    } catch (err) {
+      logger.error({ event: 'server.shutdown.failed', err })
+      process.exit(1)
+    }
+  }
+  process.on('SIGINT', () => shutdown('SIGINT'))
+  process.on('SIGTERM', () => shutdown('SIGTERM'))
+}
+
+main().catch((err) => {
+  logger.fatal({ event: 'main.crashed', err })
+  process.exit(1)
+})
