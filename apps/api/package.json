@@ -15,7 +15,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "prompt-eval": "tsx --env-file=.env scripts/prompt-eval.ts"
+    "prompt-eval": "tsx --env-file=.env scripts/prompt-eval.ts",
+    "seed-dev": "tsx --env-file=.env scripts/seed-dev.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",
