@@ -85,10 +85,18 @@ function goBack() {
     <!-- mock 提示条(只在没真实登录时显示) -->
     <view v-if="store.usingMock" class="mock-banner">
       <text class="mock-banner-text">演示数据 · 真实登录后会拉服务端数据</text>
-      <view class="mock-banner-action" @tap="seedDemo">
-        <text class="mock-banner-action-text">{{ seedingDemo ? '注入中…' : '注入演示信号' }}</text>
-      </view>
     </view>
+
+    <!-- 注入演示信号按钮(独立一块,避免被 banner 嵌套吃事件) -->
+    <button
+      v-if="store.usingMock"
+      class="seed-btn"
+      hover-class="seed-btn-hover"
+      @click="seedDemo"
+      @tap="seedDemo"
+    >
+      {{ seedingDemo ? '注入中…' : '一键注入演示信号(看完整 19.x 链路)' }}
+    </button>
 
     <view class="body">
       <!-- ready 态 -->
@@ -217,33 +225,31 @@ function goBack() {
 }
 
 .mock-banner {
-  margin: 16rpx 40rpx 24rpx;
+  margin: 16rpx 40rpx 12rpx;
   padding: 16rpx 24rpx;
   background-color: $color-accent-subtle;
   border-radius: 16rpx;
   border-left: 6rpx solid $color-accent;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 16rpx;
 }
 .mock-banner-text {
-  flex: 1;
   font-size: 24rpx;
   color: $color-text-secondary;
 }
-.mock-banner-action {
-  padding: 8rpx 16rpx;
-  border-radius: 12rpx;
-  background-color: $color-surface;
-  flex-shrink: 0;
 
-  &:active { background-color: $color-surface-subtle; }
-}
-.mock-banner-action-text {
-  font-size: 22rpx;
-  color: $color-accent;
+.seed-btn {
+  margin: 0 40rpx 24rpx;
+  padding: 18rpx 0;
+  background-color: $color-primary;
+  color: $color-background;
+  font-size: 26rpx;
   font-weight: $weight-medium;
+  border-radius: 16rpx;
+  border: none;
+  &::after { border: none; }
+}
+.seed-btn-hover {
+  background-color: $color-primary-deep;
+  opacity: 0.9;
 }
 
 .body {
