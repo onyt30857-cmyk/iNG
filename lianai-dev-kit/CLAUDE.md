@@ -42,10 +42,15 @@ M1 阶段目标:12 周内上线一个能用的版本。
 | 任务 | 模型 | 模型 ID |
 |------|------|---------|
 | 主对话/话术生成/复盘判断 | Claude Sonnet 4 | `claude-sonnet-4-20250514` |
-| 截图理解(OCR) | Gemini 2.5 Flash | `gemini-2.5-flash` |
+| 截图理解(OCR)| **Claude Sonnet 4 vision** | `claude-sonnet-4-20250514` |
 | 意图分类 | Gemini 2.5 Flash | `gemini-2.5-flash` |
 | 异步画像提取 | Gemini 2.5 Flash | `gemini-2.5-flash` |
 | 中文内容审核 | 阿里云内容安全 | (使用阿里云 SDK) |
+
+**OCR 模型决策(2026-05-05 Sam 拍板)**:OCR 改用 Claude Sonnet 4 vision,不再走 Gemini。原因:
+1. 简化技术栈(只一个 LLM 供应商)+ 简化付费(只一个 API key)
+2. Claude 中文理解力强,聊天截图语境理解可能更准
+3. 代价:成本比 Gemini 高 5-10×,延迟也长。M1 接受,后续看用量再决策
 
 **注**:Anthropic 模型 ID 实际可能更新,实施时查 https://docs.anthropic.com 确认最新 ID。
 

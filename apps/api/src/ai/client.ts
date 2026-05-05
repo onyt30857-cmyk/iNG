@@ -332,20 +332,128 @@ function composeAuditTarget(params: CallClaudeParams): string {
   return params.messages.map((m) => m.content).join('\n')
 }
 
-/** Gemini OCR(等 spec-004 实施) */
+/** Gemini OCR 已弃用 — 2026-05-05 Sam 决定 OCR 改用 Claude vision(见 callClaudeVision) */
 export async function callGeminiOcr(
   _ctx: AiCallContext,
   _params: unknown,
 ): Promise<never> {
-  logger.warn(
-    { event: 'ai.callGeminiOcr.stub', model: config.GEMINI_MODEL_ID },
-    'callGeminiOcr 还没实现,等 spec-004',
-  )
   throw new AppError({
     code: ErrorCodes.NOT_IMPLEMENTED,
-    message: 'OCR 功能还没接,等 spec-004',
+    message: 'Gemini OCR 路径已弃用,请用 callClaudeVision',
     statusCode: 501,
   })
+}
+
+/**
+ * Claude vision 调用(spec-004 OCR 用 Claude Sonnet 4 vision,2026-05-05 Sam 决策)
+ * 接受多张图片(base64)+ 文本 prompt,返回 LLM 文本输出。
+ * 图片受 Anthropic SDK 限制:base64 单图最大 ~5MB,4 种格式 jpeg/png/gif/webp。
+ *
+ * 不做 audit(input 是图片,无跨关系泄漏风险)。
+ * 不做 persona check(output 通常是 JSON,违规词扫描误报率高)。
+ * 业务方可在拿到 text 后自己跑 checkPersona / extractJson。
+ */
+export type ClaudeVisionMediaType =
+  | 'image/jpeg'
+  | 'image/png'
+  | 'image/gif'
+  | 'image/webp'
+
+export interface CallClaudeVisionParams {
+  system: string
+  images: Array<{ base64: string; mediaType: ClaudeVisionMediaType }>
+  textPrompt: string
+  max_tokens?: number
+  model?: string
+}
+
+export interface CallClaudeVisionResult {
+  text: string
+  usage: { input_tokens: number; output_tokens: number }
+  duration_ms: number
+}
+
+export async function callClaudeVision(
+  ctx: AiCallContext,
+  params: CallClaudeVisionParams,
+): Promise<CallClaudeVisionResult> {
+  const start = Date.now()
+  const model = params.model ?? config.CLAUDE_MODEL_ID
+  const client = getAnthropicClient() as Anthropic
+
+  let response
+  try {
+    response = await client.messages.create({
+      model,
+      max_tokens: params.max_tokens ?? 4096,
+      system: params.system,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            ...params.images.map((img) => ({
+              type: 'image' as const,
+              source: {
+                type: 'base64' as const,
+                media_type: img.mediaType,
+                data: img.base64,
+              },
+            })),
+            { type: 'text' as const, text: params.textPrompt },
+          ],
+        },
+      ],
+    })
+  } catch (err) {
+    logger.error(
+      {
+        event: 'ai.callClaudeVision.api_error',
+        scene: ctx.scene,
+        user_id: ctx.user_id,
+        relationship_id: ctx.relationship_id,
+        err,
+      },
+      'Anthropic Vision API 调用失败',
+    )
+    throw new AppError({
+      code: ErrorCodes.AI_CALL_FAILED,
+      message: '老 K 看图出了点意外,你重新试一下',
+      statusCode: 502,
+      detail: err instanceof Error ? err.message : String(err),
+    })
+  }
+
+  const text = response.content
+    .filter((b) => b.type === 'text')
+    .map((b) => (b as Anthropic.TextBlock).text)
+    .join('')
+
+  const duration_ms = Date.now() - start
+
+  logger.info(
+    {
+      event: 'ai.callClaudeVision.done',
+      scene: ctx.scene,
+      user_id: ctx.user_id,
+      relationship_id: ctx.relationship_id,
+      session_id: ctx.session_id,
+      model,
+      image_count: params.images.length,
+      input_tokens: response.usage.input_tokens,
+      output_tokens: response.usage.output_tokens,
+      duration_ms,
+    },
+    'Claude Vision 调用完成',
+  )
+
+  return {
+    text,
+    usage: {
+      input_tokens: response.usage.input_tokens,
+      output_tokens: response.usage.output_tokens,
+    },
+    duration_ms,
+  }
 }
 
 // 兼容旧 stub 签名 —— 内部都已迁到 ai/prompt-audit + ai/persona-check
