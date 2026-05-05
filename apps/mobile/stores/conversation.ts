@@ -340,6 +340,48 @@ export const useConversationStore = defineStore('conversation', () => {
     }, 1000)
   }
 
+  /**
+   * 加一条流式 laoke_text 气泡(初始空文本,is_thinking=true),返回 messageId。
+   * 配合 updateStreamingLaokeText 实时 append SSE chunks,finishStreamingLaokeText 标记完成。
+   */
+  function appendStreamingLaokeText(relationshipId: string): string {
+    const id = `k-stream-${Date.now()}`
+    const list = messagesByRelationship.value[relationshipId] ?? []
+    list.push({
+      id,
+      type: 'laoke_text',
+      text: '',
+      is_thinking: true,
+      created_at: new Date().toISOString(),
+    })
+    messagesByRelationship.value[relationshipId] = [...list]
+    return id
+  }
+
+  function updateStreamingLaokeText(
+    relationshipId: string,
+    messageId: string,
+    text: string,
+  ) {
+    const list = messagesByRelationship.value[relationshipId] ?? []
+    const idx = list.findIndex((m) => m.id === messageId)
+    if (idx === -1) return
+    const m = list[idx]
+    if (!m || m.type !== 'laoke_text') return
+    list[idx] = { ...m, text, is_thinking: true }
+    messagesByRelationship.value[relationshipId] = [...list]
+  }
+
+  function finishStreamingLaokeText(relationshipId: string, messageId: string) {
+    const list = messagesByRelationship.value[relationshipId] ?? []
+    const idx = list.findIndex((m) => m.id === messageId)
+    if (idx === -1) return
+    const m = list[idx]
+    if (!m || m.type !== 'laoke_text') return
+    list[idx] = { ...m, is_thinking: false }
+    messagesByRelationship.value[relationshipId] = [...list]
+  }
+
   function appendUserScreenshots(relationshipId: string, count: number) {
     const list = messagesByRelationship.value[relationshipId] ?? []
     list.push({
@@ -388,6 +430,9 @@ export const useConversationStore = defineStore('conversation', () => {
     latestTime,
     appendUserText,
     appendUserScreenshots,
+    appendStreamingLaokeText,
+    updateStreamingLaokeText,
+    finishStreamingLaokeText,
     isFreshConversation,
     saveDraft,
     unsaveDraft,

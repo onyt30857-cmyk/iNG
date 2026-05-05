@@ -181,6 +181,27 @@ export const useReplayStore = defineStore('replay', () => {
     streamParsing()
   }
 
+  /**
+   * Phase 17:conversation 流先跑完 PARSING 流式展示,session 接续 REFLECTING。
+   * 调用方在 conversation 里已经拿到完整 PARSING 文本,这里跳过 streamParsing 直接进
+   * REFLECTING 阶段。session.vue onMounted 看到 state !== ENTRY 不会 restart。
+   */
+  function startFromReflecting(
+    messages: ParsingMessage[],
+    entryNote: string,
+    prefilledParsingText: string,
+  ) {
+    reset()
+    activeMessages.value = messages
+    activeEntryNote.value = entryNote || '(没填备注)'
+    parsingText.value = prefilledParsingText
+    parsingDone.value = true
+    isParsingTyping.value = false
+    state.value = 'REFLECTING'
+    // 直接触发 REFLECTING(像 streamParsing 完成后那样)
+    void transitionToReflecting()
+  }
+
   function reset() {
     state.value = 'ENTRY'
     parsingText.value = ''
@@ -595,6 +616,7 @@ export const useReplayStore = defineStore('replay', () => {
     // actions
     startMockReplay,
     startReplayWithMessages,
+    startFromReflecting,
     reset,
     submitReflectingAnswer,
     continueToPlanning,

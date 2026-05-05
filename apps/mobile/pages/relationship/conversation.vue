@@ -9,8 +9,9 @@ import { onLoad } from '@dcloudio/uni-app'
 import { useRelationshipStore } from '../../stores/relationship'
 import { useConversationStore } from '../../stores/conversation'
 import { useReplayStore } from '../../stores/replay'
-import { runOcr } from '../../api/replay.api'
+import { runOcr, streamParsingHTTP } from '../../api/replay.api'
 import { compressImageFromBlobUrl } from '../../utils/compress-image'
+import { DEV_SESSION_ID } from '../../utils/dev-token'
 import SystemDivider from '../../components/conversation/SystemDivider.vue'
 import LaokeBubble from '../../components/conversation/LaokeBubble.vue'
 import LaokeQuestionBubble from '../../components/conversation/LaokeQuestionBubble.vue'
@@ -80,55 +81,107 @@ async function handleScreenshotsChosen(payload: { note: string; paths: string[] 
   if (isOcrLoading.value) return
   isOcrLoading.value = true
 
-  // 先在对话流里展示"用户发了 X 张截图"气泡(产品体感)
   conversationStore.appendUserScreenshots(relationshipId.value, payload.paths.length)
   if (payload.note) {
-    // 用户输入的 entry note 也作为一条消息加到对话流(老 K 看见了)
     conversationStore.appendUserText(relationshipId.value, payload.note)
   }
 
+  // 准备一条 streaming laoke_text 气泡,OCR 完成后流式 append PARSING 文字
+  const streamingMsgId = conversationStore.appendStreamingLaokeText(
+    relationshipId.value,
+  )
+  conversationStore.updateStreamingLaokeText(
+    relationshipId.value,
+    streamingMsgId,
+    '我先看一眼...',
+  )
+
   try {
-    uni.showLoading({ title: '老 K 在看...' })
+    // === 1. OCR ===
     const limited = payload.paths.slice(0, 5)
     const images = await Promise.all(limited.map(compressImageFromBlobUrl))
-    const r = await runOcr({
+    const ocrRes = await runOcr({
       relationship_id: relationshipId.value || 'dev-relationship-1',
       images,
     })
-    if (!r.ok) {
-      uni.hideLoading()
-      uni.showToast({ title: r.error.message || 'OCR 失败', icon: 'none' })
+    if (!ocrRes.ok) {
+      conversationStore.updateStreamingLaokeText(
+        relationshipId.value,
+        streamingMsgId,
+        '截图我没看明白,你重新发一下?',
+      )
+      conversationStore.finishStreamingLaokeText(relationshipId.value, streamingMsgId)
+      uni.showToast({ title: ocrRes.error.message || 'OCR 失败', icon: 'none' })
       return
     }
-    const messages = r.data.messages
+    const ocrMessages = ocrRes.data.messages
     // eslint-disable-next-line no-console
     console.info(
-      `[OCR] ${r.data.duration_ms}ms · ${r.data.usage.input_tokens}/${r.data.usage.output_tokens} tokens · ${messages.length} 条消息 · warnings: ${r.data.warnings.length}`,
+      `[OCR] ${ocrRes.data.duration_ms}ms · ${ocrRes.data.usage.input_tokens}/${ocrRes.data.usage.output_tokens} tokens · ${ocrMessages.length} 条消息`,
     )
-    uni.hideLoading()
-    if (messages.length === 0) {
-      uni.showToast({
-        title: r.data.warnings[0] ?? '没看到对话,你重新选一下',
-        icon: 'none',
-        duration: 2500,
-      })
+    if (ocrMessages.length === 0) {
+      conversationStore.updateStreamingLaokeText(
+        relationshipId.value,
+        streamingMsgId,
+        ocrRes.data.warnings[0] ?? '我没看到对话,这截图是聊天截图吗?',
+      )
+      conversationStore.finishStreamingLaokeText(relationshipId.value, streamingMsgId)
       return
     }
+
+    // === 2. PARSING 流式展示在对话流 ===
     const fallbackNote =
       `刚刚和${relationship.value?.name ?? '她'}的对话截图`
-    replayStore.startReplayWithMessages(
-      messages,
-      payload.note || fallbackNote,
+    const finalNote = payload.note || fallbackNote
+
+    let parsingFullText = ''
+    conversationStore.updateStreamingLaokeText(
+      relationshipId.value,
+      streamingMsgId,
+      '',
     )
-    uni.navigateTo({ url: '/pages/replay/session' })
+
+    try {
+      await streamParsingHTTP(
+        DEV_SESSION_ID,
+        { messages: ocrMessages, entry_note: finalNote },
+        (chunk) => {
+          parsingFullText += chunk
+          conversationStore.updateStreamingLaokeText(
+            relationshipId.value,
+            streamingMsgId,
+            parsingFullText,
+          )
+        },
+      )
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('[PARSING-stream conversation] 失败:', e)
+      // 流式失败,降级为静态错误消息
+      conversationStore.updateStreamingLaokeText(
+        relationshipId.value,
+        streamingMsgId,
+        '我这边出了点意外,你重新发一下截图?',
+      )
+      conversationStore.finishStreamingLaokeText(relationshipId.value, streamingMsgId)
+      return
+    }
+    conversationStore.finishStreamingLaokeText(relationshipId.value, streamingMsgId)
+
+    // === 3. 跳到 session.vue 接续 REFLECTING(用 startFromReflecting 跳过 PARSING)===
+    replayStore.startFromReflecting(ocrMessages, finalNote, parsingFullText)
+    setTimeout(() => {
+      uni.navigateTo({ url: '/pages/replay/session' })
+    }, 1200) // 留点时间让用户看完 PARSING 文字
   } catch (err) {
-    uni.hideLoading()
     // eslint-disable-next-line no-console
-    console.error('[OCR] 失败:', err)
-    uni.showToast({
-      title: err instanceof Error ? err.message : 'OCR 出了点意外',
-      icon: 'none',
-    })
+    console.error('[OCR/PARSING] 失败:', err)
+    conversationStore.updateStreamingLaokeText(
+      relationshipId.value,
+      streamingMsgId,
+      err instanceof Error ? err.message : '我这边出了点意外,你重新试一下',
+    )
+    conversationStore.finishStreamingLaokeText(relationshipId.value, streamingMsgId)
   } finally {
     isOcrLoading.value = false
   }
