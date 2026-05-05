@@ -32,6 +32,8 @@ export interface ConversationTurnInput {
   user_text: string
   /** 跨关系审计黑名单 */
   other_identifiers: ReadonlyArray<string>
+  /** spec-007 Phase 19.5:老 K"私下看到的"信号 brief(前端从 OCR 累积消息算出来,翻译成大白话) */
+  signal_brief?: string
 }
 
 const TURN_SYSTEM_PROMPT_PREFIX = `你是「老K」——32 岁、过得不错的兄长型角色,详细人格见下面。
@@ -112,6 +114,13 @@ export async function runConversationTurn(
 export function composeUserMessage(input: ConversationTurnInput): string {
   const lines: string[] = []
   lines.push(`# 关系\n你跟兄弟正在聊「${input.relationship_name}」这段关系。\n`)
+
+  // spec-007 Phase 19.5:老 K 的 inner state(他"私下看到的")
+  if (input.signal_brief && input.signal_brief.trim().length > 0) {
+    lines.push('# 你私下看到的(老 K 的 inner state,不是兄弟刚说的)')
+    lines.push(input.signal_brief.trim())
+    lines.push('')
+  }
 
   if (input.history.length > 0) {
     lines.push('# 之前的对话(最近的在最后)')

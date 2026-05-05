@@ -177,6 +177,8 @@ export async function streamConversationTurnHTTP(
   body: {
     user_text: string
     history: Array<{ speaker: 'user' | 'laoke'; text: string }>
+    /** spec-007 Phase 19.5:老 K 的 inner state(信号 brief),可空 */
+    signal_brief?: string | null
   },
   onChunk: (text: string) => void,
 ): Promise<void> {

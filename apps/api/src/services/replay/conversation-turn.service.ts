@@ -17,6 +17,8 @@ import {
 export interface RunConversationTurnInput {
   user_text: string
   history: ConversationTurnHistoryItem[]
+  /** spec-007 Phase 19.5:老 K"私下看到的"信号 brief,可空 */
+  signal_brief?: string | null
 }
 
 export async function runConversationTurnForRelationship(
@@ -40,6 +42,7 @@ export async function runConversationTurnForRelationship(
     history: input.history,
     user_text: input.user_text,
     other_identifiers: otherIdentifiers,
+    ...(input.signal_brief ? { signal_brief: input.signal_brief } : {}),
   }
   return runConversationTurn(turnInput, handlers)
 }
