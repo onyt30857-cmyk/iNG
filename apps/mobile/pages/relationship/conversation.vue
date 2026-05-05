@@ -50,7 +50,12 @@ watch(messages, () => {
 })
 
 function goBack() {
-  uni.navigateBack()
+  // 失败时 reLaunch 兜底,避免页面栈状态异常时返回不了主页
+  uni.navigateBack({
+    fail: () => {
+      uni.reLaunch({ url: '/pages/home/index' })
+    },
+  })
 }
 
 function openMeta() {

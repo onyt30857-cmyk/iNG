@@ -104,6 +104,15 @@ const navSubtitle = computed(() => {
   }
 })
 
+/** 安全返回主页:先尝试 navigateBack,失败时 reLaunch 兜底 */
+function safeBackToHome() {
+  uni.navigateBack({
+    fail: () => {
+      uni.reLaunch({ url: '/pages/home/index' })
+    },
+  })
+}
+
 function goBack() {
   // 各状态的回退规则(spec-005 §3.4)
   switch (store.state) {
@@ -117,12 +126,12 @@ function goBack() {
       store.backFromDrafting()
       return
     default:
-      uni.navigateBack()
+      safeBackToHome()
   }
 }
 
 function exitToHome() {
-  uni.navigateBack()
+  safeBackToHome()
 }
 </script>
 
