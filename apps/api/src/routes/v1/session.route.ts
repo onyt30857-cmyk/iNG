@@ -120,23 +120,14 @@ export async function sessionRoutes(app: FastifyInstance): Promise<void> {
     const { id } = sessionIdParamSchema.parse(request.params)
     const body = runParsingSchema.parse(request.body)
 
-    // hijack:接管 raw response,Fastify 不再尝试自己 send response
-    reply.hijack()
-    reply.raw.setHeader('Content-Type', 'text/plain; charset=utf-8')
-    reply.raw.setHeader('Transfer-Encoding', 'chunked')
-    reply.raw.setHeader('X-Accel-Buffering', 'no')
-    reply.raw.setHeader('Cache-Control', 'no-cache')
-    reply.raw.flushHeaders()
+    setupStreamReply(request, reply)
 
     try {
       await runParsingForSessionStream(userId, id, body, {
-        onChunk: (text) => {
-          reply.raw.write(text)
-        },
+        onChunk: (text) => reply.raw.write(text),
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      // 已经开始流式了 → 用末尾标记告诉前端出错
       if (!reply.raw.writableEnded) {
         reply.raw.write(`\n\n[STREAM_ERROR] ${msg}`)
       }
@@ -144,9 +135,24 @@ export async function sessionRoutes(app: FastifyInstance): Promise<void> {
     reply.raw.end()
   })
 
-  /** 通用流式 SSE handler boilerplate(headers + hijack) */
-  function setupStreamReply(reply: FastifyReply): void {
+  /** 通用流式 SSE handler boilerplate(headers + hijack)
+   *  ★ reply.hijack() 跳过 fastify pipeline,绕过 @fastify/cors 中间件,所以 CORS header
+   *  必须手动写,否则浏览器跨域(5173 → 3000)拿不到响应,fetch 报 "Failed to fetch"。
+   */
+  function setupStreamReply(
+    request: { headers: { origin?: string | undefined } },
+    reply: FastifyReply,
+  ): void {
     reply.hijack()
+    // CORS:echo origin(等价于 cors origin: true 的行为)
+    const origin = request.headers.origin
+    if (origin) {
+      reply.raw.setHeader('Access-Control-Allow-Origin', origin)
+      reply.raw.setHeader('Access-Control-Allow-Credentials', 'true')
+      reply.raw.setHeader('Vary', 'Origin')
+    } else {
+      reply.raw.setHeader('Access-Control-Allow-Origin', '*')
+    }
     reply.raw.setHeader('Content-Type', 'text/plain; charset=utf-8')
     reply.raw.setHeader('Transfer-Encoding', 'chunked')
     reply.raw.setHeader('X-Accel-Buffering', 'no')
@@ -158,7 +164,7 @@ export async function sessionRoutes(app: FastifyInstance): Promise<void> {
     const userId = request.user!.id
     const { id } = sessionIdParamSchema.parse(request.params)
     const body = runDiagnosingSchema.parse(request.body)
-    setupStreamReply(reply)
+    setupStreamReply(request, reply)
     try {
       await runDiagnosingForSessionStream(userId, id, body, {
         onChunk: (text) => reply.raw.write(text),
@@ -174,7 +180,7 @@ export async function sessionRoutes(app: FastifyInstance): Promise<void> {
     const userId = request.user!.id
     const { id } = sessionIdParamSchema.parse(request.params)
     const body = runPlanningSchema.parse(request.body)
-    setupStreamReply(reply)
+    setupStreamReply(request, reply)
     try {
       await runPlanningForSessionStream(userId, id, body, {
         onChunk: (text) => reply.raw.write(text),
