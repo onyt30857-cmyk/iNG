@@ -62,4 +62,27 @@ export async function runReflecting(
   )
 }
 
-// DIAGNOSING / PLANNING / DRAFTING 后续按需补
+export interface DiagnosingResult {
+  text: string
+  usage: { input_tokens: number; output_tokens: number }
+  duration_ms: number
+  persona_passed: boolean
+}
+
+export async function runDiagnosing(
+  sessionId: string,
+  body: {
+    messages: ParsingMessage[]
+    parsing_output: string
+    reflections: Array<{ question: string; answer: string }>
+    scenario_primary?: string
+  },
+) {
+  return apiPost<DiagnosingResult>(
+    `/sessions/${sessionId}/run-diagnosing`,
+    body,
+    { token: DEV_TOKEN },
+  )
+}
+
+// PLANNING / DRAFTING 后续 Phase 10 按需补

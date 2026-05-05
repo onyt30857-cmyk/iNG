@@ -17,7 +17,12 @@ import type {
   PlanningDirection,
   ReplyDraft,
 } from '../types/replay'
-import { runParsing, type ParsingMessage } from '../api/replay.api'
+import {
+  runParsing,
+  runReflecting,
+  runDiagnosing,
+  type ParsingMessage,
+} from '../api/replay.api'
 import { DEV_SESSION_ID } from '../utils/dev-token'
 
 // dev 阶段 PARSING 用的 hardcoded messages(模拟 OCR 已完成的对话)
@@ -35,6 +40,12 @@ const DEV_PARSING_MESSAGES: ParsingMessage[] = [
   { speaker: 'other', text: '先这样吧', timestamp: '周二 22:47' },
 ]
 const DEV_PARSING_ENTRY_NOTE = '她两天没回我了'
+
+// dev 阶段:用户对 PARSING 反向确认问的回答(模拟用户输入)
+// spec-005 §3.x 加真用户输入流程后,这个字段从前端 input box 拿
+const DEV_USER_INITIAL_RESPONSE = '感觉她不喜欢我了'
+
+const DEV_SCENARIO_PRIMARY = 'FLIRT_008'
 
 // ============== Mock 数据(从复盘原型 HTML 同步) ==============
 
@@ -119,6 +130,8 @@ export const useReplayStore = defineStore('replay', () => {
   const reflectingMessages = ref<ReflectingMessage[]>([])
   const reflectingQuestionIndex = ref(0)
   const reflectingAnswers = ref<string[]>([])
+  /** 当前 session 的 3 个引导问题:真 API 时被填,失败回退到 MOCK_REFLECTING_QUESTIONS */
+  const reflectingQuestions = ref<string[]>([])
 
   // Diagnosing
   const diagnosingOutput = ref<DiagnosingOutput | null>(null)
@@ -150,6 +163,7 @@ export const useReplayStore = defineStore('replay', () => {
     reflectingMessages.value = []
     reflectingQuestionIndex.value = 0
     reflectingAnswers.value = []
+    reflectingQuestions.value = []
     diagnosingOutput.value = null
     planning.value = null
     drafting.value = []
@@ -204,10 +218,36 @@ export const useReplayStore = defineStore('replay', () => {
     tick()
   }
 
-  function transitionToReflecting() {
+  // ============== REFLECTING 转入(真调 + mock 回退) ==============
+  async function transitionToReflecting() {
     state.value = 'REFLECTING'
-    // 老 K 出第一个问题
-    pushLaokeMessage(MOCK_REFLECTING_QUESTIONS[0]!)
+
+    // 真 API:用 PARSING 阶段拿到的 parsingText(可能是真 Claude 文本,可能是 mock)
+    let questions: string[] = [...MOCK_REFLECTING_QUESTIONS]
+    try {
+      const r = await runReflecting(DEV_SESSION_ID, {
+        messages: DEV_PARSING_MESSAGES,
+        parsing_output: parsingText.value,
+        user_initial_response: DEV_USER_INITIAL_RESPONSE,
+        scenario_primary: DEV_SCENARIO_PRIMARY,
+      })
+      if (r.ok) {
+        questions = r.data.questions.map((q) => q.text)
+        // eslint-disable-next-line no-console
+        console.info(
+          `[REFLECTING] ${r.data.duration_ms}ms · ${r.data.usage.input_tokens}/${r.data.usage.output_tokens} tokens · persona=${r.data.persona_passed ? '✓' : '✗'}`,
+        )
+      } else {
+        // eslint-disable-next-line no-console
+        console.warn('[REFLECTING] 真 API 失败,回退 mock:', r.error)
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('[REFLECTING] 真 API 异常,回退 mock:', e)
+    }
+
+    reflectingQuestions.value = questions
+    if (questions[0]) pushLaokeMessage(questions[0])
   }
 
   // ============== REFLECTING(用户答题) ==============
@@ -229,12 +269,15 @@ export const useReplayStore = defineStore('replay', () => {
     pushUserMessage(text)
     reflectingAnswers.value = [...reflectingAnswers.value, text]
 
+    const total = reflectingQuestions.value.length || MOCK_REFLECTING_QUESTIONS.length
     const next = reflectingQuestionIndex.value + 1
-    if (next < MOCK_REFLECTING_QUESTIONS.length) {
+    if (next < total) {
       reflectingQuestionIndex.value = next
+      const nextQ =
+        reflectingQuestions.value[next] ?? MOCK_REFLECTING_QUESTIONS[next]
       // 老 K 等用户喘口气再问
       setTimeout(() => {
-        pushLaokeMessage(MOCK_REFLECTING_QUESTIONS[next]!)
+        if (nextQ) pushLaokeMessage(nextQ)
       }, 600)
     } else {
       // 答完三题 → DIAGNOSING
@@ -242,19 +285,51 @@ export const useReplayStore = defineStore('replay', () => {
     }
   }
 
-  function transitionToDiagnosing() {
+  // ============== DIAGNOSING 转入(真调 + mock 回退) ==============
+  async function transitionToDiagnosing() {
     state.value = 'DIAGNOSING'
     isDiagnosingTyping.value = true
-    // 模拟 LLM 流式:1.5s 后一次性出全文(简化)
-    setTimeout(() => {
-      diagnosingOutput.value = MOCK_DIAGNOSING
-      isDiagnosingTyping.value = false
-      // 危机分支
-      if (MOCK_DIAGNOSING.crisis_detected) {
-        // 这里在 mock 里不会触发,留接口
-        return
+
+    let output: DiagnosingOutput = MOCK_DIAGNOSING
+    try {
+      // 把 3 个 questions × 3 个 answers 配对
+      const reflections = reflectingAnswers.value.map((answer, i) => ({
+        question:
+          reflectingQuestions.value[i] ??
+          MOCK_REFLECTING_QUESTIONS[i] ??
+          '',
+        answer,
+      }))
+
+      const r = await runDiagnosing(DEV_SESSION_ID, {
+        messages: DEV_PARSING_MESSAGES,
+        parsing_output: parsingText.value,
+        reflections,
+        scenario_primary: DEV_SCENARIO_PRIMARY,
+      })
+      if (r.ok) {
+        // 真 API 输出散文,按 \n\n 切 paragraphs(羞耻处理标记后续 spec-005 优化时再加)
+        const paragraphs = r.data.text
+          .split(/\n\s*\n/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .map((text) => ({ text, is_shame_handling: false }))
+        output = { paragraphs, crisis_detected: false }
+        // eslint-disable-next-line no-console
+        console.info(
+          `[DIAGNOSING] ${r.data.duration_ms}ms · ${r.data.usage.input_tokens}/${r.data.usage.output_tokens} tokens · persona=${r.data.persona_passed ? '✓' : '✗'}`,
+        )
+      } else {
+        // eslint-disable-next-line no-console
+        console.warn('[DIAGNOSING] 真 API 失败,回退 mock:', r.error)
       }
-    }, 1500)
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('[DIAGNOSING] 真 API 异常,回退 mock:', e)
+    }
+
+    diagnosingOutput.value = output
+    isDiagnosingTyping.value = false
   }
 
   function continueToPlanning() {
