@@ -22,6 +22,7 @@ import UserBubble from '../../components/conversation/UserBubble.vue'
 import ScreenshotBubble from '../../components/conversation/ScreenshotBubble.vue'
 import ChatInput from '../../components/conversation/ChatInput.vue'
 import StarterChips from '../../components/conversation/StarterChips.vue'
+import RelationshipSignalCard from '../../components/RelationshipSignalCard.vue'
 import type { Relationship } from '../../types/relationship'
 
 const relationshipStore = useRelationshipStore()
@@ -63,12 +64,15 @@ function goBack() {
   })
 }
 
+// === 关系档案抽屉(spec-007 §UI)===
+const signalCardOpen = ref(false)
+
 function openMeta() {
-  // 顶部 ⋯ 进入档案二级页(老 K 看到的累积理解 / 编辑 / 归档 / 删除)
-  uni.navigateTo({
-    url: `/pages/relationship/detail?id=${relationshipId.value}`,
-  })
+  // 不再跳页,改为弹出关系档案 modal(5 维度 + 健康度 + 兴趣度)
+  signalCardOpen.value = true
 }
+
+const currentSignal = computed(() => signalsStore.getSignal(relationshipId.value))
 
 function handleSendText(text: string) {
   conversationStore.appendUserText(relationshipId.value, text)
@@ -317,6 +321,14 @@ function handleSavePlanning(planningId: string, content: import('../../types/mes
         @screenshots-chosen="handleScreenshotsChosen"
       />
     </view>
+
+    <!-- 关系档案抽屉(spec-007)— 顶部 ⋯ 触发 -->
+    <RelationshipSignalCard
+      :open="signalCardOpen"
+      :relationship-name="relationship.name"
+      :signal="currentSignal"
+      @close="signalCardOpen = false"
+    />
   </view>
 </template>
 
