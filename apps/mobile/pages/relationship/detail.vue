@@ -13,11 +13,14 @@ import { onMounted, ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { useRelationshipStore } from '../../stores/relationship'
 import { useConversationStore } from '../../stores/conversation'
+import { useRelationshipSignalsStore } from '../../stores/relationship-signals'
 import RelationshipAvatar from '../../components/RelationshipAvatar.vue'
 import { RELATIONSHIP_STAGE_LABELS, type Relationship } from '../../types/relationship'
+import type { RelationshipSignalSnapshot, SignalDimension } from '../../utils/signal-computer'
 
 const store = useRelationshipStore()
 const conversationStore = useConversationStore()
+const signalsStore = useRelationshipSignalsStore()
 
 const id = ref('')
 
@@ -177,7 +180,100 @@ function addToldFact() {
   openAddModal()
 }
 
-// === Tab 2: 我们 - 关系演变叙事(M1 mock,M2 接 LLM 后老 K 月度自动写) ===
+// === Tab 2: "老 K 现在看到的"(spec-007 信号维度,社交化叙述版,不是 dashboard)===
+const signal = computed<RelationshipSignalSnapshot>(() => signalsStore.getSignal(id.value))
+
+// 老 K 当下判断(替代 health 信号灯)
+const laokeVerdict = computed(() => {
+  const s = signal.value
+  if (!s.has_enough_data) {
+    return {
+      tone: 'neutral' as const,
+      text: `她那边的事我看到的还少,你给我多看几眼。等聊得多了,我能跟你讲点门道。`,
+      sub: `目前累积 ${s.sample_size} 条,大约还差 ${Math.max(0, 12 - s.sample_size)} 条`,
+    }
+  }
+  switch (s.health_status) {
+    case 'THRIVING':
+      return {
+        tone: 'good' as const,
+        text: '这阵子在升温——她回得勤、回得多,你这事我看有戏。',
+        sub: `基于近 ${s.sample_size} 条对话`,
+      }
+    case 'STABLE':
+      return {
+        tone: 'neutral' as const,
+        text: '这阵子稳着,没大波动。不冷不热,但你别误会成"快了",这就是中间地带。',
+        sub: `基于近 ${s.sample_size} 条对话`,
+      }
+    case 'COOLING':
+      return {
+        tone: 'warn' as const,
+        text: '她在退,但没断。这时候你别催、别试探,给她空间她反而会想起你。',
+        sub: `基于近 ${s.sample_size} 条对话`,
+      }
+    case 'WITHDRAWING':
+      return {
+        tone: 'danger' as const,
+        text: '她退得有点狠了。先别急着发新话题,你越追她退得越远。',
+        sub: `基于近 ${s.sample_size} 条对话`,
+      }
+    case 'INACTIVE':
+      return {
+        tone: 'inactive' as const,
+        text: '你们俩最近没怎么聊。先别看分析,先把对话续上。',
+        sub: `最近一次对话已经 ${Math.floor((Date.now() - new Date(s.computed_at).getTime()) / 86400_000)} 天了`,
+      }
+  }
+})
+
+// 5 维度老 K 口吻观察(不要进度条 / 数字 / score)
+function dimensionToObservation(label: string, d: SignalDimension): { icon: string; tone: 'up' | 'down' | 'flat'; text: string } | null {
+  if (Math.abs(d.delta) < 10 && d.trend === 'flat') return null // 平稳的不说,只说有变化的
+  const phrases: Record<string, { up: string; down: string }> = {
+    回复速度: { up: '她回你回得比之前快了。', down: '她回得比之前慢了。' },
+    回复长度: { up: '她每条比以前写得多了。', down: '她每条变短了。' },
+    主动开话题: { up: '她最近开始主动找你聊了。', down: '主动开话题的次数下来了——基本都是你在推。' },
+    情绪温度: { up: '她说话的口气在变软,emoji 多了点。', down: '她说话的口气冷了一点——撤回、单字回的次数上来了。' },
+    节奏稳定度: { up: '聊天节奏更稳了。', down: '聊天节奏忽冷忽热,不太稳。' },
+  }
+  const p = phrases[label]
+  if (!p) return null
+  if (d.trend === 'up') return { icon: '↑', tone: 'up', text: p.up }
+  if (d.trend === 'down') return { icon: '↓', tone: 'down', text: p.down }
+  return null
+}
+
+interface LaokeObservation {
+  icon: string
+  tone: 'up' | 'down' | 'flat'
+  text: string
+}
+
+const laokeSignalObs = computed<LaokeObservation[]>(() => {
+  const s = signal.value
+  if (!s.has_enough_data) return []
+  const raw = [
+    dimensionToObservation('回复速度', s.responsiveness),
+    dimensionToObservation('回复长度', s.verbosity),
+    dimensionToObservation('主动开话题', s.initiative),
+    dimensionToObservation('情绪温度', s.warmth),
+    dimensionToObservation('节奏稳定度', s.consistency),
+  ]
+  return raw.filter((x): x is LaokeObservation => x !== null)
+})
+
+// 兴趣度老 K 口吻
+const laokeInterestNote = computed(() => {
+  const s = signal.value
+  if (!s.has_enough_data) return ''
+  const d = s.interest.vs_baseline_pct
+  if (d < -25) return '老 K 觉得 — 她对你的兴趣这阵子比之前低,不是退了,是没在升温。'
+  if (d > 25) return '老 K 觉得 — 她对你的兴趣这阵子比之前高,有点松动了。'
+  return '老 K 觉得 — 兴趣度跟之前接近,稳着。'
+})
+
+// === Tab 2 原:我们 - 关系演变叙事(M1 mock)===
 // 这是调研建议的"老 K 写给你的一段月度叙事"
 const usNarrative = ref<string>(
   `刚跟你聊上她的时候,你最焦虑的事是"她不回信息我做错了什么"。
@@ -408,8 +504,28 @@ async function deleteIt() {
 
     <!-- ============ Tab 2: 我们(关系演变叙事 = 复盘的真正价值) ============ -->
     <view v-if="activeTab === 'us'" class="content">
+      <!-- 老 K 现在看到的(spec-007 信号,社交化叙述,不是 dashboard) -->
+      <view class="laoke-verdict-card" :class="`verdict-${laokeVerdict.tone}`">
+        <view class="verdict-head">
+          <text class="verdict-tag">老 K 看到的</text>
+          <text class="verdict-sub">{{ laokeVerdict.sub }}</text>
+        </view>
+        <text class="verdict-text">{{ laokeVerdict.text }}</text>
+
+        <!-- 老 K 的具体观察(不超过 4-5 条,没变化的不说) -->
+        <view v-if="laokeSignalObs.length > 0" class="observations">
+          <view v-for="(o, idx) in laokeSignalObs" :key="idx" class="obs-row">
+            <text :class="['obs-arrow', `arrow-${o.tone}`]">{{ o.icon }}</text>
+            <text class="obs-text">{{ o.text }}</text>
+          </view>
+        </view>
+
+        <!-- 兴趣度老 K 口吻一句话 -->
+        <text v-if="laokeInterestNote" class="interest-quote">{{ laokeInterestNote }}</text>
+      </view>
+
       <!-- 老 K 写的月度叙事 -->
-      <view class="narrative">
+      <view class="narrative" style="margin-top: 48rpx">
         <view class="narrative-head">
           <text class="narrative-label">老 K 给你写的</text>
           <text class="narrative-date">这一个月</text>
@@ -819,7 +935,90 @@ async function deleteIt() {
   flex-shrink: 0;
 }
 
-// === "我们" Tab ===
+// === "老 K 现在看到的"卡(spec-007 信号社交化版,replace dashboard)===
+.laoke-verdict-card {
+  background-color: $color-surface;
+  border-radius: 28rpx;
+  padding: 36rpx 40rpx;
+  box-shadow: $shadow-sm;
+  // 默认 neutral
+  border-left: 4rpx solid $color-text-tertiary;
+
+  &.verdict-good { border-left-color: $color-success; }
+  &.verdict-neutral { border-left-color: $color-info; }
+  &.verdict-warn { border-left-color: $color-warning; }
+  &.verdict-danger { border-left-color: $color-danger; }
+  &.verdict-inactive { border-left-color: $color-text-tertiary; }
+}
+.verdict-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
+}
+.verdict-tag {
+  font-size: 22rpx;
+  color: $color-accent;
+  font-weight: $weight-medium;
+  letter-spacing: 1rpx;
+}
+.verdict-sub {
+  font-size: 22rpx;
+  color: $color-text-tertiary;
+}
+.verdict-text {
+  display: block;
+  font-size: 30rpx;
+  color: $color-text-primary;
+  line-height: 1.65;
+  font-weight: $weight-medium;
+  letter-spacing: 0.2rpx;
+}
+.observations {
+  margin-top: 28rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx dashed $color-border;
+}
+.obs-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 14rpx;
+}
+.obs-arrow {
+  font-size: 28rpx;
+  font-weight: $weight-bold;
+  flex-shrink: 0;
+  margin-top: 2rpx;
+  width: 28rpx;
+  text-align: center;
+}
+.arrow-up { color: $color-success; }
+.arrow-down { color: $color-danger; }
+.arrow-flat { color: $color-text-tertiary; }
+.obs-text {
+  font-size: 28rpx;
+  color: $color-text-primary;
+  line-height: 1.55;
+  flex: 1;
+}
+.interest-quote {
+  display: block;
+  margin-top: 24rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx dashed $color-border;
+  font-size: 28rpx;
+  color: $color-accent;
+  line-height: 1.6;
+  font-style: italic;
+  letter-spacing: 0.2rpx;
+}
+
+// === "我们" Tab(原 narrative)===
 .narrative {
   background-color: $color-surface;
   border-radius: 28rpx;
