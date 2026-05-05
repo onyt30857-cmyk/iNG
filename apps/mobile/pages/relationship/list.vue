@@ -29,11 +29,30 @@ function toggleArchived() {
   showArchived.value = !showArchived.value
 }
 async function seedDemo() {
+  // eslint-disable-next-line no-console
+  console.log('[seedDemo] click triggered, items:', store.items.length)
   if (seedingDemo.value) return
   seedingDemo.value = true
   try {
-    await signalsStore.seedDemoSignals(store.items.map((r) => r.id))
-    uni.showToast({ title: '已注入演示信号', icon: 'none' })
+    const ids = store.items.map((r) => r.id)
+    // eslint-disable-next-line no-console
+    console.log('[seedDemo] seeding for ids:', ids)
+    await signalsStore.seedDemoSignals(ids)
+    // eslint-disable-next-line no-console
+    console.log('[seedDemo] done, sample signal:', signalsStore.getSignal(ids[0] ?? ''))
+    // H5 下 uni.showToast 偶尔不显示,用 alert 兜底
+    if (typeof window !== 'undefined' && window.alert) {
+      // setTimeout 让 reactive 先 flush
+      setTimeout(() => window.alert('已注入演示信号 · 看下面 Briefing 卡是否变化'), 50)
+    } else {
+      uni.showToast({ title: '已注入演示信号', icon: 'none' })
+    }
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('[seedDemo] failed:', e)
+    if (typeof window !== 'undefined' && window.alert) {
+      window.alert('注入失败: ' + (e instanceof Error ? e.message : String(e)))
+    }
   } finally {
     seedingDemo.value = false
   }
