@@ -21,9 +21,12 @@ import {
   runParsing,
   runReflecting,
   runDiagnosing,
+  runPlanning,
+  runDrafting,
   type ParsingMessage,
 } from '../api/replay.api'
 import { DEV_SESSION_ID } from '../utils/dev-token'
+import { parsePlanningText } from '../utils/parse-planning'
 
 // dev 阶段 PARSING 用的 hardcoded messages(模拟 OCR 已完成的对话)
 // spec-004 OCR 实施后,messages 从用户上传截图 → OCR 流程拿到
@@ -332,19 +335,103 @@ export const useReplayStore = defineStore('replay', () => {
     isDiagnosingTyping.value = false
   }
 
-  function continueToPlanning() {
+  // ============== PLANNING 转入(真调 + mock 回退) ==============
+  async function continueToPlanning() {
     state.value = 'PLANNING'
-    setTimeout(() => {
-      planning.value = MOCK_PLANNING
-    }, 600)
+
+    let direction = MOCK_PLANNING
+    try {
+      const reflections = reflectingAnswers.value.map((answer, i) => ({
+        question:
+          reflectingQuestions.value[i] ??
+          MOCK_REFLECTING_QUESTIONS[i] ??
+          '',
+        answer,
+      }))
+      const diagText = (diagnosingOutput.value?.paragraphs ?? [])
+        .map((p) => p.text)
+        .join('\n\n')
+
+      const r = await runPlanning(DEV_SESSION_ID, {
+        messages: DEV_PARSING_MESSAGES,
+        parsing_output: parsingText.value,
+        reflections,
+        diagnosing_output: diagText || '(diagnosing 文本暂缺)',
+      })
+      if (r.ok) {
+        direction = parsePlanningText(r.data.text)
+        // eslint-disable-next-line no-console
+        console.info(
+          `[PLANNING] ${r.data.duration_ms}ms · ${r.data.usage.input_tokens}/${r.data.usage.output_tokens} tokens · persona=${r.data.persona_passed ? '✓' : '✗'}`,
+        )
+      } else {
+        // eslint-disable-next-line no-console
+        console.warn('[PLANNING] 真 API 失败,回退 mock:', r.error)
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('[PLANNING] 真 API 异常,回退 mock:', e)
+    }
+
+    planning.value = direction
   }
 
-  // ============== PLANNING(三选一) ==============
-  function planningTryReply() {
+  // ============== PLANNING → DRAFTING(三选一)(真调 + mock 回退) ==============
+  async function planningTryReply() {
     state.value = 'DRAFTING'
-    setTimeout(() => {
-      drafting.value = MOCK_DRAFTING
-    }, 1000)
+
+    let cards: ReplyDraft[] = MOCK_DRAFTING
+    try {
+      const reflections = reflectingAnswers.value.map((answer, i) => ({
+        question:
+          reflectingQuestions.value[i] ??
+          MOCK_REFLECTING_QUESTIONS[i] ??
+          '',
+        answer,
+      }))
+      const diagText = (diagnosingOutput.value?.paragraphs ?? [])
+        .map((p) => p.text)
+        .join('\n\n')
+      const planningText = planning.value
+        ? [
+            planning.value.title,
+            planning.value.what_to_do,
+            planning.value.why,
+            planning.value.red_line,
+            planning.value.fallback,
+          ].filter(Boolean).join('\n\n')
+        : ''
+
+      const r = await runDrafting(DEV_SESSION_ID, {
+        messages: DEV_PARSING_MESSAGES,
+        parsing_output: parsingText.value,
+        reflections,
+        diagnosing_output: diagText || '(diagnosing 文本暂缺)',
+        planning_output: planningText || '(planning 文本暂缺)',
+      })
+      if (r.ok) {
+        cards = r.data.cards.map((c) => ({
+          id: `draft-${c.index}`,
+          direction: `方向 ${c.index + 1} · ${c.direction_label}`,
+          text: c.reply_text,
+          what_it_does: c.what_it_does,
+          good_for: c.good_for,
+          trade_off: c.trade_off,
+        }))
+        // eslint-disable-next-line no-console
+        console.info(
+          `[DRAFTING] ${r.data.duration_ms}ms · ${r.data.usage.input_tokens}/${r.data.usage.output_tokens} tokens · persona=${r.data.persona_passed ? '✓' : '✗'}`,
+        )
+      } else {
+        // eslint-disable-next-line no-console
+        console.warn('[DRAFTING] 真 API 失败,回退 mock:', r.error)
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('[DRAFTING] 真 API 异常,回退 mock:', e)
+    }
+
+    drafting.value = cards
   }
 
   function planningPutAside() {

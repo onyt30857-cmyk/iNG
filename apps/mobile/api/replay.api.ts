@@ -85,4 +85,59 @@ export async function runDiagnosing(
   )
 }
 
-// PLANNING / DRAFTING 后续 Phase 10 按需补
+export interface PlanningResult {
+  text: string
+  usage: { input_tokens: number; output_tokens: number }
+  duration_ms: number
+  persona_passed: boolean
+}
+
+export async function runPlanning(
+  sessionId: string,
+  body: {
+    messages: ParsingMessage[]
+    parsing_output: string
+    reflections: Array<{ question: string; answer: string }>
+    diagnosing_output: string
+  },
+) {
+  return apiPost<PlanningResult>(
+    `/sessions/${sessionId}/run-planning`,
+    body,
+    { token: DEV_TOKEN },
+  )
+}
+
+export interface DraftingCard {
+  index: number
+  direction_label: string
+  reply_text: string
+  what_it_does: string
+  good_for: string
+  trade_off: string
+}
+
+export interface DraftingResult {
+  mode: string
+  cards: DraftingCard[]
+  usage: { input_tokens: number; output_tokens: number }
+  duration_ms: number
+  persona_passed: boolean
+}
+
+export async function runDrafting(
+  sessionId: string,
+  body: {
+    messages: ParsingMessage[]
+    parsing_output: string
+    reflections: Array<{ question: string; answer: string }>
+    diagnosing_output: string
+    planning_output: string
+  },
+) {
+  return apiPost<DraftingResult>(
+    `/sessions/${sessionId}/run-drafting`,
+    body,
+    { token: DEV_TOKEN },
+  )
+}
