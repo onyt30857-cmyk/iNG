@@ -81,9 +81,14 @@ async function handleScreenshotsChosen(payload: { note: string; paths: string[] 
   if (isOcrLoading.value) return
   isOcrLoading.value = true
 
-  conversationStore.appendUserScreenshots(relationshipId.value, payload.paths.length)
+  // silent=true:不让 conversationStore 触发自己的 mock 老 K 回复(我们自己接 PARSING 流式)
+  conversationStore.appendUserScreenshots(relationshipId.value, payload.paths.length, {
+    silent: true,
+  })
   if (payload.note) {
-    conversationStore.appendUserText(relationshipId.value, payload.note)
+    conversationStore.appendUserText(relationshipId.value, payload.note, {
+      silent: true,
+    })
   }
 
   // 准备一条 streaming laoke_text 气泡,OCR 完成后流式 append PARSING 文字

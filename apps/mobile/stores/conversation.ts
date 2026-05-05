@@ -316,8 +316,13 @@ export const useConversationStore = defineStore('conversation', () => {
     return m?.created_at ?? null
   }
 
-  // === 用户发新消息(M1 mock 占位,真接 LLM 后改成调后端 + SSE) ===
-  function appendUserText(relationshipId: string, text: string) {
+  // === 用户发新消息 ===
+  // silent=true:跳过 mock 老 K 自动回复(OCR / 真复盘流程调用方自己接管老 K 回复)
+  function appendUserText(
+    relationshipId: string,
+    text: string,
+    opts: { silent?: boolean } = {},
+  ) {
     const list = messagesByRelationship.value[relationshipId] ?? []
     list.push({
       id: `u-${Date.now()}`,
@@ -327,7 +332,9 @@ export const useConversationStore = defineStore('conversation', () => {
     })
     messagesByRelationship.value[relationshipId] = [...list]
 
-    // mock 老 K 1 秒后回一句
+    if (opts.silent) return
+
+    // mock 老 K 1 秒后回一句(用户在对话流随便发字时占位,真接对话流 LLM 后删除)
     setTimeout(() => {
       const cur = messagesByRelationship.value[relationshipId] ?? []
       cur.push({
@@ -382,7 +389,12 @@ export const useConversationStore = defineStore('conversation', () => {
     messagesByRelationship.value[relationshipId] = [...list]
   }
 
-  function appendUserScreenshots(relationshipId: string, count: number) {
+  // silent=true:跳过 mock 老 K 自动回复(真 OCR 流程调用方自己接管 PARSING 流式)
+  function appendUserScreenshots(
+    relationshipId: string,
+    count: number,
+    opts: { silent?: boolean } = {},
+  ) {
     const list = messagesByRelationship.value[relationshipId] ?? []
     list.push({
       id: `us-${Date.now()}`,
@@ -392,7 +404,9 @@ export const useConversationStore = defineStore('conversation', () => {
     })
     messagesByRelationship.value[relationshipId] = [...list]
 
-    // mock 老 K 看截图反馈(thinking → 真实回复)
+    if (opts.silent) return
+
+    // mock 老 K 看截图反馈(用户随手发截图时占位,OCR 真接入后调用方传 silent=true 跳过)
     setTimeout(() => {
       const cur = messagesByRelationship.value[relationshipId] ?? []
       cur.push({
@@ -407,13 +421,12 @@ export const useConversationStore = defineStore('conversation', () => {
 
     setTimeout(() => {
       const cur = messagesByRelationship.value[relationshipId] ?? []
-      // 替换 thinking 那条为真实回复
       const idx = cur.findIndex((m) => m.type === 'laoke_text' && m.is_thinking)
       if (idx >= 0) {
         cur[idx] = {
           id: `k-${Date.now()}`,
           type: 'laoke_text',
-          text: '(M1 mock — 等真接 OCR + Gemini 后这里就是基于截图内容的真实分析)',
+          text: '(M1 mock — 等真接 OCR 后这里就是基于截图内容的真实分析)',
           created_at: new Date().toISOString(),
         }
       }
