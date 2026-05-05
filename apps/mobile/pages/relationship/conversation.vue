@@ -8,7 +8,6 @@ import { onMounted, ref, computed, nextTick, watch } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { useRelationshipStore } from '../../stores/relationship'
 import { useConversationStore } from '../../stores/conversation'
-import { useReplayStore } from '../../stores/replay'
 import { runOcr, streamParsingHTTP } from '../../api/replay.api'
 import { compressImageFromBlobUrl } from '../../utils/compress-image'
 import { DEV_SESSION_ID, DEV_RELATIONSHIP_ID } from '../../utils/dev-token'
@@ -26,7 +25,6 @@ import type { Relationship } from '../../types/relationship'
 
 const relationshipStore = useRelationshipStore()
 const conversationStore = useConversationStore()
-const replayStore = useReplayStore()
 
 const relationshipId = ref('')
 const relationship = ref<Relationship | null>(null)
@@ -179,11 +177,9 @@ async function handleScreenshotsChosen(payload: { note: string; paths: string[] 
     }
     conversationStore.finishStreamingLaokeText(relationshipId.value, streamingMsgId)
 
-    // === 3. 跳到 session.vue 接续 REFLECTING(用 startFromReflecting 跳过 PARSING)===
-    replayStore.startFromReflecting(ocrMessages, finalNote, parsingFullText)
-    setTimeout(() => {
-      uni.navigateTo({ url: '/pages/replay/session' })
-    }, 1200) // 留点时间让用户看完 PARSING 文字
+    // spec-006:不再强制跳 session.vue 走 wizard。用户在对话流里看到老 K 的分析就够了。
+    // 后续 Phase 18.2 接 agentic 端点,老 K 可根据用户继续输入决定下一步出反问/方向/话术。
+    // (replayStore 仍可在 spec-005 dev 调试入口用,本流程不再触发)
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('[OCR/PARSING] 失败:', err)

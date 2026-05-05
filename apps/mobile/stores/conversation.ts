@@ -7,8 +7,44 @@
 // 后端联调后:这里改成"用户发新消息 → 后端创建 session → 状态机走完 → 流式推消息回来"
 
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { Message, ReplyDraft, PlanningContent } from '../types/message'
+
+// === localStorage 持久化(spec-006 §3.2)===
+// 每段关系 messages 数组单独存一个 key。uni.setStorageSync H5 模式底层用 localStorage。
+// blob URL(uni.chooseImage tempFilePath)刷新即失效,持久化时丢弃 user_screenshots.urls,
+// 只留 count + 占位。后续 spec-004 接 OSS 后改存 OSS URL。
+const STORAGE_KEY = (relId: string) => `lianai:conversation:${relId}`
+
+function loadFromStorage(relationshipId: string): Message[] | null {
+  try {
+    const raw = uni.getStorageSync(STORAGE_KEY(relationshipId))
+    if (raw && typeof raw === 'string' && raw.length > 0) {
+      const parsed = JSON.parse(raw) as Message[]
+      if (Array.isArray(parsed)) return parsed
+    }
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('[conversation] localStorage load failed', e)
+  }
+  return null
+}
+
+function saveToStorage(relationshipId: string, messages: Message[]): void {
+  try {
+    // 清掉 blob URL(刷新会失效),保留 count
+    const sanitized: Message[] = messages.map((m) => {
+      if (m.type === 'user_screenshots' && m.urls.some((u) => u.startsWith('blob:'))) {
+        return { ...m, urls: [] }
+      }
+      return m
+    })
+    uni.setStorageSync(STORAGE_KEY(relationshipId), JSON.stringify(sanitized))
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('[conversation] localStorage save failed', e)
+  }
+}
 
 // ============== Mock 一段林涛 persona 的真实对话 ==============
 // 3 天前完整复盘 → 昨天追问 → 今天空白(等用户发新)
@@ -254,11 +290,19 @@ export const useConversationStore = defineStore('conversation', () => {
 
   function loadConversation(relationshipId: string) {
     if (messagesByRelationship.value[relationshipId]) return
+
+    // 1. 优先 localStorage(用户上次留下的真实历史)
+    const persisted = loadFromStorage(relationshipId)
+    if (persisted && persisted.length > 0) {
+      messagesByRelationship.value[relationshipId] = persisted
+      return
+    }
+
+    // 2. 没存过 → mock 数据(开发体验) / 新关系开场白
     const mock = MOCK_BY_RELATIONSHIP[relationshipId]
     if (mock) {
       messagesByRelationship.value[relationshipId] = mock
     } else {
-      // 新关系:只有一句开场白(决策 #5 — 不假装记得)
       messagesByRelationship.value[relationshipId] = [
         {
           id: 'fresh-1',
@@ -389,6 +433,21 @@ export const useConversationStore = defineStore('conversation', () => {
     list[idx] = { ...m, is_thinking: false }
     messagesByRelationship.value[relationshipId] = [...list]
   }
+
+  // === localStorage 持久化:监听 messagesByRelationship 变化,debounce 500ms 写入 ===
+  let saveTimer: ReturnType<typeof setTimeout> | null = null
+  watch(
+    messagesByRelationship,
+    (next) => {
+      if (saveTimer) clearTimeout(saveTimer)
+      saveTimer = setTimeout(() => {
+        for (const [relId, msgs] of Object.entries(next)) {
+          if (Array.isArray(msgs)) saveToStorage(relId, msgs)
+        }
+      }, 500)
+    },
+    { deep: true },
+  )
 
   // silent=true:跳过 mock 老 K 自动回复(真 OCR 流程调用方自己接管 PARSING 流式)
   // urls:用户上传的真实图片 URL 列表。气泡用它做缩略图 + uni.previewImage 点击放大
