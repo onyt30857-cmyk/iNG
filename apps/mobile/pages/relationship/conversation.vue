@@ -11,6 +11,7 @@ import { useConversationStore } from '../../stores/conversation'
 import { runOcr, streamParsingHTTP } from '../../api/replay.api'
 import { compressImageFromBlobUrl } from '../../utils/compress-image'
 import { DEV_SESSION_ID, DEV_RELATIONSHIP_ID } from '../../utils/dev-token'
+import { useRelationshipSignalsStore } from '../../stores/relationship-signals'
 import SystemDivider from '../../components/conversation/SystemDivider.vue'
 import LaokeBubble from '../../components/conversation/LaokeBubble.vue'
 import LaokeQuestionBubble from '../../components/conversation/LaokeQuestionBubble.vue'
@@ -25,6 +26,7 @@ import type { Relationship } from '../../types/relationship'
 
 const relationshipStore = useRelationshipStore()
 const conversationStore = useConversationStore()
+const signalsStore = useRelationshipSignalsStore()
 
 const relationshipId = ref('')
 const relationship = ref<Relationship | null>(null)
@@ -127,6 +129,11 @@ async function handleScreenshotsChosen(payload: { note: string; paths: string[] 
     console.info(
       `[OCR] ${ocrRes.data.duration_ms}ms · ${ocrRes.data.usage.input_tokens}/${ocrRes.data.usage.output_tokens} tokens · ${ocrMessages.length} 条消息`,
     )
+
+    // spec-007 Phase 19.1:把 OCR 出的 messages 累积到该关系的信号原料里
+    if (ocrMessages.length > 0) {
+      signalsStore.appendOcrMessages(relationshipId.value, ocrMessages)
+    }
     if (ocrMessages.length === 0) {
       conversationStore.updateStreamingLaokeText(
         relationshipId.value,
