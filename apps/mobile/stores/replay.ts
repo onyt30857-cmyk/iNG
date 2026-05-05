@@ -17,6 +17,24 @@ import type {
   PlanningDirection,
   ReplyDraft,
 } from '../types/replay'
+import { runParsing, type ParsingMessage } from '../api/replay.api'
+import { DEV_SESSION_ID } from '../utils/dev-token'
+
+// dev 阶段 PARSING 用的 hardcoded messages(模拟 OCR 已完成的对话)
+// spec-004 OCR 实施后,messages 从用户上传截图 → OCR 流程拿到
+const DEV_PARSING_MESSAGES: ParsingMessage[] = [
+  { speaker: 'user', text: '在干嘛', timestamp: '周一 19:30' },
+  { speaker: 'other', text: '刚下班,有点累', timestamp: '周一 20:14' },
+  { speaker: 'user', text: '那你早点睡,我看到那家店开了新店', timestamp: '周一 20:17' },
+  { speaker: 'other', text: '嗯', timestamp: '周一 22:03' },
+  { speaker: 'user', text: '你周末去那边附近吗', timestamp: '周二 12:08' },
+  { speaker: 'other', text: '看吧', timestamp: '周二 14:21' },
+  { speaker: 'user', text: '那我先订?', timestamp: '周二 14:23' },
+  { speaker: 'other', text: '你订吧', timestamp: '周二 18:05' },
+  { speaker: 'user', text: '周末一起?', timestamp: '周二 22:12' },
+  { speaker: 'other', text: '先这样吧', timestamp: '周二 22:47' },
+]
+const DEV_PARSING_ENTRY_NOTE = '她两天没回我了'
 
 // ============== Mock 数据(从复盘原型 HTML 同步) ==============
 
@@ -139,18 +157,43 @@ export const useReplayStore = defineStore('replay', () => {
     closingMessage.value = ''
   }
 
-  // ============== PARSING(打字机模拟流式) ==============
-  function streamParsing() {
+  // ============== PARSING(真调 Anthropic + 打字机展示) ==============
+  // 真 API 调用拿到完整文本后,用打字机一字一字 reveal,体感跟流式接近。
+  // SSE 真流式作为后续 spec-005 §3.x 优化。
+  // 真 API 失败 → 回退 MOCK_PARSING,产品体验不被打断。
+  async function streamParsing() {
     isParsingTyping.value = true
     parsingText.value = ''
-    const target = MOCK_PARSING.summary
+
+    // 1. 拿真老 K 输出(失败回退 mock)
+    let target = MOCK_PARSING.summary
+    try {
+      const r = await runParsing(DEV_SESSION_ID, {
+        messages: DEV_PARSING_MESSAGES,
+        entry_note: DEV_PARSING_ENTRY_NOTE,
+      })
+      if (r.ok) {
+        target = r.data.text
+        // eslint-disable-next-line no-console
+        console.info(
+          `[PARSING] ${r.data.duration_ms}ms · ${r.data.usage.input_tokens}/${r.data.usage.output_tokens} tokens · persona=${r.data.persona_passed ? '✓' : '✗'}`,
+        )
+      } else {
+        // eslint-disable-next-line no-console
+        console.warn('[PARSING] 真 API 失败,回退 mock:', r.error)
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('[PARSING] 真 API 异常,回退 mock:', e)
+    }
+
+    // 2. 打字机展示(已有逻辑保留)
     let i = 0
     const speed = 28 // ms / 字
     const tick = () => {
       if (i >= target.length) {
         isParsingTyping.value = false
         parsingDone.value = true
-        // 自动进 REFLECTING
         setTimeout(() => transitionToReflecting(), 800)
         return
       }
