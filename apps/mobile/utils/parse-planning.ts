@@ -1,46 +1,57 @@
 // 把 PLANNING 散文 text(planning.md §3 输出格式)切成 PlanningDirection 5 字段。
 //
-// PLANNING prompt 输出大致结构:
-//   **方向标题**(可能用 **加粗** 或 ## 标记)
-//   做什么:xxx
-//   为什么:xxx
-//   红线:xxx
-//   退路:xxx(或"退路是——")
+// 策略:
+//   1. 按 \n\n 切段落,第 1 段 = title,后 4 段默认顺序填 what_to_do/why/red_line/fallback
+//   2. 遍历各段开头看是否有 keyword 标签("做什么:""红线是" 等),命中则用 keyword 段
+//      覆盖默认顺序填的值
+//   3. 兜底:任何字段空 → 用段落顺序的对应位置补位
 //
-// LLM 不一定严格按这个格式,parser 做"宽容匹配"。匹配失败时整段 text 塞 what_to_do
-// 兜底,产品 UI 不会出现空字段卡片。
+// 这个设计对 LLM 各种输出形态都有兜底,不会出现空字段卡片。
 
 import type { PlanningDirection } from '../types/replay'
 
-interface SectionPatterns {
-  what_to_do: RegExp[]
-  why: RegExp[]
-  red_line: RegExp[]
-  fallback: RegExp[]
-}
+type SectionKey = 'what_to_do' | 'why' | 'red_line' | 'fallback'
 
-const PATTERNS: SectionPatterns = {
-  what_to_do: [/^做什么\s*[::]\s*/, /^具体怎么做\s*[::]\s*/],
-  why: [/^为什么\s*[::]\s*/, /^原因\s*[::]\s*/],
-  red_line: [/^红线\s*[::]\s*/, /^不做什么\s*[::]\s*/, /^不要\s*[::]\s*/],
+const PATTERNS: Record<SectionKey, RegExp[]> = {
+  what_to_do: [
+    /^做什么\s*(?:就是|是)?\s*[::]?\s*/,
+    /^具体怎么做\s*[::]?\s*/,
+    /^你要做的\s*(?:就是|是)?\s*[::]?\s*/,
+    /^行动\s*[::]?\s*/,
+  ],
+  why: [
+    /^为什么\s*(?:就是|是)?\s*[::]?\s*/,
+    /^原因\s*(?:就是|是)?\s*[::]?\s*/,
+  ],
+  red_line: [
+    /^红线\s*(?:就是|是)?\s*(?:——|[::])?\s*/,
+    /^不做什么\s*[::]?\s*/,
+    /^不要\s*[::]?\s*/,
+  ],
   fallback: [
-    /^退路(?:是)?\s*(?:——|[::])\s*/,
+    /^退路\s*(?:就是|是)?\s*(?:——|[::])?\s*/,
     /^如果做不到\s*[::]?\s*/,
-    /^兜底\s*[::]\s*/,
+    /^兜底\s*[::]?\s*/,
+    /^这事可以放放\s*[::,。]?\s*/,
   ],
 }
 
 function stripTitleMarkup(line: string): string {
   return line
-    .replace(/^#+\s*/, '') // markdown ## 标题
-    .replace(/^\*\*|\*\*$/g, '') // **加粗**
-    .replace(/[。!.,]+$/u, '') // 末尾标点
+    .replace(/^#+\s*/, '')
+    .replace(/^\*\*|\*\*$/g, '')
+    .replace(/[。!.,]+$/u, '')
     .trim()
 }
 
-function matchPattern(line: string, patterns: RegExp[]): string | null {
-  for (const p of patterns) {
-    if (p.test(line)) return line.replace(p, '')
+/** 看一段开头是哪个 section 的关键词。命中返回 [section, 去掉关键词后的内容];否则 null */
+function detectSection(paragraph: string): [SectionKey, string] | null {
+  for (const key of ['what_to_do', 'why', 'red_line', 'fallback'] as SectionKey[]) {
+    for (const p of PATTERNS[key]) {
+      if (p.test(paragraph)) {
+        return [key, paragraph.replace(p, '').trim()]
+      }
+    }
   }
   return null
 }
@@ -54,69 +65,56 @@ export function parsePlanningText(text: string): PlanningDirection {
     fallback: '',
   }
 
-  const lines = text
+  if (!text || !text.trim()) return direction
+
+  // 按空行切段落
+  const paragraphs = text
     .trim()
-    .split('\n')
-    .map((l) => l.trim())
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
     .filter(Boolean)
 
-  if (lines.length === 0) {
-    return direction
+  if (paragraphs.length === 0) return direction
+
+  // 第 1 段 = 方向标题
+  direction.title = stripTitleMarkup(paragraphs[0]!)
+
+  // 后续 4 段默认按顺序填(what_to_do / why / red_line / fallback)
+  const rest = paragraphs.slice(1)
+  const orderedKeys: SectionKey[] = ['what_to_do', 'why', 'red_line', 'fallback']
+  const buckets: Record<SectionKey, string> = {
+    what_to_do: '',
+    why: '',
+    red_line: '',
+    fallback: '',
   }
+  rest.forEach((p, i) => {
+    const key = orderedKeys[i]
+    if (key) buckets[key] = p
+  })
 
-  // 第一行 = 方向标题(去 markdown 装饰)
-  direction.title = stripTitleMarkup(lines[0]!)
-
-  type Section = 'what_to_do' | 'why' | 'red_line' | 'fallback'
-  const buckets: Record<Section, string[]> = {
-    what_to_do: [],
-    why: [],
-    red_line: [],
-    fallback: [],
-  }
-  let current: Section | null = null
-
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i]!
-
-    let stripped = matchPattern(line, PATTERNS.what_to_do)
-    if (stripped !== null) {
-      current = 'what_to_do'
-      if (stripped) buckets.what_to_do.push(stripped)
-      continue
-    }
-    stripped = matchPattern(line, PATTERNS.why)
-    if (stripped !== null) {
-      current = 'why'
-      if (stripped) buckets.why.push(stripped)
-      continue
-    }
-    stripped = matchPattern(line, PATTERNS.red_line)
-    if (stripped !== null) {
-      current = 'red_line'
-      if (stripped) buckets.red_line.push(stripped)
-      continue
-    }
-    stripped = matchPattern(line, PATTERNS.fallback)
-    if (stripped !== null) {
-      current = 'fallback'
-      if (stripped) buckets.fallback.push(stripped)
-      continue
-    }
-
-    if (current) {
-      buckets[current].push(line)
+  // keyword 扫描:每段开头有标签 → 用该段内容覆盖对应字段(不管它原本被分到哪个位置)
+  for (const p of rest) {
+    const detected = detectSection(p)
+    if (detected) {
+      const [key, content] = detected
+      buckets[key] = content
     }
   }
 
-  direction.what_to_do = buckets.what_to_do.join(' ')
-  direction.why = buckets.why.join(' ')
-  direction.red_line = buckets.red_line.join(' ')
-  direction.fallback = buckets.fallback.join(' ')
+  direction.what_to_do = buckets.what_to_do
+  direction.why = buckets.why
+  direction.red_line = buckets.red_line
+  direction.fallback = buckets.fallback
 
-  // 兜底:全 4 段都没匹配上,把整段 text 塞 what_to_do(去标题第一行)
-  if (!direction.what_to_do && !direction.why && !direction.red_line && !direction.fallback) {
-    direction.what_to_do = lines.slice(1).join('\n') || text
+  // 兜底:即使按段落顺序也没填上(段落不足 4 个),把整段塞 what_to_do
+  if (
+    !direction.what_to_do &&
+    !direction.why &&
+    !direction.red_line &&
+    !direction.fallback
+  ) {
+    direction.what_to_do = rest.join('\n\n') || text
     if (!direction.title) direction.title = '老 K 给的方向'
   }
 
