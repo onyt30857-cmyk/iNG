@@ -69,8 +69,10 @@ const lastTalkAgo = computed(() => {
 })
 
 // === Tab 切换 ===
+// 默认 'us'(我们):整页核心是关系演变 + "老 K 看到的",这是产品独有价值,
+// "她"是档案、"工具箱"是收藏,都不该是 first impression。
 type Tab = 'her' | 'us' | 'toolbox'
-const activeTab = ref<Tab>('her')
+const activeTab = ref<Tab>('us')
 
 // === Tab 1: 她 - 4 个 section(信息架构调研落地) ===
 
