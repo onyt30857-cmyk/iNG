@@ -4,11 +4,14 @@
 
 import { onMounted, ref, computed } from 'vue'
 import { useRelationshipStore } from '../../stores/relationship'
+import { useRelationshipSignalsStore } from '../../stores/relationship-signals'
 import RelationshipCard from '../../components/RelationshipCard.vue'
 import CrossRelationshipBriefing from '../../components/CrossRelationshipBriefing.vue'
 
 const store = useRelationshipStore()
+const signalsStore = useRelationshipSignalsStore()
 const showArchived = ref(false)
+const seedingDemo = ref(false)
 
 const archivedCount = computed(() => store.archivedItems.length)
 
@@ -24,6 +27,16 @@ function goDetail(id: string) {
 }
 function toggleArchived() {
   showArchived.value = !showArchived.value
+}
+async function seedDemo() {
+  if (seedingDemo.value) return
+  seedingDemo.value = true
+  try {
+    await signalsStore.seedDemoSignals(store.items.map((r) => r.id))
+    uni.showToast({ title: '已注入演示信号', icon: 'none' })
+  } finally {
+    seedingDemo.value = false
+  }
 }
 // 返回:有上一页就 back,没有(直接深链进来)就跳主页
 function goBack() {
@@ -53,6 +66,9 @@ function goBack() {
     <!-- mock 提示条(只在没真实登录时显示) -->
     <view v-if="store.usingMock" class="mock-banner">
       <text class="mock-banner-text">演示数据 · 真实登录后会拉服务端数据</text>
+      <view class="mock-banner-action" @tap="seedDemo">
+        <text class="mock-banner-action-text">{{ seedingDemo ? '注入中…' : '注入演示信号' }}</text>
+      </view>
     </view>
 
     <view class="body">
@@ -187,10 +203,28 @@ function goBack() {
   background-color: $color-accent-subtle;
   border-radius: 16rpx;
   border-left: 6rpx solid $color-accent;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
 }
 .mock-banner-text {
+  flex: 1;
   font-size: 24rpx;
   color: $color-text-secondary;
+}
+.mock-banner-action {
+  padding: 8rpx 16rpx;
+  border-radius: 12rpx;
+  background-color: $color-surface;
+  flex-shrink: 0;
+
+  &:active { background-color: $color-surface-subtle; }
+}
+.mock-banner-action-text {
+  font-size: 22rpx;
+  color: $color-accent;
+  font-weight: $weight-medium;
 }
 
 .body {

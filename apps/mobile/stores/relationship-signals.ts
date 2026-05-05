@@ -114,6 +114,22 @@ export const useRelationshipSignalsStore = defineStore('relationship-signals', (
     return signalsByRelationship.value[relationshipId]!
   }
 
+  /**
+   * 演示模式注入 demo signal(spec-007 / 19.x demo)
+   * 只对没真累积消息的关系注入,真用户传过 OCR 后会被 recompute 覆盖。
+   */
+  async function seedDemoSignals(relationshipIds: ReadonlyArray<string>): Promise<void> {
+    const { buildDemoSnapshot } = await import('../utils/demo-signals')
+    relationshipIds.forEach((relId, idx) => {
+      const msgs = getAccumulated(relId)
+      // 已经有真累积消息的不动(避免覆盖用户真实数据)
+      if (msgs.length > 0) return
+      const snap = buildDemoSnapshot(idx)
+      signalsByRelationship.value[relId] = snap
+      saveSignal(relId, snap)
+    })
+  }
+
   /** 主动清空(测试或用户重置用) */
   function reset(relationshipId: string): void {
     messagesByRelationship.value[relationshipId] = []
@@ -148,5 +164,6 @@ export const useRelationshipSignalsStore = defineStore('relationship-signals', (
     getSignal,
     getAccumulated,
     reset,
+    seedDemoSignals,
   }
 })
