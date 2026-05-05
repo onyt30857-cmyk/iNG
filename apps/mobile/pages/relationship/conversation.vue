@@ -22,6 +22,12 @@ import UserBubble from '../../components/conversation/UserBubble.vue'
 import ScreenshotBubble from '../../components/conversation/ScreenshotBubble.vue'
 import ChatInput from '../../components/conversation/ChatInput.vue'
 import StarterChips from '../../components/conversation/StarterChips.vue'
+import LaokeProactiveHint from '../../components/conversation/LaokeProactiveHint.vue'
+import {
+  buildProactiveHint,
+  isHintDismissedToday,
+  markHintDismissedToday,
+} from '../../utils/proactive-hint'
 import type { Relationship } from '../../types/relationship'
 
 const relationshipStore = useRelationshipStore()
@@ -73,6 +79,37 @@ function openMeta() {
 
 function handleSendText(text: string) {
   conversationStore.appendUserText(relationshipId.value, text)
+}
+
+// === 老 K 主动引导卡(spec-007 Phase 19.6)===
+// 进对话页时如果信号显著(THRIVING/COOLING/WITHDRAWING/INACTIVE)且今天没看过这个提示,显示一行引导
+const hintDismissed = ref(false)
+
+onMounted(() => {
+  if (relationshipId.value) {
+    hintDismissed.value = isHintDismissedToday(relationshipId.value)
+  }
+})
+
+const proactiveHint = computed(() => {
+  if (!relationshipId.value || hintDismissed.value) return null
+  const sig = signalsStore.getSignal(relationshipId.value)
+  return buildProactiveHint(sig)
+})
+
+function handleProactiveHintClick() {
+  const hint = proactiveHint.value
+  if (!hint) return
+  markHintDismissedToday(relationshipId.value)
+  hintDismissed.value = true
+  // 当用户的话发出 → 走正常 turn 链路(自动带 signal_brief,LLM 自然回应)
+  conversationStore.appendUserText(relationshipId.value, hint.prompt_on_click)
+}
+
+function handleProactiveHintDismiss() {
+  if (!relationshipId.value) return
+  markHintDismissedToday(relationshipId.value)
+  hintDismissed.value = true
 }
 
 // === 截图上传 → OCR → 启动复盘(spec-004 真用户入口)===
@@ -309,6 +346,14 @@ function handleSavePlanning(planningId: string, content: import('../../types/mes
 
     <!-- 底部输入区(sticky) -->
     <view class="input-sticky">
+      <!-- 老 K 主动引导(spec-007 Phase 19.6)信号显著且今天没看过才显示 -->
+      <LaokeProactiveHint
+        v-if="proactiveHint"
+        :hint="proactiveHint"
+        @click="handleProactiveHintClick"
+        @dismiss="handleProactiveHintDismiss"
+      />
+
       <!-- 冷启动示例气泡(只在新对话显示) -->
       <StarterChips v-if="isFresh" :chips="starterChips" @pick="handlePickChip" />
       <ChatInput
