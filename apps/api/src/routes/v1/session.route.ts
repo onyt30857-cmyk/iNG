@@ -18,6 +18,10 @@ import {
   updateSessionSchema,
   sessionIdParamSchema,
   runParsingSchema,
+  runReflectingSchema,
+  runDiagnosingSchema,
+  runPlanningSchema,
+  runDraftingSchema,
 } from '../../schemas/session.schema.js'
 import {
   createSession,
@@ -25,7 +29,13 @@ import {
   updateSession,
   softDeleteSession,
 } from '../../services/session/session.service.js'
-import { runParsingForSession } from '../../services/replay/replay-orchestrator.service.js'
+import {
+  runParsingForSession,
+  runReflectingForSession,
+  runDiagnosingForSession,
+  runPlanningForSession,
+  runDraftingForSession,
+} from '../../services/replay/replay-orchestrator.service.js'
 import { errors } from '../../lib/error.js'
 
 export async function sessionRoutes(app: FastifyInstance): Promise<void> {
@@ -87,6 +97,80 @@ export async function sessionRoutes(app: FastifyInstance): Promise<void> {
         usage: result.usage,
         duration_ms: result.duration_ms,
         persona_passed: result.persona_check.passed,
+      },
+    }
+  })
+
+  app.post('/v1/sessions/:id/run-reflecting', async (request) => {
+    const userId = request.user!.id
+    const { id } = sessionIdParamSchema.parse(request.params)
+    const body = runReflectingSchema.parse(request.body)
+
+    const result = await runReflectingForSession(userId, id, body)
+
+    return {
+      ok: true,
+      data: {
+        questions: result.questions,
+        ordering_rationale: result.ordering_rationale,
+        usage: result.raw.usage,
+        duration_ms: result.raw.duration_ms,
+        persona_passed: result.raw.persona_check.passed,
+      },
+    }
+  })
+
+  app.post('/v1/sessions/:id/run-diagnosing', async (request) => {
+    const userId = request.user!.id
+    const { id } = sessionIdParamSchema.parse(request.params)
+    const body = runDiagnosingSchema.parse(request.body)
+
+    const result = await runDiagnosingForSession(userId, id, body)
+
+    return {
+      ok: true,
+      data: {
+        text: result.text,
+        usage: result.usage,
+        duration_ms: result.duration_ms,
+        persona_passed: result.persona_check.passed,
+      },
+    }
+  })
+
+  app.post('/v1/sessions/:id/run-planning', async (request) => {
+    const userId = request.user!.id
+    const { id } = sessionIdParamSchema.parse(request.params)
+    const body = runPlanningSchema.parse(request.body)
+
+    const result = await runPlanningForSession(userId, id, body)
+
+    return {
+      ok: true,
+      data: {
+        text: result.text,
+        usage: result.usage,
+        duration_ms: result.duration_ms,
+        persona_passed: result.persona_check.passed,
+      },
+    }
+  })
+
+  app.post('/v1/sessions/:id/run-drafting', async (request) => {
+    const userId = request.user!.id
+    const { id } = sessionIdParamSchema.parse(request.params)
+    const body = runDraftingSchema.parse(request.body)
+
+    const result = await runDraftingForSession(userId, id, body)
+
+    return {
+      ok: true,
+      data: {
+        mode: result.mode,
+        cards: result.cards,
+        usage: result.raw.usage,
+        duration_ms: result.raw.duration_ms,
+        persona_passed: result.raw.persona_check.passed,
       },
     }
   })

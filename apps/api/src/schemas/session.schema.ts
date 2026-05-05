@@ -38,20 +38,62 @@ export const sessionIdParamSchema = z.object({
 })
 
 /**
- * 触发 PARSING 跑一次老 K 调用。当前阶段(spec-004 OCR 未实施)由前端把消息列表
- * 直接放 body 传过来。spec-004 实施后,messages 从 OSS+OCR 流程进数据库,这个端点
- * 会改为只接 sessionId,后端自己从 db 拉。
+ * 共用结构 - 给所有 run-* 端点
+ * 当前阶段(spec-004 OCR 未实施 + spec-005 state_context 未持久化):
+ * 前端把上游所有阶段的输出 + messages 放 body 传过来。后续这些会从 db 拉,body 只剩 sessionId。
  */
+const messageItemSchema = z.object({
+  speaker: z.enum(['user', 'other']),
+  text: z.string().min(1).max(2000),
+  timestamp: z.string().max(100).optional(),
+})
+const messagesArraySchema = z
+  .array(messageItemSchema)
+  .min(1, '至少要 1 条消息')
+  .max(200, '消息不能超过 200 条')
+
+const reflectionItemSchema = z.object({
+  question: z.string().min(1).max(500),
+  answer: z.string().min(1).max(2000),
+  followed_up: z.boolean().optional(),
+})
+const reflectionsArraySchema = z
+  .array(reflectionItemSchema)
+  .length(3, 'REFLECTING 阶段必须 3 个 Q&A')
+
+const upstreamOutputSchema = z.string().min(1).max(5000)
+const scenarioPrimarySchema = z.string().max(50).optional()
+
 export const runParsingSchema = z.object({
-  messages: z
-    .array(
-      z.object({
-        speaker: z.enum(['user', 'other']),
-        text: z.string().min(1).max(2000),
-        timestamp: z.string().max(100).optional(),
-      }),
-    )
-    .min(1, '至少要 1 条消息')
-    .max(200, '消息不能超过 200 条'),
+  messages: messagesArraySchema,
   entry_note: z.string().max(500).default(''),
+})
+
+export const runReflectingSchema = z.object({
+  messages: messagesArraySchema,
+  parsing_output: upstreamOutputSchema,
+  user_initial_response: z.string().max(2000).default(''),
+  scenario_primary: scenarioPrimarySchema,
+})
+
+export const runDiagnosingSchema = z.object({
+  messages: messagesArraySchema,
+  parsing_output: upstreamOutputSchema,
+  reflections: reflectionsArraySchema,
+  scenario_primary: scenarioPrimarySchema,
+})
+
+export const runPlanningSchema = z.object({
+  messages: messagesArraySchema,
+  parsing_output: upstreamOutputSchema,
+  reflections: reflectionsArraySchema,
+  diagnosing_output: upstreamOutputSchema,
+})
+
+export const runDraftingSchema = z.object({
+  messages: messagesArraySchema,
+  parsing_output: upstreamOutputSchema,
+  reflections: reflectionsArraySchema,
+  diagnosing_output: upstreamOutputSchema,
+  planning_output: upstreamOutputSchema,
 })

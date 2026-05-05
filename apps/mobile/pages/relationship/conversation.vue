@@ -8,7 +8,6 @@ import { onMounted, ref, computed, nextTick, watch } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { useRelationshipStore } from '../../stores/relationship'
 import { useConversationStore } from '../../stores/conversation'
-import RelationshipAvatar from '../../components/RelationshipAvatar.vue'
 import SystemDivider from '../../components/conversation/SystemDivider.vue'
 import LaokeBubble from '../../components/conversation/LaokeBubble.vue'
 import LaokeQuestionBubble from '../../components/conversation/LaokeQuestionBubble.vue'
@@ -19,7 +18,7 @@ import UserBubble from '../../components/conversation/UserBubble.vue'
 import ScreenshotBubble from '../../components/conversation/ScreenshotBubble.vue'
 import ChatInput from '../../components/conversation/ChatInput.vue'
 import StarterChips from '../../components/conversation/StarterChips.vue'
-import { RELATIONSHIP_STAGE_LABELS, type Relationship } from '../../types/relationship'
+import type { Relationship } from '../../types/relationship'
 
 const relationshipStore = useRelationshipStore()
 const conversationStore = useConversationStore()
@@ -40,10 +39,6 @@ onMounted(async () => {
 
 const messages = computed(() =>
   conversationStore.getMessages(relationshipId.value),
-)
-
-const stageLabel = computed(() =>
-  relationship.value ? RELATIONSHIP_STAGE_LABELS[relationship.value.stage] : '',
 )
 
 function scrollToBottom() {
@@ -118,25 +113,22 @@ function handleSavePlanning(planningId: string, content: import('../../types/mes
 
 <template>
   <view v-if="relationship" class="conversation">
-    <!-- 顶部 sticky:头像 + 名字 + 阶段 + ⋯ -->
+    <!-- 顶部 sticky:< 返回 / 居中名字 / ⋯ 菜单(参照微信小程序简洁风格) -->
     <view class="header">
       <view class="back-btn" @tap="goBack">
         <text class="back-icon">‹</text>
       </view>
-      <view class="header-info" @tap="openMeta">
-        <RelationshipAvatar
-          :name="relationship.name"
-          :seed="relationship.avatar_seed"
-          :size="36"
-        />
-        <view class="header-text">
-          <text class="header-name">{{ relationship.name }}</text>
-          <text class="header-stage">{{ stageLabel }}</text>
-        </view>
+      <view class="header-title" @tap="openMeta">
+        <text class="header-name">{{ relationship.name }}</text>
       </view>
       <view class="more-btn" @tap="openMeta">
         <text class="more-icon">⋯</text>
       </view>
+    </view>
+
+    <!-- AI 内容合规提示条(sticky 在 header 下方) -->
+    <view class="ai-disclaimer">
+      <text class="ai-disclaimer-text">本对话包含 AI 生成内容,仅供参考</text>
     </view>
 
     <!-- 时间线消息流 -->
@@ -231,32 +223,36 @@ function handleSavePlanning(planningId: string, content: import('../../types/mes
   color: $color-text-primary;
   line-height: 1;
 }
-.header-info {
+.header-title {
   flex: 1;
   display: flex;
-  flex-direction: row;
   align-items: center;
-  gap: 16rpx;
+  justify-content: center;
   padding: 8rpx 12rpx;
   border-radius: 16rpx;
 
   &:active { background-color: $color-surface-subtle; }
 }
-.header-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
 .header-name {
-  font-size: 30rpx;
+  font-size: 34rpx;
   font-weight: $weight-semibold;
   color: $color-text-primary;
   line-height: 1.2;
 }
-.header-stage {
-  font-size: 22rpx;
-  color: $color-text-tertiary;
-  margin-top: 4rpx;
+
+// AI 合规提示条:用 $color-info 主蓝 + 透明度叠出浅蓝背景
+.ai-disclaimer {
+  position: sticky;
+  top: calc(env(safe-area-inset-top, 16rpx) + 88rpx);
+  z-index: 9;
+  padding: 16rpx 32rpx;
+  background-color: rgba($color-info, 0.08);
+  text-align: center;
+}
+.ai-disclaimer-text {
+  font-size: 24rpx;
+  color: $color-info;
+  line-height: 1.4;
 }
 .more-btn {
   width: 64rpx;
