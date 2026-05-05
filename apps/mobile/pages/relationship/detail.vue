@@ -26,6 +26,9 @@ const id = ref('')
 
 onLoad((opts) => {
   id.value = (opts?.id as string) ?? ''
+  // 从 conversation.vue 顶部 ⋯ 跳过来时,带 tab=us 直接落到"我们"Tab(老 K 看到的)
+  const t = (opts?.tab as string) ?? ''
+  if (t === 'her' || t === 'us' || t === 'toolbox') activeTab.value = t
 })
 
 onMounted(async () => {

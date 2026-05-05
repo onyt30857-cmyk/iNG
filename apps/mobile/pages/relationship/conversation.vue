@@ -64,9 +64,10 @@ function goBack() {
 }
 
 // 顶部 ⋯ 进入关系档案二级页(spec-007 §UI:5 维度 / 老 K 看到的 / 关键时刻 都在 detail.vue)
+// tab=us 让 detail.vue 默认落到"我们"Tab,直接看到"老 K 看到的"卡
 function openMeta() {
   uni.navigateTo({
-    url: `/pages/relationship/detail?id=${relationshipId.value}`,
+    url: `/pages/relationship/detail?id=${relationshipId.value}&tab=us`,
   })
 }
 
