@@ -31,9 +31,9 @@ import {
 import { DEV_SESSION_ID } from '../utils/dev-token'
 import { parsePlanningText } from '../utils/parse-planning'
 
-// dev 阶段 PARSING 用的 hardcoded messages(模拟 OCR 已完成的对话)
-// spec-004 OCR 实施后,messages 从用户上传截图 → OCR 流程拿到
-const DEV_PARSING_MESSAGES: ParsingMessage[] = [
+// dev 默认 messages — 直接进 mock 复盘流程时用
+// spec-004 OCR 实施后,用户上传真截图,activeMessages 被覆盖
+const DEV_DEFAULT_PARSING_MESSAGES: ParsingMessage[] = [
   { speaker: 'user', text: '在干嘛', timestamp: '周一 19:30' },
   { speaker: 'other', text: '刚下班,有点累', timestamp: '周一 20:14' },
   { speaker: 'user', text: '那你早点睡,我看到那家店开了新店', timestamp: '周一 20:17' },
@@ -157,11 +157,26 @@ export const useReplayStore = defineStore('replay', () => {
   // Closed
   const closingMessage = ref('')
 
+  // 当前复盘的对话消息(默认 hardcoded,被 OCR 上传后覆盖)
+  const activeMessages = ref<ParsingMessage[]>([...DEV_DEFAULT_PARSING_MESSAGES])
+  const activeEntryNote = ref<string>(DEV_PARSING_ENTRY_NOTE)
+
   const isFinal = computed(() => state.value === 'CLOSED')
 
   // ============== 主流程触发(从 entry 抽屉提交后调) ==============
   function startMockReplay() {
     reset()
+    activeMessages.value = [...DEV_DEFAULT_PARSING_MESSAGES]
+    activeEntryNote.value = DEV_PARSING_ENTRY_NOTE
+    state.value = 'PARSING'
+    streamParsing()
+  }
+
+  /** OCR 拿到真消息后启动复盘(spec-004 真用户上传截图入口) */
+  function startReplayWithMessages(messages: ParsingMessage[], entryNote: string) {
+    reset()
+    activeMessages.value = messages
+    activeEntryNote.value = entryNote || '(没填备注)'
     state.value = 'PARSING'
     streamParsing()
   }
@@ -198,8 +213,8 @@ export const useReplayStore = defineStore('replay', () => {
       await streamParsingHTTP(
         DEV_SESSION_ID,
         {
-          messages: DEV_PARSING_MESSAGES,
-          entry_note: DEV_PARSING_ENTRY_NOTE,
+          messages: activeMessages.value,
+          entry_note: activeEntryNote.value,
         },
         (chunk) => {
           parsingText.value += chunk
@@ -219,8 +234,8 @@ export const useReplayStore = defineStore('replay', () => {
       let target = MOCK_PARSING.summary
       try {
         const r = await runParsing(DEV_SESSION_ID, {
-          messages: DEV_PARSING_MESSAGES,
-          entry_note: DEV_PARSING_ENTRY_NOTE,
+          messages: activeMessages.value,
+          entry_note: activeEntryNote.value,
         })
         if (r.ok) {
           target = r.data.text
@@ -264,7 +279,7 @@ export const useReplayStore = defineStore('replay', () => {
     let questions: string[] = [...MOCK_REFLECTING_QUESTIONS]
     try {
       const r = await runReflecting(DEV_SESSION_ID, {
-        messages: DEV_PARSING_MESSAGES,
+        messages: activeMessages.value,
         parsing_output: parsingText.value,
         user_initial_response: DEV_USER_INITIAL_RESPONSE,
         scenario_primary: DEV_SCENARIO_PRIMARY,
@@ -342,7 +357,7 @@ export const useReplayStore = defineStore('replay', () => {
       await streamDiagnosingHTTP(
         DEV_SESSION_ID,
         {
-          messages: DEV_PARSING_MESSAGES,
+          messages: activeMessages.value,
           parsing_output: parsingText.value,
           reflections,
           scenario_primary: DEV_SCENARIO_PRIMARY,
@@ -375,7 +390,7 @@ export const useReplayStore = defineStore('replay', () => {
       // 流式失败 → 同步 API 兜底
       try {
         const r = await runDiagnosing(DEV_SESSION_ID, {
-          messages: DEV_PARSING_MESSAGES,
+          messages: activeMessages.value,
           parsing_output: parsingText.value,
           reflections,
           scenario_primary: DEV_SCENARIO_PRIMARY,
@@ -419,7 +434,7 @@ export const useReplayStore = defineStore('replay', () => {
       await streamPlanningHTTP(
         DEV_SESSION_ID,
         {
-          messages: DEV_PARSING_MESSAGES,
+          messages: activeMessages.value,
           parsing_output: parsingText.value,
           reflections,
           diagnosing_output: diagText,
@@ -445,7 +460,7 @@ export const useReplayStore = defineStore('replay', () => {
     } else {
       try {
         const r = await runPlanning(DEV_SESSION_ID, {
-          messages: DEV_PARSING_MESSAGES,
+          messages: activeMessages.value,
           parsing_output: parsingText.value,
           reflections,
           diagnosing_output: diagText,
@@ -487,7 +502,7 @@ export const useReplayStore = defineStore('replay', () => {
         : ''
 
       const r = await runDrafting(DEV_SESSION_ID, {
-        messages: DEV_PARSING_MESSAGES,
+        messages: activeMessages.value,
         parsing_output: parsingText.value,
         reflections,
         diagnosing_output: diagText || '(diagnosing 文本暂缺)',
@@ -569,14 +584,17 @@ export const useReplayStore = defineStore('replay', () => {
     reflectingQuestionIndex,
     reflectingAnswers,
     diagnosingOutput,
+    diagnosingStreamingText,
     isDiagnosingTyping,
     planning,
+    planningStreamingText,
     drafting,
     selectedReplyId,
     closingMessage,
     isFinal,
     // actions
     startMockReplay,
+    startReplayWithMessages,
     reset,
     submitReflectingAnswer,
     continueToPlanning,

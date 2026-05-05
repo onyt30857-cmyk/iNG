@@ -7,7 +7,10 @@
 
 import { onMounted, ref } from 'vue'
 import { apiGet } from '../../api/client'
+import { runOcr, type OcrInputImage, type OcrMediaType } from '../../api/replay.api'
 import { useRelationshipStore } from '../../stores/relationship'
+import { useReplayStore } from '../../stores/replay'
+import { DEV_RELATIONSHIP_ID } from '../../utils/dev-token'
 import RelationshipCard from '../../components/RelationshipCard.vue'
 import EntrySheet from '../../components/replay/EntrySheet.vue'
 
@@ -42,6 +45,94 @@ function goManageList() {
 
 function goMockReplay() {
   uni.navigateTo({ url: '/pages/replay/session' })
+}
+
+// === OCR 上传(spec-004 真用户入口)===
+
+const replayStore = useReplayStore()
+const ocrFileInput = ref<HTMLInputElement | null>(null)
+const isOcrLoading = ref(false)
+
+function pickOcrFiles() {
+  ocrFileInput.value?.click()
+}
+
+function fileToBase64Image(file: File): Promise<OcrInputImage> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result
+      if (typeof result !== 'string') {
+        reject(new Error('FileReader 返回非字符串'))
+        return
+      }
+      // result = "data:image/jpeg;base64,xxxxx"
+      const m = result.match(/^data:(image\/(?:jpeg|png|gif|webp));base64,(.+)$/)
+      if (!m) {
+        reject(new Error(`不支持的图片格式: ${file.type}`))
+        return
+      }
+      resolve({
+        mediaType: m[1] as OcrMediaType,
+        base64: m[2]!,
+      })
+    }
+    reader.onerror = () => reject(reader.error ?? new Error('FileReader 失败'))
+    reader.readAsDataURL(file)
+  })
+}
+
+async function handleOcrFiles(e: Event) {
+  const input = e.target as HTMLInputElement
+  const files = Array.from(input.files ?? []).slice(0, 5)
+  input.value = '' // 清掉 selection 让下次能重选同一文件
+  if (files.length === 0) return
+
+  isOcrLoading.value = true
+  try {
+    uni.showLoading({ title: '老 K 在看...' })
+    const images = await Promise.all(files.map(fileToBase64Image))
+    const r = await runOcr({ relationship_id: DEV_RELATIONSHIP_ID, images })
+    if (!r.ok) {
+      uni.hideLoading()
+      uni.showToast({ title: r.error.message || 'OCR 失败', icon: 'none' })
+      return
+    }
+
+    const messages = r.data.messages
+    // eslint-disable-next-line no-console
+    console.info(
+      `[OCR] ${r.data.duration_ms}ms · ${r.data.usage.input_tokens}/${r.data.usage.output_tokens} tokens · ${messages.length} 条消息 · warnings: ${r.data.warnings.length}`,
+    )
+    if (r.data.warnings.length > 0) {
+      // eslint-disable-next-line no-console
+      console.info('[OCR warnings]', r.data.warnings)
+    }
+    uni.hideLoading()
+
+    if (messages.length === 0) {
+      uni.showToast({
+        title: r.data.warnings[0] ?? '没看到对话,你重新选一下截图',
+        icon: 'none',
+        duration: 2500,
+      })
+      return
+    }
+
+    // 启动复盘
+    replayStore.startReplayWithMessages(messages, '我刚上传的截图')
+    uni.navigateTo({ url: '/pages/replay/session' })
+  } catch (err) {
+    uni.hideLoading()
+    // eslint-disable-next-line no-console
+    console.error('[OCR] 失败:', err)
+    uni.showToast({
+      title: err instanceof Error ? err.message : 'OCR 出了点意外',
+      icon: 'none',
+    })
+  } finally {
+    isOcrLoading.value = false
+  }
 }
 
 const greeting = (() => {
@@ -112,6 +203,19 @@ const greeting = (() => {
     <view class="dev-link" @tap="goMockReplay">
       <text class="dev-link-text">开发调试 · 直接进 mock 复盘流程</text>
     </view>
+
+    <!-- OCR 真上传入口(spec-004,Claude vision)-->
+    <view class="dev-link" :class="{ disabled: isOcrLoading }" @tap="pickOcrFiles">
+      <text class="dev-link-text">{{ isOcrLoading ? '老 K 在看截图...' : '上传 1-5 张聊天截图开始真复盘' }}</text>
+    </view>
+    <input
+      ref="ocrFileInput"
+      type="file"
+      multiple
+      accept="image/jpeg,image/png,image/webp"
+      style="display: none"
+      @change="handleOcrFiles"
+    />
 
     <!-- entry 抽屉保留(开发态用),实际入口已转移到详情页主 CTA -->
     <EntrySheet

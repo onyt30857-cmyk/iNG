@@ -46,6 +46,29 @@ export async function runParsing(
   })
 }
 
+// =============== OCR(Claude vision)===============
+
+export type OcrMediaType = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
+
+export interface OcrInputImage {
+  base64: string
+  mediaType: OcrMediaType
+}
+
+export interface OcrResultData {
+  messages: ParsingMessage[]
+  warnings: string[]
+  usage: { input_tokens: number; output_tokens: number }
+  duration_ms: number
+}
+
+export async function runOcr(body: {
+  relationship_id: string
+  images: OcrInputImage[]
+}) {
+  return apiPost<OcrResultData>('/ocr', body, { token: DEV_TOKEN })
+}
+
 /**
  * 通用 SSE 流式调用:fetch + ReadableStream 接收 chunked text。
  * 错误:连接错 throw / 末尾 [STREAM_ERROR] 标记 throw / 正常 resolve。
