@@ -1,17 +1,13 @@
 <script setup lang="ts">
 // 底部输入区:截图 + 文字 + 发送
-// 模拟微信聊天输入栏
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 
 const props = defineProps<{
-  /** 外部预填(冷启动示例气泡点击后填进来) */
   presetText?: string
-  /** 上传中,锁住按钮 */
   uploading?: boolean
 }>()
 const emit = defineEmits<{
   sendText: [string]
-  /** 用户选了 1-5 张截图,blob URLs 给父组件做 OCR */
   screenshotsChosen: [{ note: string; paths: string[] }]
 }>()
 
@@ -28,60 +24,102 @@ function send() {
   text.value = ''
 }
 
+// === entry note 自定义 modal ===
+const noteModalOpen = ref(false)
+const noteText = ref('')
+const noteCanContinue = computed(() => true) // 允许空 note(后端有 fallback)
+
 function chooseScreenshots() {
   if (props.uploading) return
-  // 先问 entry note(背景),再选图。entry note 直接影响老 K PARSING 方向。
-  uni.showModal({
-    title: '一句话说说',
-    content: '发生了什么?你最在意什么?(老 K 用这句话定方向)',
-    placeholderText: '她两天没回我了 / 昨晚吵了一架 / 我不知道她什么意思',
-    editable: true,
-    confirmText: '继续选图',
-    cancelText: '取消',
-    success: (modalRes) => {
-      if (modalRes.cancel) return
-      const note = (modalRes.content ?? '').trim()
-      uni.chooseImage({
-        count: 5,
-        sizeType: ['compressed'],
-        sourceType: ['album'],
-        success: (imgRes) => {
-          const paths = (imgRes.tempFilePaths as string[]) ?? []
-          if (paths.length > 0) emit('screenshotsChosen', { note, paths })
-        },
-        fail: (err) => {
-          // eslint-disable-next-line no-console
-          console.warn('[ChatInput] chooseImage 取消或失败:', err)
-        },
-      })
-    },
+  noteText.value = ''
+  noteModalOpen.value = true
+}
+
+function cancelNote() {
+  noteModalOpen.value = false
+  noteText.value = ''
+}
+
+function confirmNoteAndPickImages() {
+  const note = noteText.value.trim()
+  noteModalOpen.value = false
+  noteText.value = ''
+  // 等动画收尾再弹相册,避免 modal 还没消失就出文件选择器
+  nextTick(() => {
+    uni.chooseImage({
+      count: 5,
+      sizeType: ['compressed'],
+      sourceType: ['album'],
+      success: (imgRes) => {
+        const paths = (imgRes.tempFilePaths as string[]) ?? []
+        if (paths.length > 0) emit('screenshotsChosen', { note, paths })
+      },
+      fail: (err) => {
+        // eslint-disable-next-line no-console
+        console.warn('[ChatInput] chooseImage 取消或失败:', err)
+      },
+    })
   })
 }
 </script>
 
 <template>
-  <view class="chat-input">
-    <view class="screenshot-btn" @tap="chooseScreenshots">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <rect x="3" y="6" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.6" />
-        <path d="M8 6V4.5a1 1 0 011-1h6a1 1 0 011 1v2" stroke="currentColor" stroke-width="1.6" />
-        <circle cx="12" cy="13" r="3.5" stroke="currentColor" stroke-width="1.6" />
-      </svg>
+  <view>
+    <view class="chat-input">
+      <view class="screenshot-btn" @tap="chooseScreenshots">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <rect x="3" y="6" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.6" />
+          <path d="M8 6V4.5a1 1 0 011-1h6a1 1 0 011 1v2" stroke="currentColor" stroke-width="1.6" />
+          <circle cx="12" cy="13" r="3.5" stroke="currentColor" stroke-width="1.6" />
+        </svg>
+      </view>
+      <view class="input-wrap">
+        <textarea
+          class="input"
+          v-model="text"
+          placeholder="想到啥说啥"
+          :auto-height="true"
+          :show-confirm-bar="false"
+          :adjust-position="true"
+          maxlength="2000"
+        />
+      </view>
+      <button class="send-btn" :disabled="!canSend" @tap="send">
+        <text class="send-icon">↑</text>
+      </button>
     </view>
-    <view class="input-wrap">
-      <textarea
-        class="input"
-        v-model="text"
-        placeholder="想到啥说啥"
-        :auto-height="true"
-        :show-confirm-bar="false"
-        :adjust-position="true"
-        maxlength="2000"
-      />
+
+    <!-- entry note 自定义 modal -->
+    <view v-if="noteModalOpen" class="note-mask" @tap="cancelNote"></view>
+    <view v-if="noteModalOpen" class="note-modal">
+      <view class="note-card" @tap.stop>
+        <text class="note-title">一句话说说</text>
+        <text class="note-subtitle">发生了什么 / 你最在意什么</text>
+        <textarea
+          class="note-textarea"
+          v-model="noteText"
+          placeholder="她两天没回我了"
+          :auto-height="true"
+          :show-confirm-bar="false"
+          :adjust-position="true"
+          maxlength="200"
+          :focus="noteModalOpen"
+        />
+        <view class="note-hint">老 K 会用这句话给方向。空着也行。</view>
+        <view class="note-actions">
+          <button class="note-btn note-btn-secondary" @tap="cancelNote">
+            <text class="note-btn-text-secondary">取消</text>
+          </button>
+          <button
+            class="note-btn note-btn-primary"
+            :disabled="!noteCanContinue"
+            @tap="confirmNoteAndPickImages"
+          >
+            <text class="note-btn-text-primary">继续选截图</text>
+          </button>
+        </view>
+      </view>
     </view>
-    <button class="send-btn" :disabled="!canSend" @tap="send">
-      <text class="send-icon">↑</text>
-    </button>
   </view>
 </template>
 
@@ -151,5 +189,122 @@ function chooseScreenshots() {
   font-size: 40rpx;
   font-weight: $weight-bold;
   line-height: 1;
+}
+
+// === entry note 自定义 modal ===
+.note-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(15, 18, 28, 0.45);
+  z-index: 998;
+  animation: maskFadeIn 0.2s ease;
+}
+@keyframes maskFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.note-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 48rpx;
+  pointer-events: none;
+}
+.note-card {
+  width: 100%;
+  max-width: 640rpx;
+  background-color: $color-surface;
+  border-radius: 32rpx;
+  padding: 48rpx 44rpx 36rpx;
+  box-shadow: 0 12rpx 48rpx rgba(15, 18, 28, 0.18);
+  pointer-events: auto;
+  animation: cardSlideIn 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes cardSlideIn {
+  from { opacity: 0; transform: translateY(16rpx) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.note-title {
+  display: block;
+  font-size: 36rpx;
+  font-weight: $weight-bold;
+  color: $color-text-primary;
+  letter-spacing: -0.5rpx;
+  line-height: 1.3;
+}
+.note-subtitle {
+  display: block;
+  font-size: 26rpx;
+  color: $color-text-tertiary;
+  margin-top: 8rpx;
+  line-height: 1.5;
+}
+.note-textarea {
+  width: 100%;
+  min-height: 120rpx;
+  margin-top: 28rpx;
+  padding: 24rpx 28rpx;
+  background-color: $color-background;
+  border: 2rpx solid $color-border;
+  border-radius: 20rpx;
+  font-size: 30rpx;
+  color: $color-text-primary;
+  line-height: 1.5;
+  box-sizing: border-box;
+
+  &:focus { border-color: $color-primary-soft; }
+}
+.note-hint {
+  font-size: 24rpx;
+  color: $color-text-tertiary;
+  margin-top: 16rpx;
+  line-height: 1.4;
+}
+.note-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 20rpx;
+  margin-top: 36rpx;
+}
+.note-btn {
+  flex: 1;
+  height: 88rpx;
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  padding: 0;
+
+  &::after { border: none; }
+  &[disabled] { opacity: 0.5; }
+}
+.note-btn-secondary {
+  background-color: $color-surface-subtle;
+  &:active:not([disabled]) { background-color: $color-border; }
+}
+.note-btn-primary {
+  background-color: $color-primary;
+  &:active:not([disabled]) { background-color: $color-primary-deep; }
+}
+.note-btn-text-secondary {
+  color: $color-text-primary;
+  font-size: 30rpx;
+  font-weight: $weight-medium;
+}
+.note-btn-text-primary {
+  color: $color-background;
+  font-size: 30rpx;
+  font-weight: $weight-medium;
 }
 </style>
