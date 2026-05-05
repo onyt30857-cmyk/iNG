@@ -167,11 +167,12 @@ async function handleScreenshotsChosen(payload: { note: string; paths: string[] 
     } catch (e) {
       // eslint-disable-next-line no-console
       console.warn('[PARSING-stream conversation] 失败:', e)
-      // 流式失败,降级为静态错误消息
+      // 把真实错误信息显示在气泡里,而不是 hardcode 笼统文案,方便定位
+      const errMsg = e instanceof Error ? e.message : String(e)
       conversationStore.updateStreamingLaokeText(
         relationshipId.value,
         streamingMsgId,
-        '我这边出了点意外,你重新发一下截图?',
+        `我这边出了点意外:${errMsg}`,
       )
       conversationStore.finishStreamingLaokeText(relationshipId.value, streamingMsgId)
       return

@@ -86,34 +86,68 @@ async function streamHTTPCommon(
     process.env.NODE_ENV === 'production'
       ? 'https://api.lianai.com/v1'
       : `http://${hostname}:3000/v1`
+  const url = `${baseUrl}${endpoint}`
 
-  const response = await fetch(`${baseUrl}${endpoint}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${DEV_TOKEN}`,
-    },
-    body: JSON.stringify(body),
+  // eslint-disable-next-line no-console
+  console.log('[stream] fetch start', url)
+  let response: Response
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${DEV_TOKEN}`,
+      },
+      body: JSON.stringify(body),
+    })
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('[stream] fetch threw', e)
+    throw new Error(
+      `网络层失败: ${e instanceof Error ? e.message : String(e)}`,
+    )
+  }
+
+  // eslint-disable-next-line no-console
+  console.log('[stream] response', {
+    status: response.status,
+    ok: response.ok,
+    hasBody: !!response.body,
+    contentType: response.headers.get('content-type'),
   })
 
-  if (!response.ok || !response.body) {
-    throw new Error(`${endpoint} http ${response.status}`)
+  if (!response.ok) {
+    const text = await response.text().catch(() => '<no body>')
+    throw new Error(`${endpoint} http ${response.status}: ${text.slice(0, 200)}`)
+  }
+  if (!response.body) {
+    throw new Error(`${endpoint} 没 body(浏览器不支持 ReadableStream?)`)
   }
 
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let tail = ''
+  let chunkCount = 0
+  let totalLen = 0
 
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
     const chunk = decoder.decode(value, { stream: true })
+    chunkCount += 1
+    totalLen += chunk.length
     onChunk(chunk)
     tail = (tail + chunk).slice(-200)
   }
 
+  // eslint-disable-next-line no-console
+  console.log('[stream] done', { chunks: chunkCount, totalChars: totalLen })
+
   if (tail.includes('[STREAM_ERROR]')) {
     throw new Error(tail.split('[STREAM_ERROR]').pop()?.trim() ?? 'stream error')
+  }
+  if (chunkCount === 0 || totalLen === 0) {
+    throw new Error(`没收到任何 chunk(后端可能 hijack 后没 write,或被中间层 buffer)`)
   }
 }
 
