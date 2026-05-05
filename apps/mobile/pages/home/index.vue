@@ -7,7 +7,8 @@
 
 import { onMounted, ref } from 'vue'
 import { apiGet } from '../../api/client'
-import { runOcr, type OcrInputImage, type OcrMediaType } from '../../api/replay.api'
+import { runOcr } from '../../api/replay.api'
+import { compressImageFromBlobUrl } from '../../utils/compress-image'
 import { useRelationshipStore } from '../../stores/relationship'
 import { useReplayStore } from '../../stores/replay'
 import { DEV_RELATIONSHIP_ID } from '../../utils/dev-token'
@@ -52,37 +53,6 @@ function goMockReplay() {
 const replayStore = useReplayStore()
 const isOcrLoading = ref(false)
 
-/** 从 blob URL 拉图片 → 转 base64 + mediaType */
-async function blobUrlToImage(blobUrl: string): Promise<OcrInputImage> {
-  const res = await fetch(blobUrl)
-  const blob = await res.blob()
-  const detectedType = blob.type
-  if (!/^image\/(jpeg|png|gif|webp)$/.test(detectedType)) {
-    throw new Error(`不支持的图片格式: ${detectedType}`)
-  }
-  return new Promise<OcrInputImage>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const result = reader.result
-      if (typeof result !== 'string') {
-        reject(new Error('FileReader 返回非字符串'))
-        return
-      }
-      const m = result.match(/^data:([^;]+);base64,(.+)$/)
-      if (!m) {
-        reject(new Error('FileReader 输出不是 base64'))
-        return
-      }
-      resolve({
-        mediaType: m[1] as OcrMediaType,
-        base64: m[2]!,
-      })
-    }
-    reader.onerror = () => reject(reader.error ?? new Error('FileReader 失败'))
-    reader.readAsDataURL(blob)
-  })
-}
-
 function pickOcrFiles() {
   if (isOcrLoading.value) return
   uni.chooseImage({
@@ -105,7 +75,7 @@ async function processOcrFiles(blobUrls: string[]) {
   try {
     uni.showLoading({ title: '老 K 在看...' })
     const limited = blobUrls.slice(0, 5)
-    const images = await Promise.all(limited.map(blobUrlToImage))
+    const images = await Promise.all(limited.map(compressImageFromBlobUrl))
     const r = await runOcr({ relationship_id: DEV_RELATIONSHIP_ID, images })
     if (!r.ok) {
       uni.hideLoading()

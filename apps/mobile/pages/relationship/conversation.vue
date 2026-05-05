@@ -9,7 +9,8 @@ import { onLoad } from '@dcloudio/uni-app'
 import { useRelationshipStore } from '../../stores/relationship'
 import { useConversationStore } from '../../stores/conversation'
 import { useReplayStore } from '../../stores/replay'
-import { runOcr, type OcrInputImage, type OcrMediaType } from '../../api/replay.api'
+import { runOcr } from '../../api/replay.api'
+import { compressImageFromBlobUrl } from '../../utils/compress-image'
 import SystemDivider from '../../components/conversation/SystemDivider.vue'
 import LaokeBubble from '../../components/conversation/LaokeBubble.vue'
 import LaokeQuestionBubble from '../../components/conversation/LaokeQuestionBubble.vue'
@@ -75,32 +76,6 @@ function handleSendText(text: string) {
 // === 截图上传 → OCR → 启动复盘(spec-004 真用户入口)===
 const isOcrLoading = ref(false)
 
-async function blobUrlToImage(blobUrl: string): Promise<OcrInputImage> {
-  const res = await fetch(blobUrl)
-  const blob = await res.blob()
-  if (!/^image\/(jpeg|png|gif|webp)$/.test(blob.type)) {
-    throw new Error(`不支持的图片格式: ${blob.type}`)
-  }
-  return new Promise<OcrInputImage>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const result = reader.result
-      if (typeof result !== 'string') {
-        reject(new Error('FileReader 返回非字符串'))
-        return
-      }
-      const m = result.match(/^data:([^;]+);base64,(.+)$/)
-      if (!m) {
-        reject(new Error('FileReader 输出不是 base64'))
-        return
-      }
-      resolve({ mediaType: m[1] as OcrMediaType, base64: m[2]! })
-    }
-    reader.onerror = () => reject(reader.error ?? new Error('FileReader 失败'))
-    reader.readAsDataURL(blob)
-  })
-}
-
 async function handleScreenshotsChosen(blobUrls: string[]) {
   if (isOcrLoading.value) return
   isOcrLoading.value = true
@@ -111,7 +86,7 @@ async function handleScreenshotsChosen(blobUrls: string[]) {
   try {
     uni.showLoading({ title: '老 K 在看...' })
     const limited = blobUrls.slice(0, 5)
-    const images = await Promise.all(limited.map(blobUrlToImage))
+    const images = await Promise.all(limited.map(compressImageFromBlobUrl))
     const r = await runOcr({
       relationship_id: relationshipId.value || 'dev-relationship-1',
       images,
