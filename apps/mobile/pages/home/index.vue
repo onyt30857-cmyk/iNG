@@ -50,15 +50,17 @@ function goMockReplay() {
 // === OCR 上传(spec-004 真用户入口)===
 
 const replayStore = useReplayStore()
-const ocrFileInput = ref<HTMLInputElement | null>(null)
 const isOcrLoading = ref(false)
 
-function pickOcrFiles() {
-  ocrFileInput.value?.click()
-}
-
-function fileToBase64Image(file: File): Promise<OcrInputImage> {
-  return new Promise((resolve, reject) => {
+/** 从 blob URL 拉图片 → 转 base64 + mediaType */
+async function blobUrlToImage(blobUrl: string): Promise<OcrInputImage> {
+  const res = await fetch(blobUrl)
+  const blob = await res.blob()
+  const detectedType = blob.type
+  if (!/^image\/(jpeg|png|gif|webp)$/.test(detectedType)) {
+    throw new Error(`不支持的图片格式: ${detectedType}`)
+  }
+  return new Promise<OcrInputImage>((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => {
       const result = reader.result
@@ -66,10 +68,9 @@ function fileToBase64Image(file: File): Promise<OcrInputImage> {
         reject(new Error('FileReader 返回非字符串'))
         return
       }
-      // result = "data:image/jpeg;base64,xxxxx"
-      const m = result.match(/^data:(image\/(?:jpeg|png|gif|webp));base64,(.+)$/)
+      const m = result.match(/^data:([^;]+);base64,(.+)$/)
       if (!m) {
-        reject(new Error(`不支持的图片格式: ${file.type}`))
+        reject(new Error('FileReader 输出不是 base64'))
         return
       }
       resolve({
@@ -78,20 +79,33 @@ function fileToBase64Image(file: File): Promise<OcrInputImage> {
       })
     }
     reader.onerror = () => reject(reader.error ?? new Error('FileReader 失败'))
-    reader.readAsDataURL(file)
+    reader.readAsDataURL(blob)
   })
 }
 
-async function handleOcrFiles(e: Event) {
-  const input = e.target as HTMLInputElement
-  const files = Array.from(input.files ?? []).slice(0, 5)
-  input.value = '' // 清掉 selection 让下次能重选同一文件
-  if (files.length === 0) return
+function pickOcrFiles() {
+  if (isOcrLoading.value) return
+  uni.chooseImage({
+    count: 5,
+    sizeType: ['compressed'],
+    sourceType: ['album'],
+    success: (res) => {
+      const paths = (res.tempFilePaths as string[]) ?? []
+      if (paths.length > 0) void processOcrFiles(paths)
+    },
+    fail: (err) => {
+      // eslint-disable-next-line no-console
+      console.warn('[OCR] chooseImage 取消或失败:', err)
+    },
+  })
+}
 
+async function processOcrFiles(blobUrls: string[]) {
   isOcrLoading.value = true
   try {
     uni.showLoading({ title: '老 K 在看...' })
-    const images = await Promise.all(files.map(fileToBase64Image))
+    const limited = blobUrls.slice(0, 5)
+    const images = await Promise.all(limited.map(blobUrlToImage))
     const r = await runOcr({ relationship_id: DEV_RELATIONSHIP_ID, images })
     if (!r.ok) {
       uni.hideLoading()
@@ -112,14 +126,13 @@ async function handleOcrFiles(e: Event) {
 
     if (messages.length === 0) {
       uni.showToast({
-        title: r.data.warnings[0] ?? '没看到对话,你重新选一下截图',
+        title: r.data.warnings[0] ?? '没看到对话,重新选一下',
         icon: 'none',
         duration: 2500,
       })
       return
     }
 
-    // 启动复盘
     replayStore.startReplayWithMessages(messages, '我刚上传的截图')
     uni.navigateTo({ url: '/pages/replay/session' })
   } catch (err) {
@@ -208,14 +221,6 @@ const greeting = (() => {
     <view class="dev-link" :class="{ disabled: isOcrLoading }" @tap="pickOcrFiles">
       <text class="dev-link-text">{{ isOcrLoading ? '老 K 在看截图...' : '上传 1-5 张聊天截图开始真复盘' }}</text>
     </view>
-    <input
-      ref="ocrFileInput"
-      type="file"
-      multiple
-      accept="image/jpeg,image/png,image/webp"
-      style="display: none"
-      @change="handleOcrFiles"
-    />
 
     <!-- entry 抽屉保留(开发态用),实际入口已转移到详情页主 CTA -->
     <EntrySheet
