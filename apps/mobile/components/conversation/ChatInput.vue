@@ -12,7 +12,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   sendText: [string]
   /** 用户选了 1-5 张截图,blob URLs 给父组件做 OCR */
-  screenshotsChosen: [string[]]
+  screenshotsChosen: [{ note: string; paths: string[] }]
 }>()
 
 const text = ref('')
@@ -30,17 +30,30 @@ function send() {
 
 function chooseScreenshots() {
   if (props.uploading) return
-  uni.chooseImage({
-    count: 5,
-    sizeType: ['compressed'],
-    sourceType: ['album'],
-    success: (res) => {
-      const paths = (res.tempFilePaths as string[]) ?? []
-      if (paths.length > 0) emit('screenshotsChosen', paths)
-    },
-    fail: (err) => {
-      // eslint-disable-next-line no-console
-      console.warn('[ChatInput] chooseImage 取消或失败:', err)
+  // 先问 entry note(背景),再选图。entry note 直接影响老 K PARSING 方向。
+  uni.showModal({
+    title: '一句话说说',
+    content: '发生了什么?你最在意什么?(老 K 用这句话定方向)',
+    placeholderText: '她两天没回我了 / 昨晚吵了一架 / 我不知道她什么意思',
+    editable: true,
+    confirmText: '继续选图',
+    cancelText: '取消',
+    success: (modalRes) => {
+      if (modalRes.cancel) return
+      const note = (modalRes.content ?? '').trim()
+      uni.chooseImage({
+        count: 5,
+        sizeType: ['compressed'],
+        sourceType: ['album'],
+        success: (imgRes) => {
+          const paths = (imgRes.tempFilePaths as string[]) ?? []
+          if (paths.length > 0) emit('screenshotsChosen', { note, paths })
+        },
+        fail: (err) => {
+          // eslint-disable-next-line no-console
+          console.warn('[ChatInput] chooseImage 取消或失败:', err)
+        },
+      })
     },
   })
 }

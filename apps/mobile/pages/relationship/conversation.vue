@@ -76,16 +76,20 @@ function handleSendText(text: string) {
 // === 截图上传 → OCR → 启动复盘(spec-004 真用户入口)===
 const isOcrLoading = ref(false)
 
-async function handleScreenshotsChosen(blobUrls: string[]) {
+async function handleScreenshotsChosen(payload: { note: string; paths: string[] }) {
   if (isOcrLoading.value) return
   isOcrLoading.value = true
 
   // 先在对话流里展示"用户发了 X 张截图"气泡(产品体感)
-  conversationStore.appendUserScreenshots(relationshipId.value, blobUrls.length)
+  conversationStore.appendUserScreenshots(relationshipId.value, payload.paths.length)
+  if (payload.note) {
+    // 用户输入的 entry note 也作为一条消息加到对话流(老 K 看见了)
+    conversationStore.appendUserText(relationshipId.value, payload.note)
+  }
 
   try {
     uni.showLoading({ title: '老 K 在看...' })
-    const limited = blobUrls.slice(0, 5)
+    const limited = payload.paths.slice(0, 5)
     const images = await Promise.all(limited.map(compressImageFromBlobUrl))
     const r = await runOcr({
       relationship_id: relationshipId.value || 'dev-relationship-1',
@@ -110,8 +114,12 @@ async function handleScreenshotsChosen(blobUrls: string[]) {
       })
       return
     }
-    const noteName = relationship.value?.name ?? '她'
-    replayStore.startReplayWithMessages(messages, `刚刚和${noteName}的对话截图`)
+    const fallbackNote =
+      `刚刚和${relationship.value?.name ?? '她'}的对话截图`
+    replayStore.startReplayWithMessages(
+      messages,
+      payload.note || fallbackNote,
+    )
     uni.navigateTo({ url: '/pages/replay/session' })
   } catch (err) {
     uni.hideLoading()
