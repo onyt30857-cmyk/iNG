@@ -5,6 +5,7 @@
 import { onMounted, ref, computed } from 'vue'
 import { useRelationshipStore } from '../../stores/relationship'
 import RelationshipCard from '../../components/RelationshipCard.vue'
+import CrossRelationshipBriefing from '../../components/CrossRelationshipBriefing.vue'
 
 const store = useRelationshipStore()
 const showArchived = ref(false)
@@ -57,6 +58,9 @@ function goBack() {
     <view class="body">
       <!-- ready 态 -->
       <view v-if="store.listState === 'ready'">
+        <!-- 老 K 整体势头(spec-007 §6 / Phase 19.4)只在有关系时才显示 -->
+        <CrossRelationshipBriefing v-if="store.items.length > 0" />
+
         <RelationshipCard
           v-for="r in store.items"
           :key="r.id"
