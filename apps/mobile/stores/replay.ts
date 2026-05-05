@@ -19,6 +19,7 @@ import type {
 } from '../types/replay'
 import {
   runParsing,
+  streamParsingHTTP,
   runReflecting,
   runDiagnosing,
   runPlanning,
@@ -174,51 +175,77 @@ export const useReplayStore = defineStore('replay', () => {
     closingMessage.value = ''
   }
 
-  // ============== PARSING(真调 Anthropic + 打字机展示) ==============
-  // 真 API 调用拿到完整文本后,用打字机一字一字 reveal,体感跟流式接近。
-  // SSE 真流式作为后续 spec-005 §3.x 优化。
-  // 真 API 失败 → 回退 MOCK_PARSING,产品体验不被打断。
+  // ============== PARSING(真流式 SSE,每个 chunk 直接 append) ==============
+  // 后端用 chunked transfer-encoding 推 text deltas,前端 fetch + ReadableStream 实时 append
+  // 到 parsingText。体感"老 K 边想边说",而不是等待 5-9s 后突然出现完整文字。
+  // 流式失败 → 回退到同步 runParsing → 再失败回退 mock。
   async function streamParsing() {
     isParsingTyping.value = true
     parsingText.value = ''
+    let useFallback = true
 
-    // 1. 拿真老 K 输出(失败回退 mock)
-    let target = MOCK_PARSING.summary
+    // 1. 优先尝试 SSE 流式
     try {
-      const r = await runParsing(DEV_SESSION_ID, {
-        messages: DEV_PARSING_MESSAGES,
-        entry_note: DEV_PARSING_ENTRY_NOTE,
-      })
-      if (r.ok) {
-        target = r.data.text
-        // eslint-disable-next-line no-console
-        console.info(
-          `[PARSING] ${r.data.duration_ms}ms · ${r.data.usage.input_tokens}/${r.data.usage.output_tokens} tokens · persona=${r.data.persona_passed ? '✓' : '✗'}`,
-        )
-      } else {
-        // eslint-disable-next-line no-console
-        console.warn('[PARSING] 真 API 失败,回退 mock:', r.error)
-      }
+      const startTime = Date.now()
+      await streamParsingHTTP(
+        DEV_SESSION_ID,
+        {
+          messages: DEV_PARSING_MESSAGES,
+          entry_note: DEV_PARSING_ENTRY_NOTE,
+        },
+        (chunk) => {
+          parsingText.value += chunk
+        },
+      )
+      useFallback = false
+      // eslint-disable-next-line no-console
+      console.info(`[PARSING-stream] ${Date.now() - startTime}ms 完成`)
     } catch (e) {
       // eslint-disable-next-line no-console
-      console.warn('[PARSING] 真 API 异常,回退 mock:', e)
+      console.warn('[PARSING-stream] 流式失败,降级同步 API:', e)
+      parsingText.value = '' // 清空可能已经写入的部分文本
     }
 
-    // 2. 打字机展示(已有逻辑保留)
-    let i = 0
-    const speed = 28 // ms / 字
-    const tick = () => {
-      if (i >= target.length) {
-        isParsingTyping.value = false
-        parsingDone.value = true
-        setTimeout(() => transitionToReflecting(), 800)
-        return
+    // 2. 流式失败 → 同步 runParsing(失败再回退 mock)+ 打字机展示
+    if (useFallback) {
+      let target = MOCK_PARSING.summary
+      try {
+        const r = await runParsing(DEV_SESSION_ID, {
+          messages: DEV_PARSING_MESSAGES,
+          entry_note: DEV_PARSING_ENTRY_NOTE,
+        })
+        if (r.ok) {
+          target = r.data.text
+          // eslint-disable-next-line no-console
+          console.info(
+            `[PARSING] ${r.data.duration_ms}ms · ${r.data.usage.input_tokens}/${r.data.usage.output_tokens} tokens · persona=${r.data.persona_passed ? '✓' : '✗'}`,
+          )
+        }
+      } catch (e2) {
+        // eslint-disable-next-line no-console
+        console.warn('[PARSING] 同步 API 也失败,回退 mock:', e2)
       }
-      parsingText.value = target.slice(0, i + 1)
-      i += 1
-      setTimeout(tick, speed)
+
+      // 打字机展示(同步 API 路径)
+      await new Promise<void>((resolve) => {
+        let i = 0
+        const speed = 28
+        const tick = () => {
+          if (i >= target.length) {
+            resolve()
+            return
+          }
+          parsingText.value = target.slice(0, i + 1)
+          i += 1
+          setTimeout(tick, speed)
+        }
+        tick()
+      })
     }
-    tick()
+
+    isParsingTyping.value = false
+    parsingDone.value = true
+    setTimeout(() => transitionToReflecting(), 800)
   }
 
   // ============== REFLECTING 转入(真调 + mock 回退) ==============

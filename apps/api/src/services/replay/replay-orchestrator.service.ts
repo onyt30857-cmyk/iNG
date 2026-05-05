@@ -13,10 +13,12 @@
 
 import {
   runParsing,
+  runParsingStream,
   type ParsingInput,
   type ParsingMessage,
   type ParsingOutput,
 } from '../../ai/orchestrators/parsing.orchestrator.js'
+import type { CallClaudeStreamHandlers } from '../../ai/client.js'
 import {
   runReflecting,
   type ReflectingInput,
@@ -98,6 +100,26 @@ export async function runParsingForSession(
     other_identifiers: ctx.otherIdentifiers,
   }
   return runParsing(parsingInput)
+}
+
+/** 流式版 runParsingForSession:每个 chunk 给 handlers.onChunk */
+export async function runParsingForSessionStream(
+  userId: string,
+  sessionId: string,
+  input: RunParsingForSessionInput,
+  handlers: CallClaudeStreamHandlers,
+): Promise<ParsingOutput> {
+  const ctx = await loadSessionContext(userId, sessionId)
+  const parsingInput: ParsingInput = {
+    user_id: userId,
+    relationship_id: ctx.relationshipId,
+    session_id: ctx.sessionId,
+    relationship_name: ctx.relationshipName,
+    entry_note: input.entry_note,
+    messages: input.messages,
+    other_identifiers: ctx.otherIdentifiers,
+  }
+  return runParsingStream(parsingInput, handlers)
 }
 
 // =================== REFLECTING ===================

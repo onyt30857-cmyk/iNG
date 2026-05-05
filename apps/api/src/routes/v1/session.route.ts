@@ -31,6 +31,7 @@ import {
 } from '../../services/session/session.service.js'
 import {
   runParsingForSession,
+  runParsingForSessionStream,
   runReflectingForSession,
   runDiagnosingForSession,
   runPlanningForSession,
@@ -99,6 +100,46 @@ export async function sessionRoutes(app: FastifyInstance): Promise<void> {
         persona_passed: result.persona_check.passed,
       },
     }
+  })
+
+  /**
+   * 流式版 PARSING:用 chunked transfer encoding 推每个 text delta。
+   * 前端 fetch + ReadableStream 接收,体感"老 K 边想边说"。
+   *
+   * Response:
+   *   Content-Type: text/plain; charset=utf-8
+   *   Body: 纯文本 chunks(不是 SSE 标准的 data: 格式),前端 reader.read() 累加即可
+   *
+   * 错误处理:流式开始后无法返回 JSON 错误,只能在 body 末尾追加 [ERROR] 标记
+   * (前端检测到此标记 → 走 fallback 到 mock)
+   */
+  app.post('/v1/sessions/:id/stream-parsing', async (request, reply) => {
+    const userId = request.user!.id
+    const { id } = sessionIdParamSchema.parse(request.params)
+    const body = runParsingSchema.parse(request.body)
+
+    // hijack:接管 raw response,Fastify 不再尝试自己 send response
+    reply.hijack()
+    reply.raw.setHeader('Content-Type', 'text/plain; charset=utf-8')
+    reply.raw.setHeader('Transfer-Encoding', 'chunked')
+    reply.raw.setHeader('X-Accel-Buffering', 'no')
+    reply.raw.setHeader('Cache-Control', 'no-cache')
+    reply.raw.flushHeaders()
+
+    try {
+      await runParsingForSessionStream(userId, id, body, {
+        onChunk: (text) => {
+          reply.raw.write(text)
+        },
+      })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      // 已经开始流式了 → 用末尾标记告诉前端出错
+      if (!reply.raw.writableEnded) {
+        reply.raw.write(`\n\n[STREAM_ERROR] ${msg}`)
+      }
+    }
+    reply.raw.end()
   })
 
   app.post('/v1/sessions/:id/run-reflecting', async (request) => {

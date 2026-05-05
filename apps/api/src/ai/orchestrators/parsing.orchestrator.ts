@@ -9,7 +9,13 @@
 // 会从 messages 表批量读出。
 
 import { loadPrompt } from '../prompt-loader.js'
-import { callClaude, type AiCallContext, type CallClaudeResult } from '../client.js'
+import {
+  callClaude,
+  callClaudeStream,
+  type AiCallContext,
+  type CallClaudeResult,
+  type CallClaudeStreamHandlers,
+} from '../client.js'
 
 export interface ParsingMessage {
   speaker: 'user' | 'other'
@@ -51,6 +57,33 @@ export async function runParsing(input: ParsingInput): Promise<ParsingOutput> {
     max_tokens: 1024,
     otherIdentifiers: input.other_identifiers,
   })
+}
+
+/** 流式版 runParsing:每个 chunk 通过 handlers.onChunk 推出去 */
+export async function runParsingStream(
+  input: ParsingInput,
+  handlers: CallClaudeStreamHandlers,
+): Promise<ParsingOutput> {
+  const systemPrompt = await loadPrompt('parsing')
+  const userMessage = composeUserMessage(input)
+
+  const ctx: AiCallContext = {
+    user_id: input.user_id,
+    relationship_id: input.relationship_id,
+    session_id: input.session_id,
+    scene: 'parsing',
+  }
+
+  return callClaudeStream(
+    ctx,
+    {
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMessage }],
+      max_tokens: 1024,
+      otherIdentifiers: input.other_identifiers,
+    },
+    handlers,
+  )
 }
 
 /**

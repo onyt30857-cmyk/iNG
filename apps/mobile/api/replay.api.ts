@@ -46,6 +46,63 @@ export async function runParsing(
   })
 }
 
+/**
+ * 流式版 PARSING:fetch + ReadableStream 接收 chunked text。
+ * 每个 chunk 触发 onChunk,出错或完成后 resolve。
+ *
+ * 错误处理:
+ *   - 连接错(网络断/4xx 5xx)→ throw
+ *   - 流中末尾出现 "[STREAM_ERROR]" 标记 → throw(后端中途出错)
+ *   - 正常完成 → resolve()
+ */
+export async function streamParsingHTTP(
+  sessionId: string,
+  body: {
+    messages: ParsingMessage[]
+    entry_note: string
+  },
+  onChunk: (text: string) => void,
+): Promise<void> {
+  // 计算 base URL,跟 client.ts 一致
+  const hostname =
+    typeof window !== 'undefined' && window.location?.hostname
+      ? window.location.hostname
+      : 'localhost'
+  const baseUrl =
+    process.env.NODE_ENV === 'production'
+      ? 'https://api.lianai.com/v1'
+      : `http://${hostname}:3000/v1`
+
+  const response = await fetch(`${baseUrl}/sessions/${sessionId}/stream-parsing`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${DEV_TOKEN}`,
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok || !response.body) {
+    throw new Error(`stream-parsing http ${response.status}`)
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let tail = '' // 用于检测末尾 [STREAM_ERROR] 标记
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    const chunk = decoder.decode(value, { stream: true })
+    onChunk(chunk)
+    tail = (tail + chunk).slice(-200) // 只保留最后 200 字
+  }
+
+  if (tail.includes('[STREAM_ERROR]')) {
+    throw new Error(tail.split('[STREAM_ERROR]').pop()?.trim() ?? 'stream error')
+  }
+}
+
 export async function runReflecting(
   sessionId: string,
   body: {

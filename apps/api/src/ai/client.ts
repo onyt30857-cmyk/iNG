@@ -206,11 +206,127 @@ export async function callClaude(
 }
 
 /**
+ * 流式版 callClaude:每个 text delta 通过 onChunk 推给调用方,完成后返回完整 result。
+ * 用 Anthropic SDK 的 messages.stream API。前端在 chunk 来时立即展示,实现真"老 K 边想边说"。
+ *
+ * audit / persona check 路径跟同步版一致:
+ *   pre-call: assertNoLeak  →  流式中 yield chunk  →  完成后 checkPersona(完整 text)
+ */
+export interface CallClaudeStreamHandlers {
+  onChunk: (text: string) => void
+}
+
+export async function callClaudeStream(
+  ctx: AiCallContext,
+  params: CallClaudeParams,
+  handlers: CallClaudeStreamHandlers,
+): Promise<CallClaudeResult> {
+  const start = Date.now()
+  const model = params.model ?? config.CLAUDE_MODEL_ID
+
+  if (params.otherIdentifiers && params.otherIdentifiers.length > 0) {
+    const auditTarget = composeAuditTarget(params)
+    try {
+      assertNoLeak(auditTarget, { otherIdentifiers: params.otherIdentifiers })
+    } catch (e) {
+      if (e instanceof PromptLeakError) {
+        logger.error(
+          {
+            event: 'ai.callClaudeStream.leak',
+            scene: ctx.scene,
+            user_id: ctx.user_id,
+            relationship_id: ctx.relationship_id,
+            leaks: e.leaks,
+          },
+          'Prompt 跨关系泄漏被拦截(stream)',
+        )
+      }
+      throw e
+    }
+  }
+
+  const client = getAnthropicClient() as Anthropic
+
+  let fullText = ''
+  let inputTokens = 0
+  let outputTokens = 0
+
+  try {
+    const stream = client.messages.stream({
+      model,
+      max_tokens: params.max_tokens ?? 1024,
+      system: params.system,
+      messages: params.messages,
+    })
+
+    for await (const event of stream) {
+      if (
+        event.type === 'content_block_delta' &&
+        event.delta.type === 'text_delta'
+      ) {
+        const chunk = event.delta.text
+        fullText += chunk
+        handlers.onChunk(chunk)
+      } else if (event.type === 'message_start') {
+        inputTokens = event.message.usage.input_tokens
+      } else if (event.type === 'message_delta') {
+        outputTokens = event.usage.output_tokens
+      }
+    }
+  } catch (err) {
+    logger.error(
+      {
+        event: 'ai.callClaudeStream.api_error',
+        scene: ctx.scene,
+        user_id: ctx.user_id,
+        relationship_id: ctx.relationship_id,
+        err,
+      },
+      'Anthropic Stream API 调用失败',
+    )
+    throw new AppError({
+      code: ErrorCodes.AI_CALL_FAILED,
+      message: '老 K 这边出了点意外,你重新试一下',
+      statusCode: 502,
+      detail: err instanceof Error ? err.message : String(err),
+    })
+  }
+
+  const persona_check = params.skipPersonaCheck
+    ? { passed: true, violations: [] }
+    : checkPersona(fullText)
+
+  const duration_ms = Date.now() - start
+
+  logger.info(
+    {
+      event: 'ai.callClaudeStream.done',
+      scene: ctx.scene,
+      user_id: ctx.user_id,
+      relationship_id: ctx.relationship_id,
+      session_id: ctx.session_id,
+      model,
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      duration_ms,
+      persona_passed: persona_check.passed,
+    },
+    'Claude Stream 调用完成',
+  )
+
+  return {
+    text: fullText,
+    usage: { input_tokens: inputTokens, output_tokens: outputTokens },
+    persona_check,
+    duration_ms,
+  }
+}
+
+/**
  * 拼出审计目标文本:只 join user/assistant 消息内容。
  *
  * 故意不扫 system prompt:system 是从 03-prompts/*.md 加载的固定模板,内含 few-shot 范例
- * 里的虚构关系名(小雨/小美/小玲),这些字面值跟用户的真实关系无关。如果连 system 一起扫,
- * 任何用户的"小美"关系都会被范例字面冲撞而误报。
+ * 里的虚构关系名(小雨/小美/小玲),这些字面值跟用户的真实关系无关。
  */
 function composeAuditTarget(params: CallClaudeParams): string {
   return params.messages.map((m) => m.content).join('\n')
