@@ -8,6 +8,8 @@ import { onMounted, ref, computed, nextTick, watch } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { useRelationshipStore } from '../../stores/relationship'
 import { useConversationStore } from '../../stores/conversation'
+import { useReplayStore } from '../../stores/replay'
+import { runOcr, type OcrInputImage, type OcrMediaType } from '../../api/replay.api'
 import SystemDivider from '../../components/conversation/SystemDivider.vue'
 import LaokeBubble from '../../components/conversation/LaokeBubble.vue'
 import LaokeQuestionBubble from '../../components/conversation/LaokeQuestionBubble.vue'
@@ -22,6 +24,7 @@ import type { Relationship } from '../../types/relationship'
 
 const relationshipStore = useRelationshipStore()
 const conversationStore = useConversationStore()
+const replayStore = useReplayStore()
 
 const relationshipId = ref('')
 const relationship = ref<Relationship | null>(null)
@@ -69,8 +72,83 @@ function handleSendText(text: string) {
   conversationStore.appendUserText(relationshipId.value, text)
 }
 
-function handleSendScreenshots(count: number) {
-  conversationStore.appendUserScreenshots(relationshipId.value, count)
+// === 截图上传 → OCR → 启动复盘(spec-004 真用户入口)===
+const isOcrLoading = ref(false)
+
+async function blobUrlToImage(blobUrl: string): Promise<OcrInputImage> {
+  const res = await fetch(blobUrl)
+  const blob = await res.blob()
+  if (!/^image\/(jpeg|png|gif|webp)$/.test(blob.type)) {
+    throw new Error(`不支持的图片格式: ${blob.type}`)
+  }
+  return new Promise<OcrInputImage>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result
+      if (typeof result !== 'string') {
+        reject(new Error('FileReader 返回非字符串'))
+        return
+      }
+      const m = result.match(/^data:([^;]+);base64,(.+)$/)
+      if (!m) {
+        reject(new Error('FileReader 输出不是 base64'))
+        return
+      }
+      resolve({ mediaType: m[1] as OcrMediaType, base64: m[2]! })
+    }
+    reader.onerror = () => reject(reader.error ?? new Error('FileReader 失败'))
+    reader.readAsDataURL(blob)
+  })
+}
+
+async function handleScreenshotsChosen(blobUrls: string[]) {
+  if (isOcrLoading.value) return
+  isOcrLoading.value = true
+
+  // 先在对话流里展示"用户发了 X 张截图"气泡(产品体感)
+  conversationStore.appendUserScreenshots(relationshipId.value, blobUrls.length)
+
+  try {
+    uni.showLoading({ title: '老 K 在看...' })
+    const limited = blobUrls.slice(0, 5)
+    const images = await Promise.all(limited.map(blobUrlToImage))
+    const r = await runOcr({
+      relationship_id: relationshipId.value || 'dev-relationship-1',
+      images,
+    })
+    if (!r.ok) {
+      uni.hideLoading()
+      uni.showToast({ title: r.error.message || 'OCR 失败', icon: 'none' })
+      return
+    }
+    const messages = r.data.messages
+    // eslint-disable-next-line no-console
+    console.info(
+      `[OCR] ${r.data.duration_ms}ms · ${r.data.usage.input_tokens}/${r.data.usage.output_tokens} tokens · ${messages.length} 条消息 · warnings: ${r.data.warnings.length}`,
+    )
+    uni.hideLoading()
+    if (messages.length === 0) {
+      uni.showToast({
+        title: r.data.warnings[0] ?? '没看到对话,你重新选一下',
+        icon: 'none',
+        duration: 2500,
+      })
+      return
+    }
+    const noteName = relationship.value?.name ?? '她'
+    replayStore.startReplayWithMessages(messages, `刚刚和${noteName}的对话截图`)
+    uni.navigateTo({ url: '/pages/replay/session' })
+  } catch (err) {
+    uni.hideLoading()
+    // eslint-disable-next-line no-console
+    console.error('[OCR] 失败:', err)
+    uni.showToast({
+      title: err instanceof Error ? err.message : 'OCR 出了点意外',
+      icon: 'none',
+    })
+  } finally {
+    isOcrLoading.value = false
+  }
 }
 
 function handleSelectDraft(_draftId: string) {
@@ -184,8 +262,9 @@ function handleSavePlanning(planningId: string, content: import('../../types/mes
       <StarterChips v-if="isFresh" :chips="starterChips" @pick="handlePickChip" />
       <ChatInput
         :preset-text="presetText"
+        :uploading="isOcrLoading"
         @send-text="handleSendText"
-        @send-screenshots="handleSendScreenshots"
+        @screenshots-chosen="handleScreenshotsChosen"
       />
     </view>
   </view>

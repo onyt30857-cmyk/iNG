@@ -6,10 +6,13 @@ import { ref, computed, watch } from 'vue'
 const props = defineProps<{
   /** 外部预填(冷启动示例气泡点击后填进来) */
   presetText?: string
+  /** 上传中,锁住按钮 */
+  uploading?: boolean
 }>()
 const emit = defineEmits<{
   sendText: [string]
-  sendScreenshots: [number]  // M1 mock:传张数
+  /** 用户选了 1-5 张截图,blob URLs 给父组件做 OCR */
+  screenshotsChosen: [string[]]
 }>()
 
 const text = ref('')
@@ -26,12 +29,18 @@ function send() {
 }
 
 function chooseScreenshots() {
-  // M1 mock:假装选了 1-3 张随机
-  const count = 1 + Math.floor(Math.random() * 3)
-  uni.showActionSheet({
-    itemList: [`mock 发 ${count} 张截图(真实场景调 uni.chooseImage)`],
-    success: () => {
-      emit('sendScreenshots', count)
+  if (props.uploading) return
+  uni.chooseImage({
+    count: 5,
+    sizeType: ['compressed'],
+    sourceType: ['album'],
+    success: (res) => {
+      const paths = (res.tempFilePaths as string[]) ?? []
+      if (paths.length > 0) emit('screenshotsChosen', paths)
+    },
+    fail: (err) => {
+      // eslint-disable-next-line no-console
+      console.warn('[ChatInput] chooseImage 取消或失败:', err)
     },
   })
 }
