@@ -8,7 +8,13 @@
 // 危机检测器(spec-005 §3.3 / crisis.md)。
 
 import { loadPrompt } from '../prompt-loader.js'
-import { callClaude, type AiCallContext, type CallClaudeResult } from '../client.js'
+import {
+  callClaude,
+  callClaudeStream,
+  type AiCallContext,
+  type CallClaudeResult,
+  type CallClaudeStreamHandlers,
+} from '../client.js'
 import type { ParsingMessage } from './parsing.orchestrator.js'
 
 export interface DiagnosingReflection {
@@ -49,6 +55,31 @@ export async function runDiagnosing(input: DiagnosingInput): Promise<DiagnosingO
     max_tokens: 1500,
     otherIdentifiers: input.other_identifiers,
   })
+}
+
+/** 流式版 runDiagnosing */
+export async function runDiagnosingStream(
+  input: DiagnosingInput,
+  handlers: CallClaudeStreamHandlers,
+): Promise<DiagnosingOutput> {
+  const systemPrompt = await loadPrompt('diagnosing')
+  const userMessage = composeUserMessage(input)
+  const ctx: AiCallContext = {
+    user_id: input.user_id,
+    relationship_id: input.relationship_id,
+    session_id: input.session_id,
+    scene: 'diagnosing',
+  }
+  return callClaudeStream(
+    ctx,
+    {
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMessage }],
+      max_tokens: 1500,
+      otherIdentifiers: input.other_identifiers,
+    },
+    handlers,
+  )
 }
 
 export function composeUserMessage(input: DiagnosingInput): string {

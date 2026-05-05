@@ -26,12 +26,14 @@ import {
 } from '../../ai/orchestrators/reflecting.orchestrator.js'
 import {
   runDiagnosing,
+  runDiagnosingStream,
   type DiagnosingInput,
   type DiagnosingOutput,
   type DiagnosingReflection,
 } from '../../ai/orchestrators/diagnosing.orchestrator.js'
 import {
   runPlanning,
+  runPlanningStream,
   type PlanningInput,
   type PlanningOutput,
 } from '../../ai/orchestrators/planning.orchestrator.js'
@@ -162,13 +164,12 @@ export interface RunDiagnosingForSessionInput {
   scenario_primary?: string | undefined
 }
 
-export async function runDiagnosingForSession(
+function buildDiagnosingInput(
   userId: string,
-  sessionId: string,
+  ctx: SessionContext,
   input: RunDiagnosingForSessionInput,
-): Promise<DiagnosingOutput> {
-  const ctx = await loadSessionContext(userId, sessionId)
-  const diagnosingInput: DiagnosingInput = {
+): DiagnosingInput {
+  return {
     user_id: userId,
     relationship_id: ctx.relationshipId,
     session_id: ctx.sessionId,
@@ -181,7 +182,25 @@ export async function runDiagnosingForSession(
       ? { scenario_primary: input.scenario_primary }
       : {}),
   }
-  return runDiagnosing(diagnosingInput)
+}
+
+export async function runDiagnosingForSession(
+  userId: string,
+  sessionId: string,
+  input: RunDiagnosingForSessionInput,
+): Promise<DiagnosingOutput> {
+  const ctx = await loadSessionContext(userId, sessionId)
+  return runDiagnosing(buildDiagnosingInput(userId, ctx, input))
+}
+
+export async function runDiagnosingForSessionStream(
+  userId: string,
+  sessionId: string,
+  input: RunDiagnosingForSessionInput,
+  handlers: CallClaudeStreamHandlers,
+): Promise<DiagnosingOutput> {
+  const ctx = await loadSessionContext(userId, sessionId)
+  return runDiagnosingStream(buildDiagnosingInput(userId, ctx, input), handlers)
 }
 
 // =================== PLANNING ===================
@@ -193,13 +212,12 @@ export interface RunPlanningForSessionInput {
   diagnosing_output: string
 }
 
-export async function runPlanningForSession(
+function buildPlanningInput(
   userId: string,
-  sessionId: string,
+  ctx: SessionContext,
   input: RunPlanningForSessionInput,
-): Promise<PlanningOutput> {
-  const ctx = await loadSessionContext(userId, sessionId)
-  const planningInput: PlanningInput = {
+): PlanningInput {
+  return {
     user_id: userId,
     relationship_id: ctx.relationshipId,
     session_id: ctx.sessionId,
@@ -210,7 +228,25 @@ export async function runPlanningForSession(
     messages: input.messages,
     other_identifiers: ctx.otherIdentifiers,
   }
-  return runPlanning(planningInput)
+}
+
+export async function runPlanningForSession(
+  userId: string,
+  sessionId: string,
+  input: RunPlanningForSessionInput,
+): Promise<PlanningOutput> {
+  const ctx = await loadSessionContext(userId, sessionId)
+  return runPlanning(buildPlanningInput(userId, ctx, input))
+}
+
+export async function runPlanningForSessionStream(
+  userId: string,
+  sessionId: string,
+  input: RunPlanningForSessionInput,
+  handlers: CallClaudeStreamHandlers,
+): Promise<PlanningOutput> {
+  const ctx = await loadSessionContext(userId, sessionId)
+  return runPlanningStream(buildPlanningInput(userId, ctx, input), handlers)
 }
 
 // =================== DRAFTING ===================

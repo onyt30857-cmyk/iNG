@@ -22,7 +22,9 @@ import {
   streamParsingHTTP,
   runReflecting,
   runDiagnosing,
+  streamDiagnosingHTTP,
   runPlanning,
+  streamPlanningHTTP,
   runDrafting,
   type ParsingMessage,
 } from '../api/replay.api'
@@ -140,9 +142,13 @@ export const useReplayStore = defineStore('replay', () => {
   // Diagnosing
   const diagnosingOutput = ref<DiagnosingOutput | null>(null)
   const isDiagnosingTyping = ref(false)
+  /** SSE 流式过程中实时累加的文本(streaming 期间 view 优先展示这个) */
+  const diagnosingStreamingText = ref('')
 
   // Planning
   const planning = ref<PlanningDirection | null>(null)
+  /** SSE 流式过程中实时累加的文本(streaming 期间 view 优先展示这个) */
+  const planningStreamingText = ref('')
 
   // Drafting
   const drafting = ref<ReplyDraft[]>([])
@@ -169,7 +175,9 @@ export const useReplayStore = defineStore('replay', () => {
     reflectingAnswers.value = []
     reflectingQuestions.value = []
     diagnosingOutput.value = null
+    diagnosingStreamingText.value = ''
     planning.value = null
+    planningStreamingText.value = ''
     drafting.value = []
     selectedReplyId.value = null
     closingMessage.value = ''
@@ -315,89 +323,138 @@ export const useReplayStore = defineStore('replay', () => {
     }
   }
 
-  // ============== DIAGNOSING 转入(真调 + mock 回退) ==============
+  // ============== DIAGNOSING 转入(SSE 流式 → 完成后切 paragraphs) ==============
   async function transitionToDiagnosing() {
     state.value = 'DIAGNOSING'
     isDiagnosingTyping.value = true
+    diagnosingStreamingText.value = ''
 
-    let output: DiagnosingOutput = MOCK_DIAGNOSING
+    const reflections = reflectingAnswers.value.map((answer, i) => ({
+      question:
+        reflectingQuestions.value[i] ?? MOCK_REFLECTING_QUESTIONS[i] ?? '',
+      answer,
+    }))
+
+    let fullText = ''
+    let useFallback = true
     try {
-      // 把 3 个 questions × 3 个 answers 配对
-      const reflections = reflectingAnswers.value.map((answer, i) => ({
-        question:
-          reflectingQuestions.value[i] ??
-          MOCK_REFLECTING_QUESTIONS[i] ??
-          '',
-        answer,
-      }))
-
-      const r = await runDiagnosing(DEV_SESSION_ID, {
-        messages: DEV_PARSING_MESSAGES,
-        parsing_output: parsingText.value,
-        reflections,
-        scenario_primary: DEV_SCENARIO_PRIMARY,
-      })
-      if (r.ok) {
-        // 真 API 输出散文,按 \n\n 切 paragraphs(羞耻处理标记后续 spec-005 优化时再加)
-        const paragraphs = r.data.text
-          .split(/\n\s*\n/)
-          .map((s) => s.trim())
-          .filter(Boolean)
-          .map((text) => ({ text, is_shame_handling: false }))
-        output = { paragraphs, crisis_detected: false }
-        // eslint-disable-next-line no-console
-        console.info(
-          `[DIAGNOSING] ${r.data.duration_ms}ms · ${r.data.usage.input_tokens}/${r.data.usage.output_tokens} tokens · persona=${r.data.persona_passed ? '✓' : '✗'}`,
-        )
-      } else {
-        // eslint-disable-next-line no-console
-        console.warn('[DIAGNOSING] 真 API 失败,回退 mock:', r.error)
-      }
+      const startTime = Date.now()
+      await streamDiagnosingHTTP(
+        DEV_SESSION_ID,
+        {
+          messages: DEV_PARSING_MESSAGES,
+          parsing_output: parsingText.value,
+          reflections,
+          scenario_primary: DEV_SCENARIO_PRIMARY,
+        },
+        (chunk) => {
+          diagnosingStreamingText.value += chunk
+          fullText += chunk
+        },
+      )
+      useFallback = false
+      // eslint-disable-next-line no-console
+      console.info(`[DIAGNOSING-stream] ${Date.now() - startTime}ms 完成`)
     } catch (e) {
       // eslint-disable-next-line no-console
-      console.warn('[DIAGNOSING] 真 API 异常,回退 mock:', e)
+      console.warn('[DIAGNOSING-stream] 流式失败,降级同步:', e)
+      diagnosingStreamingText.value = ''
+      fullText = ''
+    }
+
+    let output: DiagnosingOutput = MOCK_DIAGNOSING
+    if (!useFallback && fullText) {
+      // 流式成功 → 切 paragraphs
+      const paragraphs = fullText
+        .split(/\n\s*\n/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((text) => ({ text, is_shame_handling: false }))
+      output = { paragraphs, crisis_detected: false }
+    } else {
+      // 流式失败 → 同步 API 兜底
+      try {
+        const r = await runDiagnosing(DEV_SESSION_ID, {
+          messages: DEV_PARSING_MESSAGES,
+          parsing_output: parsingText.value,
+          reflections,
+          scenario_primary: DEV_SCENARIO_PRIMARY,
+        })
+        if (r.ok) {
+          const paragraphs = r.data.text
+            .split(/\n\s*\n/)
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .map((text) => ({ text, is_shame_handling: false }))
+          output = { paragraphs, crisis_detected: false }
+        }
+      } catch (e2) {
+        // eslint-disable-next-line no-console
+        console.warn('[DIAGNOSING] 同步也失败,回退 mock:', e2)
+      }
     }
 
     diagnosingOutput.value = output
     isDiagnosingTyping.value = false
   }
 
-  // ============== PLANNING 转入(真调 + mock 回退) ==============
+  // ============== PLANNING 转入(SSE 流式 → 完成后 parsePlanningText) ==============
   async function continueToPlanning() {
     state.value = 'PLANNING'
+    planningStreamingText.value = ''
 
-    let direction = MOCK_PLANNING
+    const reflections = reflectingAnswers.value.map((answer, i) => ({
+      question:
+        reflectingQuestions.value[i] ?? MOCK_REFLECTING_QUESTIONS[i] ?? '',
+      answer,
+    }))
+    const diagText = (diagnosingOutput.value?.paragraphs ?? [])
+      .map((p) => p.text)
+      .join('\n\n') || '(diagnosing 文本暂缺)'
+
+    let fullText = ''
+    let useFallback = true
     try {
-      const reflections = reflectingAnswers.value.map((answer, i) => ({
-        question:
-          reflectingQuestions.value[i] ??
-          MOCK_REFLECTING_QUESTIONS[i] ??
-          '',
-        answer,
-      }))
-      const diagText = (diagnosingOutput.value?.paragraphs ?? [])
-        .map((p) => p.text)
-        .join('\n\n')
-
-      const r = await runPlanning(DEV_SESSION_ID, {
-        messages: DEV_PARSING_MESSAGES,
-        parsing_output: parsingText.value,
-        reflections,
-        diagnosing_output: diagText || '(diagnosing 文本暂缺)',
-      })
-      if (r.ok) {
-        direction = parsePlanningText(r.data.text)
-        // eslint-disable-next-line no-console
-        console.info(
-          `[PLANNING] ${r.data.duration_ms}ms · ${r.data.usage.input_tokens}/${r.data.usage.output_tokens} tokens · persona=${r.data.persona_passed ? '✓' : '✗'}`,
-        )
-      } else {
-        // eslint-disable-next-line no-console
-        console.warn('[PLANNING] 真 API 失败,回退 mock:', r.error)
-      }
+      const startTime = Date.now()
+      await streamPlanningHTTP(
+        DEV_SESSION_ID,
+        {
+          messages: DEV_PARSING_MESSAGES,
+          parsing_output: parsingText.value,
+          reflections,
+          diagnosing_output: diagText,
+        },
+        (chunk) => {
+          planningStreamingText.value += chunk
+          fullText += chunk
+        },
+      )
+      useFallback = false
+      // eslint-disable-next-line no-console
+      console.info(`[PLANNING-stream] ${Date.now() - startTime}ms 完成`)
     } catch (e) {
       // eslint-disable-next-line no-console
-      console.warn('[PLANNING] 真 API 异常,回退 mock:', e)
+      console.warn('[PLANNING-stream] 流式失败,降级同步:', e)
+      planningStreamingText.value = ''
+      fullText = ''
+    }
+
+    let direction = MOCK_PLANNING
+    if (!useFallback && fullText) {
+      direction = parsePlanningText(fullText)
+    } else {
+      try {
+        const r = await runPlanning(DEV_SESSION_ID, {
+          messages: DEV_PARSING_MESSAGES,
+          parsing_output: parsingText.value,
+          reflections,
+          diagnosing_output: diagText,
+        })
+        if (r.ok) direction = parsePlanningText(r.data.text)
+      } catch (e2) {
+        // eslint-disable-next-line no-console
+        console.warn('[PLANNING] 同步也失败,回退 mock:', e2)
+      }
     }
 
     planning.value = direction

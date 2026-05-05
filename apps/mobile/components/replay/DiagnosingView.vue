@@ -11,12 +11,21 @@ function continueToPlanning() {
 
 <template>
   <view class="diagnosing">
-    <!-- 加载中:简单 placeholder -->
-    <view v-if="store.isDiagnosingTyping" class="thinking">
-      <view class="thinking-dot"></view>
-      <view class="thinking-dot"></view>
-      <view class="thinking-dot"></view>
-      <text class="thinking-text">老 K 在想</text>
+    <!-- streaming 中:有流式文本就直接展示(SSE chunks 实时 append),没有就 dots 占位 -->
+    <view
+      v-if="store.isDiagnosingTyping"
+      :class="['thinking', store.diagnosingStreamingText ? 'thinking-stream' : '']"
+    >
+      <text
+        v-if="store.diagnosingStreamingText"
+        class="streaming-text"
+      >{{ store.diagnosingStreamingText }}</text>
+      <template v-else>
+        <view class="thinking-dot"></view>
+        <view class="thinking-dot"></view>
+        <view class="thinking-dot"></view>
+        <text class="thinking-text">老 K 在想</text>
+      </template>
     </view>
 
     <!-- 散文式输出 -->
@@ -69,6 +78,20 @@ function continueToPlanning() {
   font-size: 26rpx;
   color: $color-text-tertiary;
   margin-left: 16rpx;
+}
+
+// streaming 时切换为 column 布局展示长文本
+.thinking.thinking-stream {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 16rpx 8rpx;
+}
+.streaming-text {
+  font-size: 32rpx;
+  color: $color-text-primary;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  display: block;
 }
 
 // 散文输出

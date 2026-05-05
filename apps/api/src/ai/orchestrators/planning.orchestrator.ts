@@ -4,7 +4,13 @@
 // 输出:文本(散文 5 元素:方向标题 / 做什么 / 为什么 / 红线 / 退路)
 
 import { loadPrompt } from '../prompt-loader.js'
-import { callClaude, type AiCallContext, type CallClaudeResult } from '../client.js'
+import {
+  callClaude,
+  callClaudeStream,
+  type AiCallContext,
+  type CallClaudeResult,
+  type CallClaudeStreamHandlers,
+} from '../client.js'
 import type { ParsingMessage } from './parsing.orchestrator.js'
 import type { DiagnosingReflection } from './diagnosing.orchestrator.js'
 
@@ -39,6 +45,31 @@ export async function runPlanning(input: PlanningInput): Promise<PlanningOutput>
     max_tokens: 1024,
     otherIdentifiers: input.other_identifiers,
   })
+}
+
+/** 流式版 runPlanning */
+export async function runPlanningStream(
+  input: PlanningInput,
+  handlers: CallClaudeStreamHandlers,
+): Promise<PlanningOutput> {
+  const systemPrompt = await loadPrompt('planning')
+  const userMessage = composeUserMessage(input)
+  const ctx: AiCallContext = {
+    user_id: input.user_id,
+    relationship_id: input.relationship_id,
+    session_id: input.session_id,
+    scene: 'planning',
+  }
+  return callClaudeStream(
+    ctx,
+    {
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMessage }],
+      max_tokens: 1024,
+      otherIdentifiers: input.other_identifiers,
+    },
+    handlers,
+  )
 }
 
 export function composeUserMessage(input: PlanningInput): string {

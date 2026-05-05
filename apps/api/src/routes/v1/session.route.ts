@@ -11,7 +11,7 @@
 //   POST   /v1/sessions/:id/screenshots       提交 OSS URL 触发 OCR
 //   GET    /v1/sessions/:id/stream            SSE 流式
 
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyReply } from 'fastify'
 import { requireAuth } from '../../middleware/auth.js'
 import {
   createSessionSchema,
@@ -34,7 +34,9 @@ import {
   runParsingForSessionStream,
   runReflectingForSession,
   runDiagnosingForSession,
+  runDiagnosingForSessionStream,
   runPlanningForSession,
+  runPlanningForSessionStream,
   runDraftingForSession,
 } from '../../services/replay/replay-orchestrator.service.js'
 import { errors } from '../../lib/error.js'
@@ -138,6 +140,48 @@ export async function sessionRoutes(app: FastifyInstance): Promise<void> {
       if (!reply.raw.writableEnded) {
         reply.raw.write(`\n\n[STREAM_ERROR] ${msg}`)
       }
+    }
+    reply.raw.end()
+  })
+
+  /** 通用流式 SSE handler boilerplate(headers + hijack) */
+  function setupStreamReply(reply: FastifyReply): void {
+    reply.hijack()
+    reply.raw.setHeader('Content-Type', 'text/plain; charset=utf-8')
+    reply.raw.setHeader('Transfer-Encoding', 'chunked')
+    reply.raw.setHeader('X-Accel-Buffering', 'no')
+    reply.raw.setHeader('Cache-Control', 'no-cache')
+    reply.raw.flushHeaders()
+  }
+
+  app.post('/v1/sessions/:id/stream-diagnosing', async (request, reply) => {
+    const userId = request.user!.id
+    const { id } = sessionIdParamSchema.parse(request.params)
+    const body = runDiagnosingSchema.parse(request.body)
+    setupStreamReply(reply)
+    try {
+      await runDiagnosingForSessionStream(userId, id, body, {
+        onChunk: (text) => reply.raw.write(text),
+      })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (!reply.raw.writableEnded) reply.raw.write(`\n\n[STREAM_ERROR] ${msg}`)
+    }
+    reply.raw.end()
+  })
+
+  app.post('/v1/sessions/:id/stream-planning', async (request, reply) => {
+    const userId = request.user!.id
+    const { id } = sessionIdParamSchema.parse(request.params)
+    const body = runPlanningSchema.parse(request.body)
+    setupStreamReply(reply)
+    try {
+      await runPlanningForSessionStream(userId, id, body, {
+        onChunk: (text) => reply.raw.write(text),
+      })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (!reply.raw.writableEnded) reply.raw.write(`\n\n[STREAM_ERROR] ${msg}`)
     }
     reply.raw.end()
   })

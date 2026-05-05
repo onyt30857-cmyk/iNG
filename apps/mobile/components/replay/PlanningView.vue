@@ -46,13 +46,22 @@ const store = useReplayStore()
     </view>
   </view>
 
-  <view v-else class="thinking">
-    <text class="thinking-text">老 K 在给你方向</text>
-    <view class="dots">
-      <view class="dot dot-1"></view>
-      <view class="dot dot-2"></view>
-      <view class="dot dot-3"></view>
-    </view>
+  <view
+    v-else
+    :class="['thinking', store.planningStreamingText ? 'thinking-stream' : '']"
+  >
+    <text
+      v-if="store.planningStreamingText"
+      class="streaming-text"
+    >{{ store.planningStreamingText }}</text>
+    <template v-else>
+      <text class="thinking-text">老 K 在给你方向</text>
+      <view class="dots">
+        <view class="dot dot-1"></view>
+        <view class="dot dot-2"></view>
+        <view class="dot dot-3"></view>
+      </view>
+    </template>
   </view>
 </template>
 
@@ -167,5 +176,19 @@ const store = useReplayStore()
 @keyframes bounce {
   0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
   40% { transform: translateY(-6rpx); opacity: 1; }
+}
+
+// streaming 时切换为 column 布局展示长文本
+.thinking.thinking-stream {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 16rpx 8rpx;
+}
+.streaming-text {
+  font-size: 32rpx;
+  color: $color-text-primary;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  display: block;
 }
 </style>
