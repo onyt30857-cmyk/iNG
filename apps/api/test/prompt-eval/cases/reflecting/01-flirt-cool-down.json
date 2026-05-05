@@ -1,0 +1,14 @@
+{
+  "user_id": "u-eval",
+  "relationship_id": "r-eval-1",
+  "session_id": "s-eval-01",
+  "relationship_name": "小雨",
+  "scenario_primary": "FLIRT_008",
+  "parsing_output": "我看了下你和小雨这段。从周一晚上到周二晚上,她回得越来越短,周二22:47那句『先这样吧』之后就没回了,到现在两天。\n\n几个事:\n- 她回复长度变短:从短句变成『嗯』『看吧』『你订吧』\n- 主动性消失:全程只回应,没主动开过话题\n- 周二之后两天没回\n\n这事我看是她在主动降温,不是忙。\n\n你看完什么感觉?",
+  "user_initial_response": "感觉她不喜欢我了",
+  "messages": [
+    { "speaker": "user", "text": "周末一起?", "timestamp": "周二 22:12" },
+    { "speaker": "other", "text": "先这样吧", "timestamp": "周二 22:47" }
+  ],
+  "other_identifiers": []
+}

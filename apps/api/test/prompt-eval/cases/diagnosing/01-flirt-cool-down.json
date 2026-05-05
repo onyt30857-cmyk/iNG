@@ -1,0 +1,24 @@
+{
+  "user_id": "u-eval",
+  "relationship_id": "r-eval-1",
+  "session_id": "s-eval-01",
+  "relationship_name": "小雨",
+  "scenario_primary": "FLIRT_008",
+  "parsing_output": "我看着像她在主动降温,不是忙。你看完什么感觉?",
+  "reflections": [
+    {
+      "question": "她回得越来越短的时候,你脑子里第一个跳出来的念头是什么?",
+      "answer": "我觉得我哪里搞砸了,但我又想不出来具体哪一句不对。"
+    },
+    {
+      "question": "你说『她不喜欢我了』,这是判断还是脑子里反复出现的声音?",
+      "answer": "其实是我反复在想的一句话,可能她只是累。"
+    },
+    {
+      "question": "如果她明天还是不回,你最怕的是什么?",
+      "answer": "怕她直接消失,我连为什么都不知道。"
+    }
+  ],
+  "messages": [],
+  "other_identifiers": []
+}

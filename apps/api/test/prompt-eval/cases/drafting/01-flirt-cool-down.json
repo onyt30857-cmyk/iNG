@@ -1,0 +1,27 @@
+{
+  "user_id": "u-eval",
+  "relationship_id": "r-eval-1",
+  "session_id": "s-eval-01",
+  "relationship_name": "小雨",
+  "parsing_output": "我看着像她在主动降温,不是忙。你看完什么感觉?",
+  "reflections": [
+    {
+      "question": "她回得越来越短的时候,你脑子里第一个跳出来的念头是什么?",
+      "answer": "我觉得我哪里搞砸了。"
+    },
+    {
+      "question": "你说『她不喜欢我了』,这是判断还是反复的声音?",
+      "answer": "是我反复在想的一句话。"
+    },
+    {
+      "question": "如果她明天还是不回,你最怕的是什么?",
+      "answer": "怕她直接消失。"
+    }
+  ],
+  "diagnosing_output": "你说『我哪里搞砸了』不是事实,是羞耻。她回得短不一定是你做错什么。\n\n你在意的不是她回得慢,是你不知道这段有没有问题。我跟你说:有一点小问题,但还没到坏的地步。",
+  "planning_output": "今晚什么都别发,睡一觉。\n\n做什么:今晚把手机放下,做点别的。\n为什么:她现在需要的不是你的一条新消息,是空间。\n红线:今晚不发,明天不发,后天前不发。\n退路:做不到 48 小时也行,但你得知道那是焦虑在催。",
+  "messages": [
+    { "speaker": "other", "text": "先这样吧", "timestamp": "周二 22:47" }
+  ],
+  "other_identifiers": []
+}
