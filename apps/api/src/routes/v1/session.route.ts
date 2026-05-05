@@ -17,6 +17,7 @@ import {
   createSessionSchema,
   updateSessionSchema,
   sessionIdParamSchema,
+  runParsingSchema,
 } from '../../schemas/session.schema.js'
 import {
   createSession,
@@ -24,6 +25,7 @@ import {
   updateSession,
   softDeleteSession,
 } from '../../services/session/session.service.js'
+import { runParsingForSession } from '../../services/replay/replay-orchestrator.service.js'
 import { errors } from '../../lib/error.js'
 
 export async function sessionRoutes(app: FastifyInstance): Promise<void> {
@@ -59,5 +61,33 @@ export async function sessionRoutes(app: FastifyInstance): Promise<void> {
     const { id } = sessionIdParamSchema.parse(request.params)
     const result = await softDeleteSession(userId, id)
     return { ok: true, data: result }
+  })
+
+  /**
+   * 触发 PARSING:同步调老 K(Anthropic Claude Sonnet 4),返回完整复盘文本。
+   *
+   * 当前阶段(spec-004 OCR 还没实施):前端把对话消息列表直接放 body 传。
+   * spec-004 实施后:messages 从数据库 messages 表读出,body 只保留 entry_note。
+   *
+   * 同步返回(无 SSE)是 v0 简化设计。前端可在拿到完整文本后用打字机模拟流式
+   * (apps/mobile/stores/replay.ts 已有 streamParsing 打字机逻辑)。
+   * SSE 真流式作为后续优化(spec-005 §3.x)。
+   */
+  app.post('/v1/sessions/:id/run-parsing', async (request) => {
+    const userId = request.user!.id
+    const { id } = sessionIdParamSchema.parse(request.params)
+    const body = runParsingSchema.parse(request.body)
+
+    const result = await runParsingForSession(userId, id, body)
+
+    return {
+      ok: true,
+      data: {
+        text: result.text,
+        usage: result.usage,
+        duration_ms: result.duration_ms,
+        persona_passed: result.persona_check.passed,
+      },
+    }
   })
 }

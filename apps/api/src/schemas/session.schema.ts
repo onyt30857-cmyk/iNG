@@ -36,3 +36,22 @@ export const updateSessionSchema = z
 export const sessionIdParamSchema = z.object({
   id: z.string().min(1),
 })
+
+/**
+ * 触发 PARSING 跑一次老 K 调用。当前阶段(spec-004 OCR 未实施)由前端把消息列表
+ * 直接放 body 传过来。spec-004 实施后,messages 从 OSS+OCR 流程进数据库,这个端点
+ * 会改为只接 sessionId,后端自己从 db 拉。
+ */
+export const runParsingSchema = z.object({
+  messages: z
+    .array(
+      z.object({
+        speaker: z.enum(['user', 'other']),
+        text: z.string().min(1).max(2000),
+        timestamp: z.string().max(100).optional(),
+      }),
+    )
+    .min(1, '至少要 1 条消息')
+    .max(200, '消息不能超过 200 条'),
+  entry_note: z.string().max(500).default(''),
+})
