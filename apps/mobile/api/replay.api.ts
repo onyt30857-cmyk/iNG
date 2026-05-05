@@ -172,6 +172,21 @@ export async function streamDiagnosingHTTP(
   return streamHTTPCommon(`/sessions/${sessionId}/stream-diagnosing`, body, onChunk)
 }
 
+export async function streamConversationTurnHTTP(
+  relationshipId: string,
+  body: {
+    user_text: string
+    history: Array<{ speaker: 'user' | 'laoke'; text: string }>
+  },
+  onChunk: (text: string) => void,
+): Promise<void> {
+  return streamHTTPCommon(
+    `/conversations/${relationshipId}/stream-turn`,
+    body,
+    onChunk,
+  )
+}
+
 export async function streamPlanningHTTP(
   sessionId: string,
   body: {

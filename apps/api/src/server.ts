@@ -13,6 +13,7 @@ import { authRoutes } from './routes/v1/auth.route.js'
 import { relationshipRoutes } from './routes/v1/relationship.route.js'
 import { sessionRoutes } from './routes/v1/session.route.js'
 import { ocrRoutes } from './routes/v1/ocr.route.js'
+import { conversationRoutes } from './routes/v1/conversation.route.js'
 
 async function buildApp() {
   // 把 logger 配置交给 Fastify 内部创建 —— 直接传 Pino 实例和 Fastify 4 的类型签名不兼容
@@ -70,6 +71,7 @@ async function buildApp() {
   await app.register(relationshipRoutes)
   await app.register(sessionRoutes)
   await app.register(ocrRoutes)
+  await app.register(conversationRoutes)
 
   // 404 兜底
   app.setNotFoundHandler((req, reply) => {

@@ -361,8 +361,8 @@ export const useConversationStore = defineStore('conversation', () => {
     return m?.created_at ?? null
   }
 
-  // === 用户发新消息 ===
-  // silent=true:跳过 mock 老 K 自动回复(OCR / 真复盘流程调用方自己接管老 K 回复)
+  // === 用户发新消息(spec-006 Phase 18.2:真 LLM turn,删除 mock 占位)===
+  // silent=true:不触发 turn(OCR 流程调用方自己接管 PARSING 流式)
   function appendUserText(
     relationshipId: string,
     text: string,
@@ -379,17 +379,58 @@ export const useConversationStore = defineStore('conversation', () => {
 
     if (opts.silent) return
 
-    // mock 老 K 1 秒后回一句(用户在对话流随便发字时占位,真接对话流 LLM 后删除)
-    setTimeout(() => {
-      const cur = messagesByRelationship.value[relationshipId] ?? []
-      cur.push({
-        id: `k-${Date.now()}`,
-        type: 'laoke_text',
-        text: '(M1 mock 占位回复 — 等老 K 真接入 LLM 后这里就是流式回应)',
-        created_at: new Date().toISOString(),
-      })
-      messagesByRelationship.value[relationshipId] = [...cur]
-    }, 1000)
+    // 真 LLM turn:用户发字 → 老 K 流式回应。失败时显示具体错误,不再 mock 占位
+    void triggerLaokeTurn(relationshipId, text)
+  }
+
+  /** spec-006 Phase 18.2:用户发字后,异步调 conversation turn 端点拿老 K 流式回应 */
+  async function triggerLaokeTurn(relationshipId: string, userText: string): Promise<void> {
+    // 先 push 一条 streaming laoke 气泡占位
+    const streamingId = appendStreamingLaokeText(relationshipId)
+    updateStreamingLaokeText(relationshipId, streamingId, '')
+
+    // 收集 conversation 历史(只取 user_text 和 laoke_text,其它类型 turn 不需要)
+    const all = messagesByRelationship.value[relationshipId] ?? []
+    const history: Array<{ speaker: 'user' | 'laoke'; text: string }> = []
+    for (const m of all) {
+      if (m.type === 'user_text') {
+        history.push({ speaker: 'user', text: m.text })
+      } else if (m.type === 'laoke_text' && !m.is_thinking) {
+        history.push({ speaker: 'laoke', text: m.text })
+      }
+    }
+    // 去掉刚 append 的"用户最新一条"(避免重复进 user_text 字段)
+    const userMsgIndex = history.findIndex((h) => h.speaker === 'user' && h.text === userText)
+    if (userMsgIndex >= 0) history.splice(userMsgIndex, 1)
+
+    let fullText = ''
+    try {
+      // 动态 import 避免 store 顶层 import api(顶层循环依赖风险)
+      const { streamConversationTurnHTTP } = await import('../api/replay.api')
+      const { DEV_RELATIONSHIP_ID } = await import('../utils/dev-token')
+
+      // dev 阶段强制用 DEV_RELATIONSHIP_ID(db 里只有这一段真关系,见 Phase 14b 修复)
+      await streamConversationTurnHTTP(
+        DEV_RELATIONSHIP_ID,
+        { user_text: userText, history },
+        (chunk) => {
+          fullText += chunk
+          updateStreamingLaokeText(relationshipId, streamingId, fullText)
+        },
+      )
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('[turn] 失败:', e)
+      const errMsg = e instanceof Error ? e.message : String(e)
+      updateStreamingLaokeText(
+        relationshipId,
+        streamingId,
+        fullText
+          ? `${fullText}\n\n[出错了:${errMsg}]`
+          : `我这边出了点意外:${errMsg}`,
+      )
+    }
+    finishStreamingLaokeText(relationshipId, streamingId)
   }
 
   /**

@@ -367,13 +367,16 @@ function handleSavePlanning(planningId: string, content: import('../../types/mes
   line-height: 1.2;
 }
 
-// AI 合规提示条:用 $color-info 主蓝 + 透明度叠出浅蓝背景
+// AI 合规提示条:跟 header 一样的毛玻璃,消息从下面滚过去被 blur,不会"透出来"重叠
 .ai-disclaimer {
   position: sticky;
   top: calc(env(safe-area-inset-top, 16rpx) + 88rpx);
   z-index: 9;
   padding: 16rpx 32rpx;
-  background-color: rgba($color-info, 0.08);
+  background-color: rgba(244, 241, 234, 0.88);  // 跟 header 一致的暖米黄半透明
+  backdrop-filter: blur(20rpx);
+  -webkit-backdrop-filter: blur(20rpx);
+  border-bottom: 1rpx solid rgba($color-info, 0.15);
   text-align: center;
 }
 .ai-disclaimer-text {
