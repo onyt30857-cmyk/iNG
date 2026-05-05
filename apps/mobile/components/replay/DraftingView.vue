@@ -30,8 +30,13 @@ function showReplyMenu(replyId: string) {
       text="给你三个方向,你看哪个像你。"
     />
 
-    <view v-if="store.drafting.length === 0" class="loading">
-      <text class="loading-text">老 K 在写...</text>
+    <view v-if="store.drafting.length === 0" class="thinking">
+      <text class="thinking-text">老 K 在给你写话术</text>
+      <view class="dots">
+        <view class="dot dot-1"></view>
+        <view class="dot dot-2"></view>
+        <view class="dot dot-3"></view>
+      </view>
     </view>
 
     <ReplyCard
@@ -53,13 +58,37 @@ function showReplyMenu(replyId: string) {
 <style lang="scss" scoped>
 .drafting { padding: 16rpx 0 64rpx; }
 
-.loading {
+.thinking {
   padding: 160rpx 0;
-  text-align: center;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
 }
-.loading-text {
+.thinking-text {
   font-size: 28rpx;
   color: $color-text-tertiary;
+}
+.dots {
+  display: flex;
+  flex-direction: row;
+  gap: 6rpx;
+  align-items: center;
+}
+.dot {
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+  background-color: $color-text-tertiary;
+  animation: bounce 1.4s infinite ease-in-out;
+}
+.dot-1 { animation-delay: 0s; }
+.dot-2 { animation-delay: 0.16s; }
+.dot-3 { animation-delay: 0.32s; }
+@keyframes bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40% { transform: translateY(-6rpx); opacity: 1; }
 }
 
 .footnote {

@@ -18,6 +18,19 @@ function send() {
 
 <template>
   <view class="reflecting">
+    <!-- 等待真 LLM 出 3 个问题(transitionToReflecting 进行中) -->
+    <view
+      v-if="store.reflectingMessages.length === 0 && store.state === 'REFLECTING'"
+      class="thinking"
+    >
+      <text class="thinking-text">老 K 在想问什么</text>
+      <view class="dots">
+        <view class="dot dot-1"></view>
+        <view class="dot dot-2"></view>
+        <view class="dot dot-3"></view>
+      </view>
+    </view>
+
     <view class="messages">
       <template v-for="(m, i) in store.reflectingMessages" :key="i">
         <LaokeMessage v-if="m.speaker === 'laoke'" :text="m.text" />
@@ -81,6 +94,42 @@ function send() {
   animation: pulse 1.5s infinite;
 }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+// 等待真 LLM 出 3 个问题时的占位
+.thinking {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  padding: 80rpx 0;
+}
+.thinking-text {
+  font-size: 28rpx;
+  color: $color-text-tertiary;
+}
+.thinking .dots {
+  display: flex;
+  flex-direction: row;
+  gap: 6rpx;
+  align-items: center;
+}
+.thinking .dot {
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+  background-color: $color-text-tertiary;
+  animation: bounce 1.4s infinite ease-in-out;
+  // 覆盖上面 .progress 的 .dot 样式(margin/border-radius/background)
+  margin: 0;
+}
+.thinking .dot-1 { animation-delay: 0s; }
+.thinking .dot-2 { animation-delay: 0.16s; }
+.thinking .dot-3 { animation-delay: 0.32s; }
+@keyframes bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40% { transform: translateY(-6rpx); opacity: 1; }
+}
 
 .input-area {
   background-color: $color-surface;

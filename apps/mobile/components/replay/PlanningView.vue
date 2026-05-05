@@ -46,8 +46,13 @@ const store = useReplayStore()
     </view>
   </view>
 
-  <view v-else class="loading">
-    <text class="loading-text">老 K 在想方向...</text>
+  <view v-else class="thinking">
+    <text class="thinking-text">老 K 在给你方向</text>
+    <view class="dots">
+      <view class="dot dot-1"></view>
+      <view class="dot dot-2"></view>
+      <view class="dot dot-3"></view>
+    </view>
   </view>
 </template>
 
@@ -129,12 +134,38 @@ const store = useReplayStore()
   font-weight: $weight-medium;
 }
 
-.loading {
+.thinking {
   padding: 200rpx 0;
-  text-align: center;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
 }
-.loading-text {
+.thinking-text {
   font-size: 28rpx;
   color: $color-text-tertiary;
+}
+.dots {
+  display: flex;
+  flex-direction: row;
+  gap: 6rpx;
+  align-items: center;
+  padding-bottom: 4rpx;
+}
+.dot {
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+  background-color: $color-text-tertiary;
+  animation: bounce 1.4s infinite ease-in-out;
+}
+.dot-1 { animation-delay: 0s; }
+.dot-2 { animation-delay: 0.16s; }
+.dot-3 { animation-delay: 0.32s; }
+
+@keyframes bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40% { transform: translateY(-6rpx); opacity: 1; }
 }
 </style>
