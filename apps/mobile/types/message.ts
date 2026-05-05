@@ -79,7 +79,10 @@ export interface UserTextMessage extends BaseMessage {
 // 用户发的截图(组,1-5 张)
 export interface UserScreenshotsMessage extends BaseMessage {
   type: 'user_screenshots'
-  count: number  // 几张
+  /** 真实图片 URL(blob URL / data URL / 后续 OSS URL),气泡用它显示真图 + 点击放大 */
+  urls: string[]
+  /** count = urls.length,留字段方便老消息兼容 */
+  count: number
 }
 
 // 用户操作反馈("我选了方向 1" / "今晚不发")

@@ -51,6 +51,7 @@ function mockMessagesForXiaoyu(): Message[] {
     {
       id: 'm-1',
       type: 'user_screenshots',
+      urls: [], // mock 历史消息无真图,气泡 fallback 走老占位条
       count: 5,
       created_at: new Date(threeDaysAgo.getTime() + 1000).toISOString(),
     },
@@ -390,16 +391,18 @@ export const useConversationStore = defineStore('conversation', () => {
   }
 
   // silent=true:跳过 mock 老 K 自动回复(真 OCR 流程调用方自己接管 PARSING 流式)
+  // urls:用户上传的真实图片 URL 列表。气泡用它做缩略图 + uni.previewImage 点击放大
   function appendUserScreenshots(
     relationshipId: string,
-    count: number,
+    urls: string[],
     opts: { silent?: boolean } = {},
   ) {
     const list = messagesByRelationship.value[relationshipId] ?? []
     list.push({
       id: `us-${Date.now()}`,
       type: 'user_screenshots',
-      count,
+      urls,
+      count: urls.length,
       created_at: new Date().toISOString(),
     })
     messagesByRelationship.value[relationshipId] = [...list]

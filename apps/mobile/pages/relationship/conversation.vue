@@ -82,7 +82,8 @@ async function handleScreenshotsChosen(payload: { note: string; paths: string[] 
   isOcrLoading.value = true
 
   // silent=true:不让 conversationStore 触发自己的 mock 老 K 回复(我们自己接 PARSING 流式)
-  conversationStore.appendUserScreenshots(relationshipId.value, payload.paths.length, {
+  // 直接传真实 blob URLs(uni.chooseImage 给的 tempFilePaths),让气泡显示真图
+  conversationStore.appendUserScreenshots(relationshipId.value, payload.paths, {
     silent: true,
   })
   if (payload.note) {
@@ -289,7 +290,7 @@ function handleSavePlanning(planningId: string, content: import('../../types/mes
           @save="handleSaveDraft"
         />
         <UserBubble v-else-if="m.type === 'user_text'" :text="m.text" />
-        <ScreenshotBubble v-else-if="m.type === 'user_screenshots'" :count="m.count" />
+        <ScreenshotBubble v-else-if="m.type === 'user_screenshots'" :count="m.count" :urls="m.urls" />
         <UserBubble v-else-if="m.type === 'user_action'" :text="m.text" :subtle="true" />
       </template>
 
