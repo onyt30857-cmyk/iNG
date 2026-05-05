@@ -20,8 +20,8 @@ import {
 export interface ParsingMessage {
   speaker: 'user' | 'other'
   text: string
-  /** 截图里看到的时间戳,如"昨晚 9:47"或 ISO,可空 */
-  timestamp?: string | undefined
+  /** 截图里看到的时间戳,可空。OCR 输出 null,zod schema .nullish() 接受 null + undefined */
+  timestamp?: string | null | undefined
 }
 
 export interface ParsingInput {

@@ -45,7 +45,9 @@ export const sessionIdParamSchema = z.object({
 const messageItemSchema = z.object({
   speaker: z.enum(['user', 'other']),
   text: z.string().min(1).max(2000),
-  timestamp: z.string().max(100).optional(),
+  // OCR orchestrator 输出 timestamp 字段是 string | null(看不到时间戳给 null),
+  // 不是 undefined。zod 默认 .optional() 不接受 null,要 .nullish() 才接受 null + undefined。
+  timestamp: z.string().max(100).nullish(),
 })
 const messagesArraySchema = z
   .array(messageItemSchema)
