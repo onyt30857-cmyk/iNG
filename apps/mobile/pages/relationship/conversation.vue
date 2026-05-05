@@ -11,7 +11,7 @@ import { useConversationStore } from '../../stores/conversation'
 import { useReplayStore } from '../../stores/replay'
 import { runOcr, streamParsingHTTP } from '../../api/replay.api'
 import { compressImageFromBlobUrl } from '../../utils/compress-image'
-import { DEV_SESSION_ID } from '../../utils/dev-token'
+import { DEV_SESSION_ID, DEV_RELATIONSHIP_ID } from '../../utils/dev-token'
 import SystemDivider from '../../components/conversation/SystemDivider.vue'
 import LaokeBubble from '../../components/conversation/LaokeBubble.vue'
 import LaokeQuestionBubble from '../../components/conversation/LaokeQuestionBubble.vue'
@@ -106,8 +106,12 @@ async function handleScreenshotsChosen(payload: { note: string; paths: string[] 
     // === 1. OCR ===
     const limited = payload.paths.slice(0, 5)
     const images = await Promise.all(limited.map(compressImageFromBlobUrl))
+    // dev 阶段:db 里只有 seed-dev 创建的一个关系(DEV_RELATIONSHIP_ID = dev-relationship-1)。
+    // 当前 conversation 页的 relationshipId 是 mock 数据的虚构 ID(mock-2 等),db 没记录,
+    // OCR 后端的 ownership 校验会拒收。强制用 DEV_RELATIONSHIP_ID。
+    // spec-002 真微信登录 + spec-003 真关系 CRUD 后,relationship_id 用真 id。
     const ocrRes = await runOcr({
-      relationship_id: relationshipId.value || 'dev-relationship-1',
+      relationship_id: DEV_RELATIONSHIP_ID,
       images,
     })
     if (!ocrRes.ok) {

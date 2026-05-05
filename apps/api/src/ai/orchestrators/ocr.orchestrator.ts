@@ -102,6 +102,11 @@ export async function runOcr(input: OcrInput): Promise<OcrOutput> {
   }
 
   const r = await callClaudeVision(ctx, params)
+
+  // dev debug:把 Claude vision 完整原始 text 打到 server log,便于诊断 parse 失败
+  // eslint-disable-next-line no-console
+  console.log('[OCR raw Claude output]\n' + r.text.slice(0, 2000))
+
   const parsed = parseOcrOutput(r.text)
   return { ...parsed, raw: r }
 }
