@@ -29,10 +29,14 @@ datasource db {
 
 model User {
   id              String    @id @default(cuid())
-  
-  // 微信登录信息
-  wechat_open_id  String    @unique
+
+  // 微信登录信息(spec-002 微信扫码,改 optional 让匿名账户也能存在)
+  wechat_open_id  String?   @unique
   wechat_union_id String?   @unique
+
+  // 匿名账户备份码 hash(bcrypt) — 用户在新设备输 backup_code 凭这个恢复账户
+  // 不存明文,不可追溯到原码
+  backup_code_hash String?  @db.Text
   
   // 用户填写信息
   nickname        String?

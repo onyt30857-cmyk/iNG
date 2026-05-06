@@ -3,11 +3,16 @@
 import { onLaunch, onShow, onHide } from '@dcloudio/uni-app'
 import { useUserStore } from './stores/user'
 
-onLaunch(() => {
-  // 启动时从 storage 恢复登录态(spec-002)
+onLaunch(async () => {
+  // 启动时从 storage 恢复 token,如果没有就匿名注册(spec-002 v2,无手机/邮箱/微信)
   const userStore = useUserStore()
   userStore.init()
-  console.log('[App] launch, isLoggedIn=', userStore.isLoggedIn())
+  if (!userStore.isLoggedIn()) {
+    await userStore.ensureSession()
+    console.log('[App] anonymous registered, user_id=', userStore.userId)
+  } else {
+    console.log('[App] launch, restored user_id=', userStore.userId)
+  }
 })
 
 onShow(() => {
