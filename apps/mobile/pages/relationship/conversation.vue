@@ -8,9 +8,8 @@ import { onMounted, ref, computed, nextTick, watch } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { useRelationshipStore } from '../../stores/relationship'
 import { useConversationStore } from '../../stores/conversation'
-import { runOcr, streamParsingHTTP } from '../../api/replay.api'
+import { runOcr, streamConversationTurnHTTP } from '../../api/replay.api'
 import { compressImageFromBlobUrl } from '../../utils/compress-image'
-import { DEV_SESSION_ID, DEV_RELATIONSHIP_ID } from '../../utils/dev-token'
 import { useRelationshipSignalsStore } from '../../stores/relationship-signals'
 import SystemDivider from '../../components/conversation/SystemDivider.vue'
 import LaokeBubble from '../../components/conversation/LaokeBubble.vue'
@@ -141,15 +140,11 @@ async function handleScreenshotsChosen(payload: { note: string; paths: string[] 
   )
 
   try {
-    // === 1. OCR ===
+    // === 1. OCR === (seed-dev 已建 3 段真关系,直接用当前 relationshipId)
     const limited = payload.paths.slice(0, 5)
     const images = await Promise.all(limited.map(compressImageFromBlobUrl))
-    // dev 阶段:db 里只有 seed-dev 创建的一个关系(DEV_RELATIONSHIP_ID = dev-relationship-1)。
-    // 当前 conversation 页的 relationshipId 是 mock 数据的虚构 ID(mock-2 等),db 没记录,
-    // OCR 后端的 ownership 校验会拒收。强制用 DEV_RELATIONSHIP_ID。
-    // spec-002 真微信登录 + spec-003 真关系 CRUD 后,relationship_id 用真 id。
     const ocrRes = await runOcr({
-      relationship_id: DEV_RELATIONSHIP_ID,
+      relationship_id: relationshipId.value,
       images,
     })
     if (!ocrRes.ok) {
@@ -182,10 +177,31 @@ async function handleScreenshotsChosen(payload: { note: string; paths: string[] 
       return
     }
 
-    // === 2. PARSING 流式展示在对话流 ===
-    const fallbackNote =
-      `刚刚和${relationship.value?.name ?? '她'}的对话截图`
-    const finalNote = payload.note || fallbackNote
+    // === 2. 走 spec-006 conversation-turn(替代老 PARSING,prompt 里 name 准确) ===
+    // 把 OCR 出的对话内容拼成一段 user_text 给 LLM 看,前端用户气泡已经是 ScreenshotBubble,
+    // 这段文字只用于 LLM 上下文(history 里不会重复),老 K 流式回应直接渲染到现有气泡。
+    const ocrLines = ocrMessages.map((m) => {
+      const who = m.speaker === 'user' ? '你' : (relationship.value?.name ?? '她')
+      return `${who}: ${m.text}`
+    })
+    const screenshotContext = [
+      payload.note ? `兄弟附了句话:${payload.note}` : '',
+      `兄弟刚发了一张${relationship.value?.name ?? '她'}的对话截图,内容是:`,
+      ocrLines.join('\n'),
+      '',
+      '你看完截图,自然给个分析或问个具体的——别走流程、别分阶段。',
+    ].filter(Boolean).join('\n')
+
+    // 收集对话历史(不含本次 streaming 占位气泡)
+    const all = conversationStore.getMessages(relationshipId.value)
+    const turnHistory: Array<{ speaker: 'user' | 'laoke'; text: string }> = []
+    for (const m of all) {
+      if (m.id === streamingMsgId) continue
+      if (m.type === 'user_text') turnHistory.push({ speaker: 'user', text: m.text })
+      else if (m.type === 'laoke_text' && !m.is_thinking && m.text) {
+        turnHistory.push({ speaker: 'laoke', text: m.text })
+      }
+    }
 
     let parsingFullText = ''
     conversationStore.updateStreamingLaokeText(
@@ -195,9 +211,12 @@ async function handleScreenshotsChosen(payload: { note: string; paths: string[] 
     )
 
     try {
-      await streamParsingHTTP(
-        DEV_SESSION_ID,
-        { messages: ocrMessages, entry_note: finalNote },
+      await streamConversationTurnHTTP(
+        relationshipId.value,
+        {
+          user_text: screenshotContext,
+          history: turnHistory,
+        },
         (chunk) => {
           parsingFullText += chunk
           conversationStore.updateStreamingLaokeText(
@@ -209,8 +228,7 @@ async function handleScreenshotsChosen(payload: { note: string; paths: string[] 
       )
     } catch (e) {
       // eslint-disable-next-line no-console
-      console.warn('[PARSING-stream conversation] 失败:', e)
-      // 把真实错误信息显示在气泡里,而不是 hardcode 笼统文案,方便定位
+      console.warn('[turn-after-ocr] 失败:', e)
       const errMsg = e instanceof Error ? e.message : String(e)
       conversationStore.updateStreamingLaokeText(
         relationshipId.value,
@@ -221,10 +239,6 @@ async function handleScreenshotsChosen(payload: { note: string; paths: string[] 
       return
     }
     conversationStore.finishStreamingLaokeText(relationshipId.value, streamingMsgId)
-
-    // spec-006:不再强制跳 session.vue 走 wizard。用户在对话流里看到老 K 的分析就够了。
-    // 后续 Phase 18.2 接 agentic 端点,老 K 可根据用户继续输入决定下一步出反问/方向/话术。
-    // (replayStore 仍可在 spec-005 dev 调试入口用,本流程不再触发)
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('[OCR/PARSING] 失败:', err)
