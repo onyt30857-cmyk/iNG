@@ -185,6 +185,61 @@ function addToldFact() {
   openAddModal()
 }
 
+// === spec-008 MVP:从对话历史抽取关于"她"的稳定事实 ===
+const extracting = ref(false)
+
+async function extractFromConversation() {
+  if (!relationship.value || extracting.value) return
+  extracting.value = true
+  try {
+    const { extractProfileApi } = await import('../../api/relationship.api')
+    // 收集对话历史,只取 user_text + laoke_text
+    const allMsgs = conversationStore.getMessages(id.value)
+    const history: Array<{ speaker: 'user' | 'laoke'; text: string }> = []
+    for (const m of allMsgs) {
+      if (m.type === 'user_text') {
+        history.push({ speaker: 'user', text: m.text })
+      } else if (m.type === 'laoke_text' && !m.is_thinking && m.text) {
+        history.push({ speaker: 'laoke', text: m.text })
+      }
+    }
+    if (history.length === 0) {
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert('还没跟老 K 聊过她,先聊几句再来整理。')
+      }
+      return
+    }
+    const res = await extractProfileApi(id.value, history)
+    if (!res.ok) {
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert('抽取失败:' + res.error.message)
+      }
+      return
+    }
+    // 用 server 返回的最新值覆盖 cache(后端已经合并写入 basic_facts.key_facts)
+    store.replaceLocalCopy(res.data.relationship)
+    const added = res.data.added
+    const skipped = res.data.skipped_duplicates
+    if (typeof window !== 'undefined' && window.alert) {
+      if (added.length === 0) {
+        window.alert(`没新东西可抽${skipped > 0 ? `(跳过 ${skipped} 条已知)` : ''}。`)
+      } else {
+        const lines = [`新增 ${added.length} 条 · ${skipped > 0 ? `跳过 ${skipped} 条已知 · ` : ''}下方"你告诉老 K 的"已更新:`, '']
+        for (const f of added) {
+          const tag = { background: '背景', preference: '偏好', person: '人', event: '事' }[f.kind]
+          lines.push(`[${tag}] ${f.text}`)
+        }
+        window.alert(lines.join('\n'))
+      }
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    if (typeof window !== 'undefined' && window.alert) window.alert('抽取异常:' + msg)
+  } finally {
+    extracting.value = false
+  }
+}
+
 // === Tab 2: "老 K 现在看到的"(spec-007 信号维度,社交化叙述版,不是 dashboard)===
 const signal = computed<RelationshipSignalSnapshot>(() => signalsStore.getSignal(id.value))
 
@@ -462,9 +517,14 @@ async function deleteIt() {
         </view>
       </view>
 
-      <!-- ===== Section 3: 你告诉老 K 的(L2 用户主动 chip) ===== -->
+      <!-- ===== Section 3: 你告诉老 K 的(L2 用户主动 chip + 自动抽取) ===== -->
       <view class="section">
-        <text class="section-title">你告诉老 K 的</text>
+        <view class="section-title-row">
+          <text class="section-title">你告诉老 K 的</text>
+          <view class="auto-extract-btn" @tap="extractFromConversation">
+            <text class="auto-extract-btn-text">{{ extracting ? '整理中…' : '从对话整理 ↺' }}</text>
+          </view>
+        </view>
         <view v-if="userKnownChips.length > 0" class="chips">
           <view v-for="(chip, i) in userKnownChips" :key="i" class="chip">
             <text class="chip-text">{{ chip.text }}</text>
@@ -732,6 +792,27 @@ async function deleteIt() {
   color: $color-text-tertiary;
   letter-spacing: 1.5rpx;
   margin-bottom: 24rpx;
+}
+.section-title-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+
+  .section-title { margin-bottom: 0; }
+}
+.auto-extract-btn {
+  padding: 10rpx 20rpx;
+  border-radius: 14rpx;
+  background-color: $color-primary-subtle;
+
+  &:active { opacity: 0.85; }
+}
+.auto-extract-btn-text {
+  font-size: 22rpx;
+  color: $color-primary;
+  font-weight: $weight-medium;
 }
 
 // === 老 K 引文(她 Tab) ===

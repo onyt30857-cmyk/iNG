@@ -34,6 +34,20 @@ import {
   getRelationshipHistory,
   addUserReminder,
 } from '../../services/relationship/relationship.service.js'
+import { extractRelationshipProfile } from '../../services/relationship/profile-extraction.service.js'
+import { z } from 'zod'
+
+const extractProfileBodySchema = z.object({
+  history: z
+    .array(
+      z.object({
+        speaker: z.enum(['user', 'laoke']),
+        text: z.string().min(1).max(4000),
+      }),
+    )
+    .max(200)
+    .default([]),
+})
 
 export async function relationshipRoutes(app: FastifyInstance): Promise<void> {
   // 全部端点都要鉴权
@@ -118,5 +132,15 @@ export async function relationshipRoutes(app: FastifyInstance): Promise<void> {
     const { content } = addNoteBodySchema.parse(request.body)
     const r = await addUserReminder(userId, id, content)
     return { ok: true, data: r }
+  })
+
+  // ============== POST /v1/relationships/:id/extract-profile ==============
+  // spec-008 MVP:从对话历史抽取关于"她"的稳定事实,合并到 basic_facts.key_facts
+  app.post('/v1/relationships/:id/extract-profile', async (request) => {
+    const userId = request.user!.id
+    const { id } = relationshipIdParamSchema.parse(request.params)
+    const body = extractProfileBodySchema.parse(request.body)
+    const result = await extractRelationshipProfile(userId, id, body)
+    return { ok: true, data: result }
   })
 }

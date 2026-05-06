@@ -55,3 +55,25 @@ export const getRelationshipHistoryApi = (id: string) =>
 
 export const addReminderApi = (id: string, content: string) =>
   apiPost<Relationship>(`/relationships/${id}/notes`, { content }, { token: authToken() })
+
+// spec-008 MVP - 从对话历史抽取关于"她"的稳定事实
+export interface ExtractedFact {
+  kind: 'background' | 'preference' | 'person' | 'event'
+  text: string
+  evidence_quote: string
+  confidence: 'high' | 'low'
+}
+export interface ExtractProfileResult {
+  added: ExtractedFact[]
+  skipped_duplicates: number
+  relationship: Relationship
+}
+export const extractProfileApi = (
+  id: string,
+  history: Array<{ speaker: 'user' | 'laoke'; text: string }>,
+) =>
+  apiPost<ExtractProfileResult>(
+    `/relationships/${id}/extract-profile`,
+    { history },
+    { token: authToken() },
+  )

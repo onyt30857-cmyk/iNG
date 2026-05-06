@@ -202,6 +202,16 @@ export const useRelationshipStore = defineStore('relationship', () => {
     uni.showToast({ title: res.error.message, icon: 'none' })
   }
 
+  /** 用 server 返回的最新值覆盖本地 cache。给 extract-profile 这种"server 已改"流程用,避免重复 PATCH */
+  function replaceLocalCopy(updated: Relationship): void {
+    const idx = items.value.findIndex((r) => r.id === updated.id)
+    if (idx >= 0) {
+      items.value[idx] = updated
+    } else {
+      items.value = [updated, ...items.value]
+    }
+  }
+
   async function addReminder(id: string, content: string): Promise<void> {
     const res = await addReminderApi(id, content)
     if (res.ok) {
@@ -233,6 +243,7 @@ export const useRelationshipStore = defineStore('relationship', () => {
     fetchOne,
     create,
     update,
+    replaceLocalCopy,
     softDelete,
     archive,
     restore,
