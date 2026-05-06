@@ -5,11 +5,13 @@
 import { onMounted, ref, computed } from 'vue'
 import { useRelationshipStore } from '../../stores/relationship'
 import { useRelationshipSignalsStore } from '../../stores/relationship-signals'
+import { useAppDialog } from '../../composables/useAppDialog'
 import RelationshipCard from '../../components/RelationshipCard.vue'
 import CrossRelationshipBriefing from '../../components/CrossRelationshipBriefing.vue'
 
 const store = useRelationshipStore()
 const signalsStore = useRelationshipSignalsStore()
+const dialog = useAppDialog()
 const showArchived = ref(false)
 const seedingDemo = ref(false)
 
@@ -35,24 +37,10 @@ async function seedDemo() {
   seedingDemo.value = true
   try {
     const ids = store.items.map((r) => r.id)
-    // eslint-disable-next-line no-console
-    console.log('[seedDemo] seeding for ids:', ids)
     await signalsStore.seedDemoSignals(ids)
-    // eslint-disable-next-line no-console
-    console.log('[seedDemo] done, sample signal:', signalsStore.getSignal(ids[0] ?? ''))
-    // H5 下 uni.showToast 偶尔不显示,用 alert 兜底
-    if (typeof window !== 'undefined' && window.alert) {
-      // setTimeout 让 reactive 先 flush
-      setTimeout(() => window.alert('已注入演示信号 · 看下面 Briefing 卡是否变化'), 50)
-    } else {
-      uni.showToast({ title: '已注入演示信号', icon: 'none' })
-    }
+    await dialog.alert('已注入演示信号', { body: '看下面 Briefing 卡的 headline 是否变化。' })
   } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error('[seedDemo] failed:', e)
-    if (typeof window !== 'undefined' && window.alert) {
-      window.alert('注入失败: ' + (e instanceof Error ? e.message : String(e)))
-    }
+    await dialog.alert('注入失败', { body: e instanceof Error ? e.message : String(e) })
   } finally {
     seedingDemo.value = false
   }
@@ -160,6 +148,7 @@ function goBack() {
         <button class="error-cta" @tap="store.fetchList()">重试</button>
       </view>
     </view>
+    <AppDialog />
   </view>
 </template>
 

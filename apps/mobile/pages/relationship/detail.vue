@@ -14,6 +14,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { useRelationshipStore } from '../../stores/relationship'
 import { useConversationStore } from '../../stores/conversation'
 import { useRelationshipSignalsStore } from '../../stores/relationship-signals'
+import { useAppDialog } from '../../composables/useAppDialog'
 import RelationshipAvatar from '../../components/RelationshipAvatar.vue'
 import { RELATIONSHIP_STAGE_LABELS, type Relationship } from '../../types/relationship'
 import type { RelationshipSignalSnapshot, SignalDimension } from '../../utils/signal-computer'
@@ -21,6 +22,7 @@ import type { RelationshipSignalSnapshot, SignalDimension } from '../../utils/si
 const store = useRelationshipStore()
 const conversationStore = useConversationStore()
 const signalsStore = useRelationshipSignalsStore()
+const dialog = useAppDialog()
 
 const id = ref('')
 
@@ -195,7 +197,7 @@ async function pickAvatar() {
         await store.update(id.value, { avatar_url: dataUrl })
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
-        if (typeof window !== 'undefined' && window.alert) window.alert('换头像失败:' + msg)
+        await dialog.alert('换头像失败', { body: msg })
       } finally {
         uploadingAvatar.value = false
       }
@@ -250,41 +252,37 @@ async function extractFromConversation() {
       }
     }
     if (history.length === 0) {
-      if (typeof window !== 'undefined' && window.alert) {
-        window.alert('还没跟老 K 聊过她,先聊几句再来整理。')
-      }
+      await dialog.alert('还没素材', { body: '还没跟老 K 聊过她,先聊几句再来整理。' })
       return
     }
     // 后端 seed-dev 已经为每段真 dev 关系建好记录,直接传当前 id 走真 ownership 写真档案
     const res = await extractProfileApi(id.value, history)
     if (!res.ok) {
-      if (typeof window !== 'undefined' && window.alert) {
-        window.alert('抽取失败:' + res.error.message)
-      }
+      await dialog.alert('抽取失败', { body: res.error.message })
       return
     }
     // 后端已写库 + 返回最新 relationship,前端覆盖本地 cache 即可,无需再 PATCH
     store.replaceLocalCopy(res.data.relationship)
     const added = res.data.added
     const skipped = res.data.skipped_duplicates
-    if (typeof window !== 'undefined' && window.alert) {
-      if (added.length === 0) {
-        window.alert(`没新东西可抽${skipped > 0 ? `(跳过 ${skipped} 条已知)` : ''}。`)
-      } else {
-        const lines = [
-          `新增 ${added.length} 条${skipped > 0 ? ` · 跳过 ${skipped} 条已知` : ''}:`,
-          '',
-        ]
-        for (const f of added) {
-          const tag = { background: '背景', preference: '偏好', person: '人', event: '事' }[f.kind]
-          lines.push(`[${tag}] ${f.text}`)
-        }
-        window.alert(lines.join('\n'))
+    if (added.length === 0) {
+      await dialog.alert('整理完了', {
+        body: skipped > 0 ? `没新东西可抽(跳过 ${skipped} 条已知)。` : '没新东西可抽。',
+      })
+    } else {
+      const lines: string[] = []
+      for (const f of added) {
+        const tag = { background: '背景', preference: '偏好', person: '人', event: '事' }[f.kind]
+        lines.push(`[${tag}] ${f.text}`)
       }
+      const subtitle = skipped > 0
+        ? `新增 ${added.length} 条 · 跳过 ${skipped} 条已知`
+        : `新增 ${added.length} 条`
+      await dialog.alert(subtitle, { body: lines.join('\n') })
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    if (typeof window !== 'undefined' && window.alert) window.alert('抽取异常:' + msg)
+    await dialog.alert('抽取异常', { body: msg })
   } finally {
     extracting.value = false
   }
@@ -810,6 +808,8 @@ async function deleteIt() {
       <text class="footer-sep">·</text>
       <text class="footer-link danger" @tap="deleteIt">删除整段关系</text>
     </view>
+    <!-- 全局产品级 dialog 挂载点(替代 window.alert / uni.showModal) -->
+    <AppDialog />
   </view>
 </template>
 
