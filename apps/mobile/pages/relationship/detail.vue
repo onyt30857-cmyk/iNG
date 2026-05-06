@@ -248,7 +248,6 @@ async function extractFromConversation() {
   extracting.value = true
   try {
     const { extractProfileApi } = await import('../../api/relationship.api')
-    const { DEV_RELATIONSHIP_ID } = await import('../../utils/dev-token')
     // 收集对话历史,只取 user_text + laoke_text
     const allMsgs = conversationStore.getMessages(id.value)
     const history: Array<{ speaker: 'user' | 'laoke'; text: string }> = []
@@ -265,31 +264,18 @@ async function extractFromConversation() {
       }
       return
     }
-    // dev 阶段:mock 关系 id 后端找不到,统一打到 DEV_RELATIONSHIP_ID 取真 LLM 抽取,
-    // 拿到 facts 后合并到当前 mock relationship 本地 cache(同 conversation turn 模式)
-    const res = await extractProfileApi(DEV_RELATIONSHIP_ID, history)
+    // 后端 seed-dev 已经为每段真 dev 关系建好记录,直接传当前 id 走真 ownership 写真档案
+    const res = await extractProfileApi(id.value, history)
     if (!res.ok) {
       if (typeof window !== 'undefined' && window.alert) {
         window.alert('抽取失败:' + res.error.message)
       }
       return
     }
+    // 后端已写库 + 返回最新 relationship,前端覆盖本地 cache 即可,无需再 PATCH
+    store.replaceLocalCopy(res.data.relationship)
     const added = res.data.added
     const skipped = res.data.skipped_duplicates
-    // 把抽到的 facts merge 到当前关系本地 cache(走 store.update,mock 模式下本地写)
-    if (added.length > 0) {
-      const existingFacts =
-        ((relationship.value.basic_facts as Record<string, unknown> | null)?.key_facts as
-          | string[]
-          | undefined) ?? []
-      const newFacts = [...existingFacts, ...added.map((f) => f.text)]
-      await store.update(id.value, {
-        basic_facts: {
-          ...(relationship.value.basic_facts ?? {}),
-          key_facts: newFacts,
-        },
-      })
-    }
     if (typeof window !== 'undefined' && window.alert) {
       if (added.length === 0) {
         window.alert(`没新东西可抽${skipped > 0 ? `(跳过 ${skipped} 条已知)` : ''}。`)

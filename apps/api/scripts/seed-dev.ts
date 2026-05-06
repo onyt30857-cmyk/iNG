@@ -18,6 +18,8 @@ import { config } from '../src/config/index.js'
 
 const DEV_USER_ID = 'dev-user-1'
 const DEV_RELATIONSHIP_ID = 'dev-relationship-1'
+const DEV_RELATIONSHIP_2_ID = 'dev-relationship-2'
+const DEV_RELATIONSHIP_3_ID = 'dev-relationship-3'
 const DEV_SESSION_ID = 'dev-session-1'
 
 async function main(): Promise<void> {
@@ -36,7 +38,7 @@ async function main(): Promise<void> {
   })
   console.log(`✓ user: ${user.id} (${user.nickname})`)
 
-  // 2. relationship
+  // 2. relationships (3 段 - 小雨 / 小美 / 玲玲,跟前端 mock 数据语义一致)
   const rel = await prisma.relationship.upsert({
     where: { id: DEV_RELATIONSHIP_ID },
     update: {},
@@ -47,14 +49,47 @@ async function main(): Promise<void> {
       stage: 'FLIRTING',
       avatar_seed: 'xiaoyu',
       basic_facts: {
-        how_met: '朋友介绍',
-        first_met_at: '2026-03',
-        key_facts: ['喜欢爵士乐', '在金融行业'],
+        how_we_met: '朋友介绍',
+        key_facts: ['喜欢爵士乐', '在金融行业', '她是同事'],
       },
       user_reminders: [],
     },
   })
   console.log(`✓ relationship: ${rel.id} (${rel.name})`)
+
+  const rel2 = await prisma.relationship.upsert({
+    where: { id: DEV_RELATIONSHIP_2_ID },
+    update: {},
+    create: {
+      id: DEV_RELATIONSHIP_2_ID,
+      user_id: user.id,
+      name: '小美',
+      stage: 'INIT',
+      avatar_seed: 'xiaomei',
+      basic_facts: {
+        key_facts: [],
+      },
+      user_reminders: [],
+    },
+  })
+  console.log(`✓ relationship: ${rel2.id} (${rel2.name})`)
+
+  const rel3 = await prisma.relationship.upsert({
+    where: { id: DEV_RELATIONSHIP_3_ID },
+    update: {},
+    create: {
+      id: DEV_RELATIONSHIP_3_ID,
+      user_id: user.id,
+      name: '玲玲',
+      stage: 'COMMITTED',
+      avatar_seed: 'lingling',
+      basic_facts: {
+        key_facts: [],
+      },
+      user_reminders: [],
+    },
+  })
+  console.log(`✓ relationship: ${rel3.id} (${rel3.name})`)
 
   // 3. session
   const session = await prisma.session.upsert({

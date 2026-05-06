@@ -7,9 +7,14 @@
 // 走真登录流程拿到并存 storage。
 
 export const DEV_TOKEN =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZXYtdXNlci0xIiwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc3Nzk2OTI1MywiZXhwIjoxNzgwNTYxMjUzfQ.imx4wneY1EZ4vRUUmw2JrtNacYoz5--YA0MYuU0KJ_s'
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZXYtdXNlci0xIiwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc3ODA0NDA3OCwiZXhwIjoxNzgwNjM2MDc4fQ.VUfpEVpAoRn2hXbewLxMiEi2Z49cmKGN4jivvCcBaYE'
 
 // seed-dev 创建的固定 dev 数据 ID
 export const DEV_USER_ID = 'dev-user-1'
-export const DEV_RELATIONSHIP_ID = 'dev-relationship-1'
+export const DEV_RELATIONSHIP_ID = 'dev-relationship-1' // 小雨(legacy 名,保留兼容)
+export const DEV_RELATIONSHIP_IDS = [
+  'dev-relationship-1', // 小雨
+  'dev-relationship-2', // 小美
+  'dev-relationship-3', // 玲玲
+] as const
 export const DEV_SESSION_ID = 'dev-session-1'

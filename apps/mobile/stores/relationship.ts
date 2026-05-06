@@ -23,14 +23,14 @@ import {
 // === dev-mock 数据(只在 API 失败时展示) ===
 const MOCK_RELATIONSHIPS: Relationship[] = [
   {
-    id: 'mock-1',
+    id: 'dev-relationship-1',
     user_id: 'mock-user',
     name: '小雨',
-    avatar_seed: 'syu',
+    avatar_seed: 'xiaoyu',
     avatar_url: null,
     stage: 'FLIRTING',
     basic_facts: {
-      how_we_met: '朋友介绍,3 月在咖啡馆',
+      how_we_met: '朋友介绍',
       key_facts: ['设计专业', '喜欢爵士乐', '下班后逛书店'],
     },
     user_reminders: ['她最近在写论文,压力大', '她对"可爱"这种夸她外表的词比较敏感'],
@@ -40,10 +40,10 @@ const MOCK_RELATIONSHIPS: Relationship[] = [
     deleted_at: null,
   },
   {
-    id: 'mock-2',
+    id: 'dev-relationship-2',
     user_id: 'mock-user',
     name: '小美',
-    avatar_seed: 'smei',
+    avatar_seed: 'xiaomei',
     avatar_url: null,
     stage: 'INIT',
     basic_facts: { how_we_met: '同事饭局' },
@@ -54,10 +54,10 @@ const MOCK_RELATIONSHIPS: Relationship[] = [
     deleted_at: null,
   },
   {
-    id: 'mock-3',
+    id: 'dev-relationship-3',
     user_id: 'mock-user',
     name: '玲玲',
-    avatar_seed: 'sling',
+    avatar_seed: 'lingling',
     avatar_url: null,
     stage: 'COMMITTED',
     basic_facts: { key_facts: ['一起两年了', '喜欢爬山'] },

@@ -10,11 +10,11 @@ import type {
 import { useUserStore } from '../stores/user'
 import { DEV_TOKEN } from '../utils/dev-token'
 
-// 真用户 token,没登录返 undefined(让后端 401 → store mock fallback)
-// 注意:CRUD 这层不能 fallback DEV_TOKEN,否则会把 mock 3 段关系覆盖成 db 里真实的 1 条
+// dev 阶段 fallback DEV_TOKEN(seed-dev 已建 3 段真关系小雨/小美/玲玲,不会覆盖 mock)
+// M2 微信登录接通后,user.token 优先于 DEV_TOKEN 生效
 function authToken(): string | undefined {
   const store = useUserStore()
-  return store.token ?? undefined
+  return store.token ?? DEV_TOKEN
 }
 
 export const listRelationshipsApi = (params?: { archived?: boolean }) => {
@@ -75,9 +75,8 @@ export const extractProfileApi = (
   id: string,
   history: Array<{ speaker: 'user' | 'laoke'; text: string }>,
 ) =>
-  // dev 阶段强制 DEV_TOKEN(LLM 抽取必须打真后端),区别于 CRUD 类 — 见 authToken 注释
   apiPost<ExtractProfileResult>(
     `/relationships/${id}/extract-profile`,
     { history },
-    { token: authToken() ?? DEV_TOKEN },
+    { token: authToken() },
   )
