@@ -216,28 +216,32 @@ function confirmNoteAndPickImages() {
   gap: 12rpx;
 }
 
-// === ＋ 主操作按钮(展开 action bar),跟发送按钮视觉权重对等 ===
+// === ＋ 辅助按钮:跟输入框同 surface + border,视觉融为一体 ===
 .plus-btn {
   width: 80rpx;
   height: 80rpx;
   border-radius: 50%;
-  background-color: $color-primary-subtle; // 浅主色,跟周围 background 形成清晰对比
-  border: none;
+  background-color: $color-surface;
+  border: 1rpx solid $color-border;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   align-self: center;
-  transition: background-color 0.2s, transform 0.2s;
+  transition: background-color 0.2s, border-color 0.2s, transform 0.2s;
 
-  &:active { transform: scale(0.92); }
+  &:active {
+    background-color: $color-surface-subtle;
+    transform: scale(0.94);
+  }
 }
 .plus-btn-open {
   background-color: $color-primary;
+  border-color: $color-primary;
   transform: rotate(45deg);
 }
 .plus-icon {
-  font-size: 48rpx;
+  font-size: 40rpx;
   color: $color-primary;
   line-height: 1;
   font-weight: $weight-medium;
@@ -419,6 +423,7 @@ function confirmNoteAndPickImages() {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  align-self: center; // 跟 plus-btn 一致,多行 textarea 时两按钮垂直居中对齐
   padding: 0;
 
   &::after { border: none; }
