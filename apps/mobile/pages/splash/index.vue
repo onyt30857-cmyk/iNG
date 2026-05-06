@@ -21,30 +21,41 @@ onMounted(() => {
       <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" class="brand-svg">
         <defs>
           <radialGradient id="brand-glow" cx="50%" cy="50%">
-            <stop offset="0%" stop-color="#2E3A59" stop-opacity="0.4" />
-            <stop offset="60%" stop-color="#2E3A59" stop-opacity="0.1" />
-            <stop offset="100%" stop-color="#2E3A59" stop-opacity="0" />
+            <stop offset="0%" stop-color="#7C5CFF" stop-opacity="0.35" />
+            <stop offset="60%" stop-color="#7C5CFF" stop-opacity="0.1" />
+            <stop offset="100%" stop-color="#7C5CFF" stop-opacity="0" />
           </radialGradient>
           <radialGradient id="brand-halo" cx="50%" cy="50%">
-            <stop offset="0%" stop-color="#A87C5F" stop-opacity="0.18" />
+            <stop offset="0%" stop-color="#A87C5F" stop-opacity="0.16" />
             <stop offset="100%" stop-color="#A87C5F" stop-opacity="0" />
           </radialGradient>
+          <linearGradient id="brand-disc" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#8E72FF" />
+            <stop offset="100%" stop-color="#5B3FE0" />
+          </linearGradient>
         </defs>
-        <!-- 外层茶棕暖晕 -->
+        <!-- 外层茶棕暖晕(老 K 温度色 DNA 保留) -->
         <circle cx="120" cy="120" r="110" fill="url(#brand-halo)" class="ring ring-1" />
-        <!-- 内层墨青蓝主晕 -->
+        <!-- 内层紫主晕 -->
         <circle cx="120" cy="120" r="90" fill="url(#brand-glow)" class="ring ring-2" />
-        <!-- 茶棕虚线环(老 K 的温度) -->
+        <!-- 茶棕虚线环 -->
         <circle cx="120" cy="120" r="56" fill="none" stroke="#A87C5F" stroke-width="1"
                 stroke-dasharray="2,4" class="dot dot-3" />
-        <!-- 中心圆盘 -->
-        <circle cx="120" cy="120" r="48" fill="#2E3A59" class="dot dot-4" />
-        <!-- K 字 -->
-        <text x="120" y="138" text-anchor="middle"
-              fill="#F4F1EA"
-              font-family="-apple-system, BlinkMacSystemFont, sans-serif"
-              font-size="42" font-weight="600"
-              class="dot dot-5">K</text>
+        <!-- 中心圆盘:紫色渐变(更现代) -->
+        <circle cx="120" cy="120" r="48" fill="url(#brand-disc)" class="dot dot-4" />
+        <!-- 老 K 简笔头像(替代 K 字,跟 LaokeBubble 同款) -->
+        <g class="dot dot-5" stroke="#FFFFFF" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round" transform="translate(120 120)">
+          <!-- 头型(留底不闭合) -->
+          <path d="M-14 0 a14 14 0 1 1 28 0 v6 a6 6 0 0 1 -6 6 h-16 a6 6 0 0 1 -6 -6 z" />
+          <!-- 头发一缕 -->
+          <path d="M-9 -8 Q 0 -14 9 -8" />
+          <!-- 眼镜 -->
+          <circle cx="-5.4" cy="0" r="3.2" stroke-width="1.4" />
+          <circle cx="5.4" cy="0" r="3.2" stroke-width="1.4" />
+          <line x1="-2.2" y1="0" x2="2.2" y2="0" stroke-width="1.3" />
+          <!-- 平嘴 -->
+          <line x1="-3" y1="8" x2="3" y2="8" stroke-width="1.5" />
+        </g>
       </svg>
     </view>
 
