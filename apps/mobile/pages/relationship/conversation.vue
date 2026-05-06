@@ -76,8 +76,12 @@ function openMeta() {
   })
 }
 
-function handleSendText(text: string) {
-  conversationStore.appendUserText(relationshipId.value, text)
+function handleSendText(payload: { text: string; isOtherQuote: boolean }) {
+  conversationStore.appendUserText(
+    relationshipId.value,
+    payload.text,
+    { isOtherQuote: payload.isOtherQuote },
+  )
 }
 
 // === 老 K 主动引导卡(spec-007 Phase 19.6)===
@@ -364,7 +368,12 @@ function handleSavePlanning(planningId: string, content: import('../../types/mes
           @select="handleSelectDraft"
           @save="handleSaveDraft"
         />
-        <UserBubble v-else-if="m.type === 'user_text'" :text="m.text" />
+        <UserBubble
+          v-else-if="m.type === 'user_text'"
+          :text="m.text"
+          :is-other-quote="m.is_other_quote"
+          :quote-name="relationship?.name"
+        />
         <ScreenshotBubble v-else-if="m.type === 'user_screenshots'" :count="m.count" :urls="m.urls" />
         <UserBubble v-else-if="m.type === 'user_action'" :text="m.text" :subtle="true" />
       </template>

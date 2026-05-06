@@ -78,6 +78,8 @@ export interface LaokeDraftsMessage extends BaseMessage {
 export interface UserTextMessage extends BaseMessage {
   type: 'user_text'
   text: string
+  /** spec-009:用户标记这条是"她回的原话"转给老 K 看(否则是用户自己跟老 K 说的话) */
+  is_other_quote?: boolean
 }
 
 // 用户发的截图(组,1-5 张)

@@ -7,21 +7,35 @@ const props = defineProps<{
   uploading?: boolean
 }>()
 const emit = defineEmits<{
-  sendText: [string]
+  sendText: [{ text: string; isOtherQuote: boolean }]
   screenshotsChosen: [{ note: string; paths: string[] }]
 }>()
 
 const text = ref('')
 const canSend = computed(() => text.value.trim().length > 0)
 
+// spec-009 角色切换:false=我说的(自己跟老 K 讲),true=她回的(对方原话转给老 K 看)
+// 切到"她回的"后,placeholder 也变化,发完自动切回"我说"
+const isOtherQuote = ref(false)
+
+const placeholder = computed(() =>
+  isOtherQuote.value ? '把她刚发的原话粘进来' : '想到啥说啥',
+)
+
 watch(() => props.presetText, (v) => {
   if (v) text.value = v
 })
 
+function toggleQuoteMode() {
+  isOtherQuote.value = !isOtherQuote.value
+}
+
 function send() {
   if (!canSend.value) return
-  emit('sendText', text.value.trim())
+  emit('sendText', { text: text.value.trim(), isOtherQuote: isOtherQuote.value })
   text.value = ''
+  // 发完自动切回"我说",避免用户忘了切回去导致下条又被当成她说的
+  isOtherQuote.value = false
 }
 
 // === entry note 自定义 modal ===
@@ -65,7 +79,14 @@ function confirmNoteAndPickImages() {
 
 <template>
   <view>
-    <view class="chat-input">
+    <!-- 角色切换条(只在切到"她回的"才显示,否则保持简洁)-->
+    <view v-if="isOtherQuote" class="quote-mode-hint">
+      <text class="quote-mode-icon">●</text>
+      <text class="quote-mode-text">下条作为「她回的」原话发给老 K</text>
+      <text class="quote-mode-cancel" @tap="toggleQuoteMode">取消</text>
+    </view>
+
+    <view class="chat-input" :class="{ 'quote-mode': isOtherQuote }">
       <view class="screenshot-btn" @tap="chooseScreenshots">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
           <rect x="3" y="6" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.6" />
@@ -73,11 +94,18 @@ function confirmNoteAndPickImages() {
           <circle cx="12" cy="13" r="3.5" stroke="currentColor" stroke-width="1.6" />
         </svg>
       </view>
+      <view
+        class="quote-toggle"
+        :class="{ active: isOtherQuote }"
+        @tap="toggleQuoteMode"
+      >
+        <text class="quote-toggle-text">{{ isOtherQuote ? '她' : '我' }}</text>
+      </view>
       <view class="input-wrap">
         <textarea
           class="input"
           v-model="text"
-          placeholder="想到啥说啥"
+          :placeholder="placeholder"
           :auto-height="true"
           :show-confirm-bar="false"
           :adjust-position="true"
@@ -124,6 +152,37 @@ function confirmNoteAndPickImages() {
 </template>
 
 <style lang="scss" scoped>
+// === 角色切换条(quote mode 启用时显示) ===
+.quote-mode-hint {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 12rpx 32rpx;
+  background-color: rgba(168, 124, 95, 0.12); // accent 淡
+  border-top: 1rpx solid $color-border;
+  gap: 12rpx;
+}
+.quote-mode-icon {
+  font-size: 14rpx;
+  color: $color-accent;
+  animation: quote-pulse 1.4s ease-in-out infinite;
+}
+@keyframes quote-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+.quote-mode-text {
+  flex: 1;
+  font-size: 24rpx;
+  color: $color-accent;
+  font-weight: $weight-medium;
+}
+.quote-mode-cancel {
+  font-size: 24rpx;
+  color: $color-text-secondary;
+  padding: 4rpx 12rpx;
+}
+
 .chat-input {
   display: flex;
   flex-direction: row;
@@ -132,6 +191,41 @@ function confirmNoteAndPickImages() {
   background-color: $color-background;
   border-top: 1rpx solid $color-border;
   gap: 12rpx;
+  transition: background-color 0.2s;
+}
+.chat-input.quote-mode {
+  background-color: rgba(168, 124, 95, 0.06); // accent 极淡 — 整个输入区染色提醒
+}
+
+// === 我/她 角色切换按钮 ===
+.quote-toggle {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  background-color: $color-surface-subtle;
+  border: 2rpx solid $color-border;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  align-self: center;
+  transition: background-color 0.18s, border-color 0.18s, transform 0.12s;
+
+  &:active { transform: scale(0.92); }
+  &.active {
+    background-color: $color-accent;
+    border-color: $color-accent;
+  }
+}
+.quote-toggle-text {
+  font-size: 24rpx;
+  font-weight: $weight-bold;
+  color: $color-text-secondary;
+  line-height: 1;
+
+  .quote-toggle.active & {
+    color: $color-background;
+  }
 }
 .screenshot-btn {
   width: 80rpx;

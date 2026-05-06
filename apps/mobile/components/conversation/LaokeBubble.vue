@@ -110,18 +110,21 @@ async function confirmComment() {
           @tap="onLike"
         >
           <text class="fb-icon">👍</text>
+          <text class="fb-label">有用</text>
         </view>
         <view
           :class="['fb-btn', feedbackGiven === 'dislike' && 'fb-active-dislike']"
           @tap="onDislike"
         >
           <text class="fb-icon">👎</text>
+          <text class="fb-label">不行</text>
         </view>
         <view
           :class="['fb-btn', feedbackGiven === 'comment' && 'fb-active-comment']"
           @tap="onCommentTap"
         >
           <text class="fb-icon">💬</text>
+          <text class="fb-label">说哪不对</text>
         </view>
         <text v-if="feedbackGiven" class="fb-thanks">谢了,会改</text>
       </view>
@@ -272,31 +275,37 @@ async function confirmComment() {
   40% { opacity: 1; transform: translateY(-6rpx) scale(1); }
 }
 
-// === spec-009 反馈区 ===
+// === spec-009 反馈区 — 视觉提升,不再"小气" ===
 .feedback-row {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 6rpx;
-  margin-top: 10rpx;
-  padding-left: 8rpx;
-  opacity: 0.55; // 默认半透明,不抢镜
-
-  &:active { opacity: 1; }
+  gap: 14rpx;
+  margin-top: 14rpx;
+  padding-left: 4rpx;
+  opacity: 0.85;
 }
 .fb-btn {
-  width: 48rpx;
-  height: 48rpx;
   display: flex;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: background-color 0.18s, transform 0.12s;
+  gap: 8rpx;
+  padding: 12rpx 22rpx;
+  border-radius: 999rpx;
+  background-color: $color-surface-subtle;
+  border: 1rpx solid $color-border;
+  transition: background-color 0.18s, border-color 0.18s, transform 0.12s;
 
-  &:active { background-color: $color-surface-subtle; transform: scale(0.92); }
+  &:active { transform: scale(0.95); }
 }
 .fb-icon {
-  font-size: 22rpx;
+  font-size: 28rpx;
+  line-height: 1;
+}
+.fb-label {
+  font-size: 24rpx;
+  color: $color-text-secondary;
+  font-weight: $weight-medium;
   line-height: 1;
 }
 .fb-active-like {

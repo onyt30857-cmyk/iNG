@@ -32,7 +32,15 @@ export function serializeHistoryForLLM(
 
     switch (m.type) {
       case 'user_text':
-        if (m.text) out.push({ speaker: 'user', text: m.text })
+        if (m.text) {
+          // spec-009:is_other_quote 标记的是"她回的原话",标清楚 LLM 不会当兄弟自己写的
+          out.push({
+            speaker: 'user',
+            text: m.is_other_quote
+              ? `[${sheName}刚回了:"${m.text}"]`
+              : m.text,
+          })
+        }
         break
 
       case 'user_screenshots': {

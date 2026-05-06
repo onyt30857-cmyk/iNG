@@ -366,13 +366,14 @@ export const useConversationStore = defineStore('conversation', () => {
   function appendUserText(
     relationshipId: string,
     text: string,
-    opts: { silent?: boolean } = {},
+    opts: { silent?: boolean; isOtherQuote?: boolean } = {},
   ) {
     const list = messagesByRelationship.value[relationshipId] ?? []
     list.push({
       id: `u-${Date.now()}`,
       type: 'user_text',
       text,
+      ...(opts.isOtherQuote ? { is_other_quote: true } : {}),
       created_at: new Date().toISOString(),
     })
     messagesByRelationship.value[relationshipId] = [...list]
@@ -380,11 +381,16 @@ export const useConversationStore = defineStore('conversation', () => {
     if (opts.silent) return
 
     // 真 LLM turn:用户发字 → 老 K 流式回应。失败时显示具体错误,不再 mock 占位
-    void triggerLaokeTurn(relationshipId, text)
+    void triggerLaokeTurn(relationshipId, text, !!opts.isOtherQuote)
   }
 
-  /** spec-006 Phase 18.2:用户发字后,异步调 conversation turn 端点拿老 K 流式回应 */
-  async function triggerLaokeTurn(relationshipId: string, userText: string): Promise<void> {
+  /** spec-006 Phase 18.2:用户发字后,异步调 conversation turn 端点拿老 K 流式回应
+   *  spec-009:isOtherQuote=true 表示用户传过来的是"她回的原话",老 K 要当成观察素材 */
+  async function triggerLaokeTurn(
+    relationshipId: string,
+    userText: string,
+    isOtherQuote = false,
+  ): Promise<void> {
     // 先 push 一条 streaming laoke 气泡占位
     const streamingId = appendStreamingLaokeText(relationshipId)
     updateStreamingLaokeText(relationshipId, streamingId, '')
@@ -423,9 +429,15 @@ export const useConversationStore = defineStore('conversation', () => {
       const { computeDeliverySignal, buildDeliveryDirective } = await import('../utils/delivery-signal')
       const deliverySignal = computeDeliverySignal(all, userText)
       const directive = buildDeliveryDirective(deliverySignal)
-      const userTextWithDirective = directive
-        ? `${userText}\n\n${directive}`
+
+      // spec-009:isOtherQuote 时,把内容包成"[她刚回了:'...']" 让老 K 知道这是观察素材
+      // 不是兄弟在跟你说话,需要分析这条对话怎么接,不能把它当成兄弟的草稿
+      const finalUserText = isOtherQuote
+        ? `[她刚回了我:"${userText}"]\n\n这是她发给我的原话(不是我自己写的草稿)。基于这句和上下文,你帮我看怎么接。`
         : userText
+      const userTextWithDirective = directive
+        ? `${finalUserText}\n\n${directive}`
+        : finalUserText
 
       // 走真 relationship id(seed-dev 已为 dev-user 建好 3 段真关系,prompt 里 name 准确)
       await streamConversationTurnHTTP(

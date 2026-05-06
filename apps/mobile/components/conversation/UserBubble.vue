@@ -1,10 +1,11 @@
 <script setup lang="ts">
-defineProps<{ text: string; subtle?: boolean }>()
+defineProps<{ text: string; subtle?: boolean; isOtherQuote?: boolean; quoteName?: string }>()
 </script>
 
 <template>
-  <view class="row">
-    <view class="bubble" :class="{ subtle }">
+  <view class="row" :class="{ 'row-quote': isOtherQuote }">
+    <view class="bubble" :class="{ subtle, 'bubble-quote': isOtherQuote }">
+      <text v-if="isOtherQuote" class="quote-tag">{{ quoteName || '她' }} 回的</text>
       <text class="text">{{ text }}</text>
     </view>
   </view>
@@ -17,6 +18,10 @@ defineProps<{ text: string; subtle?: boolean }>()
   justify-content: flex-end;
   margin-bottom: 24rpx;
   animation: fadeIn 0.4s ease both;
+}
+.row-quote {
+  // 她回的 — 让气泡靠左一些,跟"我说"区分
+  justify-content: flex-end;
 }
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8rpx); }
@@ -32,6 +37,20 @@ defineProps<{ text: string; subtle?: boolean }>()
   background-color: transparent;
   border: 1rpx solid $color-border;
   padding: 16rpx 24rpx;
+}
+// 「她回的」气泡:用 accent 色调区分,加左上角标识 — 用户一眼能看出这是转发的
+.bubble-quote {
+  background-color: rgba(168, 124, 95, 0.12); // accent 极淡
+  border: 1rpx dashed rgba(168, 124, 95, 0.45);
+  border-radius: 8rpx 28rpx 28rpx 28rpx; // 翻转圆角,跟"我说"视觉相反
+}
+.quote-tag {
+  display: block;
+  font-size: 22rpx;
+  color: $color-accent;
+  font-weight: $weight-medium;
+  letter-spacing: 1rpx;
+  margin-bottom: 8rpx;
 }
 .text {
   font-size: 32rpx;
