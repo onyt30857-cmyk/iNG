@@ -9,6 +9,8 @@ import { requireAuth } from '../../middleware/auth.js'
 import { runOcrSchema } from '../../schemas/ocr.schema.js'
 import { runOcr } from '../../ai/orchestrators/ocr.orchestrator.js'
 import { getRelationshipById } from '../../services/relationship/relationship.service.js'
+import { checkAndIncrementQuota } from '../../services/quota/quota.service.js'
+import { errors } from '../../lib/error.js'
 
 export async function ocrRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', requireAuth)
@@ -19,6 +21,12 @@ export async function ocrRoutes(app: FastifyInstance): Promise<void> {
 
     // ★ Layer 1 强制:校验 relationship 属于该 user
     await getRelationshipById(userId, body.relationship_id)
+
+    // ★ 付费墙 v0:OCR 配额
+    const quota = await checkAndIncrementQuota(userId, 'ocr')
+    if (!quota.allowed) {
+      throw errors.freeQuotaExceeded('ocr', quota.used, quota.limit)
+    }
 
     const result = await runOcr({
       user_id: userId,

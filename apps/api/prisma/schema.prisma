@@ -499,6 +499,26 @@ enum SubscriptionPlan {
   YEARLY   // 年付 ¥299
 }
 
+// 付费墙 v0 — 每日免费额度跟踪
+// CLAUDE.md §11 不变式 #5:付费墙温和,免费层至少能完整体验。
+// 用 (user_id, day) 唯一,每天一行,各 counter 累加。
+model DailyUsage {
+  id              String   @id @default(cuid())
+  user_id         String
+  day             String   // "YYYY-MM-DD"
+
+  turn_count      Int      @default(0) // conversation-turn 调用次数
+  ocr_count       Int      @default(0) // OCR 截图分析次数
+  heavy_count     Int      @default(0) // extract / generate-insights / summarize 等重操作
+
+  created_at      DateTime @default(now()) @db.Timestamptz
+  updated_at      DateTime @updatedAt @db.Timestamptz
+
+  @@unique([user_id, day])
+  @@map("daily_usage")
+  @@index([user_id])
+}
+
 enum SubscriptionStatus {
   ACTIVE
   EXPIRED

@@ -42,6 +42,9 @@ export const ErrorCodes = {
 
   // 内容审核
   CONTENT_VIOLATION: 'CONTENT_VIOLATION',
+
+  // 付费墙(CLAUDE.md §11 不变式 #5)
+  FREE_QUOTA_EXCEEDED: 'FREE_QUOTA_EXCEEDED',
 } as const
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes]
@@ -108,5 +111,13 @@ export const errors = {
       message: '我这边出了点问题,等会儿再试',
       statusCode: 500,
       detail,
+    }),
+
+  freeQuotaExceeded: (kind: string, used: number, limit: number) =>
+    new AppError({
+      code: ErrorCodes.FREE_QUOTA_EXCEEDED,
+      message: '今天免费的额度用完了,明天再来,或者订阅一下不限',
+      statusCode: 402,
+      detail: `kind=${kind} used=${used} limit=${limit}`,
     }),
 }

@@ -179,6 +179,13 @@ export async function extractRelationshipProfile(
   // ★ Layer 1 ownership
   const current = await getRelationshipById(userId, relationshipId)
 
+  // ★ 付费墙 v0:heavy 配额(extract 算 1 次重操作)
+  const { checkAndIncrementQuota } = await import('../quota/quota.service.js')
+  const quota = await checkAndIncrementQuota(userId, 'heavy')
+  if (!quota.allowed) {
+    throw errors.freeQuotaExceeded('heavy', quota.used, quota.limit)
+  }
+
   // 拿现有 key_facts(可能是 undefined)
   const existingFacts = ((current.basic_facts as Record<string, unknown> | null)
     ?.key_facts as string[] | undefined) ?? []

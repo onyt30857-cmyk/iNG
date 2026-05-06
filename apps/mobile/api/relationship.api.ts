@@ -81,6 +81,15 @@ export const extractProfileApi = (
     { token: authToken() },
   )
 
+// 付费墙 v0:今日 quota 查询
+export interface QuotaStatus {
+  subscribed: boolean
+  today: { turn: number; ocr: number; heavy: number }
+  limits: { turn: number; ocr: number; heavy: number }
+}
+export const getQuotaApi = () =>
+  apiGet<QuotaStatus>('/quota', { token: authToken() })
+
 // Phase 2.5 关系叙事 + 暴露未知项 LLM 化
 export interface InsightsResult {
   narrative: string

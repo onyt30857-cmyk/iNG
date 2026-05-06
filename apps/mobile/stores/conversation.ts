@@ -476,6 +476,24 @@ export const useConversationStore = defineStore('conversation', () => {
       // eslint-disable-next-line no-console
       console.warn('[turn] 失败:', e)
       const errMsg = e instanceof Error ? e.message : String(e)
+
+      // 付费墙超额:不写进气泡,改弹 AppDialog 提示订阅(更产品级体验)
+      if (errMsg.includes('免费的额度用完')) {
+        // 删掉 streaming 占位气泡(无意义)
+        const list = messagesByRelationship.value[relationshipId] ?? []
+        messagesByRelationship.value[relationshipId] = list.filter((m) => m.id !== streamingId)
+        // 异步弹 dialog(不阻断 store action)
+        const { useAppDialogStore } = await import('./app-dialog')
+        const dialogStore = useAppDialogStore()
+        await dialogStore.show({
+          title: '今天聊得有点多了',
+          body: '免费额度用完了,明天再来继续聊。\n或者订阅一下不限,后续接通。',
+          mode: 'alert',
+          confirmText: '知道了',
+        })
+        return
+      }
+
       updateStreamingLaokeText(
         relationshipId,
         streamingId,

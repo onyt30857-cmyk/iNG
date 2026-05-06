@@ -26,6 +26,8 @@ import {
   buildRefusalReply,
 } from '../../ai/red-line-guard.js'
 import { prisma } from '../../lib/prisma.js'
+import { checkAndIncrementQuota } from '../quota/quota.service.js'
+import { errors } from '../../lib/error.js'
 
 export interface RunConversationTurnInput {
   user_text: string
@@ -47,6 +49,12 @@ export async function runConversationTurnForRelationship(
     .filter((r) => r.id !== current.id)
     .map((r) => r.name)
     .filter((n) => n.trim().length >= 2)
+
+  // ★ 付费墙 v0:免费层每日 turn 配额(订阅用户 bypass)
+  const quota = await checkAndIncrementQuota(userId, 'turn')
+  if (!quota.allowed) {
+    throw errors.freeQuotaExceeded('turn', quota.used, quota.limit)
+  }
 
   // ★ 红线运行时拦截(spec-009):用户输入双层检测(关键词 + Haiku 二次确认)
   // 触发 → 不调 Sonnet,流式输出预制拒绝回应,落 moderation_logs

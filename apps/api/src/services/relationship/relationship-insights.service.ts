@@ -109,6 +109,14 @@ export async function generateRelationshipInsights(
 ): Promise<InsightsResult> {
   // ★ Layer 1 ownership
   const current = await getRelationshipById(userId, relationshipId)
+
+  // ★ 付费墙 v0:heavy 配额
+  const { checkAndIncrementQuota } = await import('../quota/quota.service.js')
+  const quota = await checkAndIncrementQuota(userId, 'heavy')
+  if (!quota.allowed) {
+    throw errors.freeQuotaExceeded('heavy', quota.used, quota.limit)
+  }
+
   const keyFacts =
     ((current.basic_facts as Record<string, unknown> | null)?.key_facts as
       | string[]
