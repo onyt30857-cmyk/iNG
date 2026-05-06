@@ -7,11 +7,7 @@
 
 import { onMounted, ref } from 'vue'
 import { apiGet } from '../../api/client'
-import { runOcr } from '../../api/replay.api'
-import { compressImageFromBlobUrl } from '../../utils/compress-image'
 import { useRelationshipStore } from '../../stores/relationship'
-import { useReplayStore } from '../../stores/replay'
-import { DEV_RELATIONSHIP_ID } from '../../utils/dev-token'
 import RelationshipCard from '../../components/RelationshipCard.vue'
 import EntrySheet from '../../components/replay/EntrySheet.vue'
 
@@ -44,79 +40,9 @@ function goManageList() {
   uni.navigateTo({ url: '/pages/relationship/list' })
 }
 
-function goMockReplay() {
-  uni.navigateTo({ url: '/pages/replay/session' })
-}
-
-// === OCR 上传(spec-004 真用户入口)===
-
-const replayStore = useReplayStore()
-const isOcrLoading = ref(false)
-
-function pickOcrFiles() {
-  if (isOcrLoading.value) return
-  uni.chooseImage({
-    count: 5,
-    sizeType: ['compressed'],
-    sourceType: ['album'],
-    success: (res) => {
-      const paths = (res.tempFilePaths as string[]) ?? []
-      if (paths.length > 0) void processOcrFiles(paths)
-    },
-    fail: (err) => {
-      // eslint-disable-next-line no-console
-      console.warn('[OCR] chooseImage 取消或失败:', err)
-    },
-  })
-}
-
-async function processOcrFiles(blobUrls: string[]) {
-  isOcrLoading.value = true
-  try {
-    uni.showLoading({ title: '老 K 在看...' })
-    const limited = blobUrls.slice(0, 5)
-    const images = await Promise.all(limited.map(compressImageFromBlobUrl))
-    const r = await runOcr({ relationship_id: DEV_RELATIONSHIP_ID, images })
-    if (!r.ok) {
-      uni.hideLoading()
-      uni.showToast({ title: r.error.message || 'OCR 失败', icon: 'none' })
-      return
-    }
-
-    const messages = r.data.messages
-    // eslint-disable-next-line no-console
-    console.info(
-      `[OCR] ${r.data.duration_ms}ms · ${r.data.usage.input_tokens}/${r.data.usage.output_tokens} tokens · ${messages.length} 条消息 · warnings: ${r.data.warnings.length}`,
-    )
-    if (r.data.warnings.length > 0) {
-      // eslint-disable-next-line no-console
-      console.info('[OCR warnings]', r.data.warnings)
-    }
-    uni.hideLoading()
-
-    if (messages.length === 0) {
-      uni.showToast({
-        title: r.data.warnings[0] ?? '没看到对话,重新选一下',
-        icon: 'none',
-        duration: 2500,
-      })
-      return
-    }
-
-    replayStore.startReplayWithMessages(messages, '我刚上传的截图')
-    uni.navigateTo({ url: '/pages/replay/session' })
-  } catch (err) {
-    uni.hideLoading()
-    // eslint-disable-next-line no-console
-    console.error('[OCR] 失败:', err)
-    uni.showToast({
-      title: err instanceof Error ? err.message : 'OCR 出了点意外',
-      icon: 'none',
-    })
-  } finally {
-    isOcrLoading.value = false
-  }
-}
+// spec-006 之后 home 不再做"复盘入口",所有 OCR 上传 / 复盘流程都在每段关系的
+// 对话页里(/pages/relationship/conversation),用户点关系卡进对话页 → + 按钮 → 选项发截图。
+// 原 goMockReplay / pickOcrFiles / processOcrFiles / replayStore 都删了。
 
 const greeting = (() => {
   const h = new Date().getHours()
@@ -182,15 +108,10 @@ const greeting = (() => {
       <text class="new-text">记一段新关系</text>
     </view>
 
-    <!-- 开发调试入口(直接进 mock session) -->
-    <view class="dev-link" @tap="goMockReplay">
-      <text class="dev-link-text">开发调试 · 直接进 mock 复盘流程</text>
-    </view>
-
-    <!-- OCR 真上传入口(spec-004,Claude vision)-->
-    <view class="dev-link" :class="{ disabled: isOcrLoading }" @tap="pickOcrFiles">
-      <text class="dev-link-text">{{ isOcrLoading ? '老 K 在看截图...' : '上传 1-5 张聊天截图开始真复盘' }}</text>
-    </view>
+    <!-- spec-006 之后"复盘"融进每段关系对话页,首页这两个旧入口已废:
+      · "开发调试 · 直接进 mock 复盘流程"(spec-005 wizard 旧入口)
+      · "上传 1-5 张聊天截图开始真复盘"(同上)
+      实际路径:点关系卡 → 进对话页 → + 按钮上传截图 / 粘贴对方原话 → 老 K 流式回应 -->
 
     <!-- entry 抽屉保留(开发态用),实际入口已转移到详情页主 CTA -->
     <EntrySheet
@@ -375,15 +296,5 @@ const greeting = (() => {
   color: $color-text-secondary;
 }
 
-// === 开发调试入口 ===
-.dev-link {
-  margin-top: 64rpx;
-  padding: 24rpx 32rpx;
-  text-align: center;
-}
-.dev-link-text {
-  font-size: 22rpx;
-  color: $color-text-disabled;
-  font-style: italic;
-}
+// (dev-link 旧 CSS 已删,spec-006 后无 home 复盘入口)
 </style>
