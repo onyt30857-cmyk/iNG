@@ -24,6 +24,20 @@ function send() {
   text.value = ''
 }
 
+// 展开式 action bar 状态
+const actionsOpen = ref(false)
+function toggleActions() {
+  actionsOpen.value = !actionsOpen.value
+}
+function onPickScreenshot() {
+  actionsOpen.value = false
+  chooseScreenshots()
+}
+function onPickQuote() {
+  actionsOpen.value = false
+  openQuoteModal()
+}
+
 // spec-009:转发对方原话专用入口(独立 modal,跟主输入框完全分开,UX 不混淆)
 const quoteModalOpen = ref(false)
 const quoteText = ref('')
@@ -88,19 +102,31 @@ function confirmNoteAndPickImages() {
 
 <template>
   <view>
-    <view class="chat-input">
-      <view class="screenshot-btn" @tap="chooseScreenshots">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <rect x="3" y="6" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.6" />
-          <path d="M8 6V4.5a1 1 0 011-1h6a1 1 0 011 1v2" stroke="currentColor" stroke-width="1.6" />
-          <circle cx="12" cy="13" r="3.5" stroke="currentColor" stroke-width="1.6" />
-        </svg>
+    <!-- 展开式 action bar(点 + 显示) -->
+    <view v-if="actionsOpen" class="action-bar">
+      <view class="action-chip" @tap="onPickScreenshot">
+        <view class="action-chip-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="6" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.6" />
+            <path d="M8 6V4.5a1 1 0 011-1h6a1 1 0 011 1v2" stroke="currentColor" stroke-width="1.6" />
+            <circle cx="12" cy="13" r="3.5" stroke="currentColor" stroke-width="1.6" />
+          </svg>
+        </view>
+        <text class="action-chip-text">发她对话截图</text>
       </view>
-      <view class="quote-btn" @tap="openQuoteModal">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <path d="M3 17V7a2 2 0 012-2h10a2 2 0 012 2v6a2 2 0 01-2 2H7l-4 2z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
-        </svg>
-        <text class="quote-btn-text">她说</text>
+      <view class="action-chip" @tap="onPickQuote">
+        <view class="action-chip-icon action-chip-icon-quote">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M7 7h4v4c0 2-1 3-3 3M15 7h4v4c0 2-1 3-3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </view>
+        <text class="action-chip-text">粘她回的原话</text>
+      </view>
+    </view>
+
+    <view class="chat-input">
+      <view :class="['plus-btn', actionsOpen && 'plus-btn-open']" @tap="toggleActions">
+        <text class="plus-icon">+</text>
       </view>
       <view class="input-wrap">
         <textarea
@@ -111,6 +137,7 @@ function confirmNoteAndPickImages() {
           :show-confirm-bar="false"
           :adjust-position="true"
           maxlength="2000"
+          @focus="actionsOpen = false"
         />
       </view>
       <button class="send-btn" :disabled="!canSend" @tap="send">
@@ -186,33 +213,92 @@ function confirmNoteAndPickImages() {
   padding: 16rpx 24rpx calc(env(safe-area-inset-bottom, 16rpx) + 16rpx);
   background-color: $color-background;
   border-top: 1rpx solid $color-border;
-  gap: 8rpx;
+  gap: 12rpx;
 }
 
-// === 转发她说的 入口按钮(spec-009)===
-.quote-btn {
+// === ＋ 主操作按钮(展开 action bar)===
+.plus-btn {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background-color: $color-surface;
+  border: 1rpx solid $color-border;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2rpx;
-  padding: 8rpx 12rpx;
-  border-radius: 16rpx;
-  color: $color-accent;
   flex-shrink: 0;
   align-self: center;
+  transition: background-color 0.2s, border-color 0.2s, transform 0.2s;
+
+  &:active { transform: scale(0.92); }
+}
+.plus-btn-open {
+  background-color: $color-primary;
+  border-color: $color-primary;
+  transform: rotate(45deg);
+}
+.plus-icon {
+  font-size: 38rpx;
+  color: $color-text-secondary;
+  line-height: 1;
+  font-weight: $weight-light;
+
+  .plus-btn-open & {
+    color: $color-background;
+  }
+}
+
+// === 展开 action bar(2 个胶囊 chip,iMessage 风)===
+.action-bar {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  padding: 20rpx 32rpx 16rpx;
+  background-color: $color-background;
+  border-top: 1rpx solid $color-border;
+  animation: action-slide 0.22s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@keyframes action-slide {
+  from { opacity: 0; transform: translateY(8rpx); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.action-chip {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12rpx;
+  padding: 16rpx 28rpx;
+  border-radius: 999rpx;
+  background-color: $color-surface;
+  border: 1rpx solid $color-border;
   transition: background-color 0.18s, transform 0.12s;
 
   &:active {
-    background-color: rgba(168, 124, 95, 0.12);
-    transform: scale(0.94);
+    background-color: $color-surface-subtle;
+    transform: scale(0.96);
   }
 }
-.quote-btn-text {
-  font-size: 20rpx;
+.action-chip-icon {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  background-color: rgba(75, 85, 119, 0.08); // primary 极淡
+  color: $color-primary;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.action-chip-icon-quote {
+  background-color: rgba(168, 124, 95, 0.12); // accent 淡
   color: $color-accent;
+}
+.action-chip-text {
+  font-size: 26rpx;
+  color: $color-text-primary;
   font-weight: $weight-medium;
-  line-height: 1;
+  line-height: 1.2;
 }
 
 // === 转发她原话 modal ===
@@ -305,20 +391,7 @@ function confirmNoteAndPickImages() {
   color: $color-background;
   font-weight: $weight-medium;
 }
-.screenshot-btn {
-  width: 80rpx;
-  height: 80rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  color: $color-primary;
-  flex-shrink: 0;
-
-  &:active {
-    background-color: $color-primary-subtle;
-  }
-}
+// .screenshot-btn 旧规则已被 plus-btn + action-bar 替代,清除
 .input-wrap {
   flex: 1;
   background-color: $color-surface;
