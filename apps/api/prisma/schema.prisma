@@ -626,18 +626,27 @@ model ModerationLog {
 model PromptFeedback {
   id              String   @id @default(cuid())
   user_id         String
-  session_id      String
-  message_id      String   // 老 K 的某条输出
-  
-  // 反馈类型
-  feedback_type   String   // "not_like_laoke" / "wrong_judgment" / "off_tone" 等
+  // spec-006 之后 session 退到后端复盘,日常对话流不再有 session,改 optional
+  session_id      String?
+  // spec-009:反馈来自哪段关系的对话流
+  relationship_id String?
+  message_id      String   // 老 K 的某条输出(前端 message id,如 k-stream-xxx)
+
+  // 老 K 那条回复内容快照(前端 message 可能本地变更,后端存原文用于 prompt 迭代)
+  bubble_text     String?  @db.Text
+
+  // 反馈类型:'like' / 'dislike' / 'comment'(spec-009 新)
+  // legacy:'not_like_laoke' / 'wrong_judgment' / 'off_tone'
+  feedback_type   String
   feedback_note   String?  @db.Text
-  
+
   // 当时的 prompt(用于回溯优化)
   prompt_snapshot Json?
-  
+
   created_at      DateTime @default(now()) @db.Timestamptz
-  
+
   @@map("prompt_feedback")
   @@index([feedback_type])
+  @@index([user_id, created_at])
+  @@index([relationship_id, feedback_type])
 }

@@ -337,6 +337,8 @@ function handleSavePlanning(planningId: string, content: import('../../types/mes
           :text="m.text"
           :is-thinking="m.is_thinking"
           :is-streaming="m.is_streaming"
+          :message-id="m.id"
+          :relationship-id="relationshipId"
         />
         <LaokeQuestionBubble
           v-else-if="m.type === 'laoke_question'"
