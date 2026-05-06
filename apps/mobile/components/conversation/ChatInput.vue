@@ -216,32 +216,31 @@ function confirmNoteAndPickImages() {
   gap: 12rpx;
 }
 
-// === ＋ 主操作按钮(展开 action bar)===
+// === ＋ 主操作按钮(展开 action bar),跟发送按钮视觉权重对等 ===
 .plus-btn {
-  width: 72rpx;
-  height: 72rpx;
+  width: 80rpx;
+  height: 80rpx;
   border-radius: 50%;
-  background-color: $color-surface;
-  border: 1rpx solid $color-border;
+  background-color: $color-primary-subtle; // 浅主色,跟周围 background 形成清晰对比
+  border: none;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   align-self: center;
-  transition: background-color 0.2s, border-color 0.2s, transform 0.2s;
+  transition: background-color 0.2s, transform 0.2s;
 
   &:active { transform: scale(0.92); }
 }
 .plus-btn-open {
   background-color: $color-primary;
-  border-color: $color-primary;
   transform: rotate(45deg);
 }
 .plus-icon {
-  font-size: 38rpx;
-  color: $color-text-secondary;
+  font-size: 48rpx;
+  color: $color-primary;
   line-height: 1;
-  font-weight: $weight-light;
+  font-weight: $weight-medium;
 
   .plus-btn-open & {
     color: $color-background;
