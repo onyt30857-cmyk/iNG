@@ -206,6 +206,15 @@ async function handleScreenshotsChosen(payload: { note: string; paths: string[] 
       limit: 50,
     })
 
+    // 2026-05-06:OCR 后场景如果用户附了 note 且 note 是要话术(常见:"帮我编一句"),
+    // delivery signal 应该触发,让老 K 直接给
+    const { computeDeliverySignal, buildDeliveryDirective } = await import('../../utils/delivery-signal')
+    const deliverySignal = computeDeliverySignal(all, payload.note ?? '')
+    const directive = buildDeliveryDirective(deliverySignal)
+    const screenshotContextWithDirective = directive
+      ? `${screenshotContext}\n\n${directive}`
+      : screenshotContext
+
     let parsingFullText = ''
     conversationStore.updateStreamingLaokeText(
       relationshipId.value,
@@ -217,7 +226,7 @@ async function handleScreenshotsChosen(payload: { note: string; paths: string[] 
       await streamConversationTurnHTTP(
         relationshipId.value,
         {
-          user_text: screenshotContext,
+          user_text: screenshotContextWithDirective,
           history: turnHistory,
         },
         (chunk) => {

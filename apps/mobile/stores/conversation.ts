@@ -418,10 +418,19 @@ export const useConversationStore = defineStore('conversation', () => {
       const signalsStore = useRelationshipSignalsStore()
       const signalBrief = buildSignalBrief(signalsStore.getSignal(relationshipId))
 
+      // 2026-05-06 新规则:扫 history 算 delivery signal,如果用户在反复要话术或不耐烦,
+      // 在 user_text 末尾追加硬规则 directive,逼老 K 直接交付不再反问
+      const { computeDeliverySignal, buildDeliveryDirective } = await import('../utils/delivery-signal')
+      const deliverySignal = computeDeliverySignal(all, userText)
+      const directive = buildDeliveryDirective(deliverySignal)
+      const userTextWithDirective = directive
+        ? `${userText}\n\n${directive}`
+        : userText
+
       // 走真 relationship id(seed-dev 已为 dev-user 建好 3 段真关系,prompt 里 name 准确)
       await streamConversationTurnHTTP(
         relationshipId,
-        { user_text: userText, history, signal_brief: signalBrief },
+        { user_text: userTextWithDirective, history, signal_brief: signalBrief },
         (chunk) => {
           fullText += chunk
           updateStreamingLaokeText(relationshipId, streamingId, fullText)
