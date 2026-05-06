@@ -148,7 +148,20 @@ async function confirmComment() {
 <template>
   <view class="row">
     <view class="avatar" :class="{ 'avatar-pulse': isThinking || isStreaming }">
-      <text class="avatar-text">K</text>
+      <!-- 老 K 默认头像:戴眼镜兄长简笔风,白 stroke + 紫底,无版权 -->
+      <svg class="avatar-icon" width="26" height="26" viewBox="0 0 24 24" fill="none">
+        <!-- 头(圆,留底部不闭合做下巴感) -->
+        <path d="M5 13 a7 7 0 1 1 14 0 v3 a3 3 0 0 1 -3 3 h-8 a3 3 0 0 1 -3 -3 z"
+          stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+        <!-- 头发(一缕顶) -->
+        <path d="M7.5 9 Q 12 5.5 16.5 9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+        <!-- 眼镜框(双圆 + 中桥) -->
+        <circle cx="9.3" cy="13" r="1.6" stroke="currentColor" stroke-width="1.2" />
+        <circle cx="14.7" cy="13" r="1.6" stroke="currentColor" stroke-width="1.2" />
+        <line x1="10.9" y1="13" x2="13.1" y2="13" stroke="currentColor" stroke-width="1.1" />
+        <!-- 平嘴(沉稳不油滑) -->
+        <line x1="10.5" y1="17" x2="13.5" y2="17" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+      </svg>
     </view>
 
     <view class="bubble-wrap">
@@ -261,10 +274,9 @@ async function confirmComment() {
   margin-top: 8rpx;
   position: relative;
 }
-.avatar-text {
-  color: $color-background;
-  font-size: 22rpx;
-  font-weight: $weight-semibold;
+.avatar-icon {
+  color: $color-background; // 反白 stroke on primary 紫底
+  display: block;
 }
 .avatar-pulse::before {
   content: '';
