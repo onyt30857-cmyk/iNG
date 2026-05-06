@@ -40,6 +40,10 @@ function goManageList() {
   uni.navigateTo({ url: '/pages/relationship/list' })
 }
 
+function goProfile() {
+  uni.navigateTo({ url: '/pages/profile/index' })
+}
+
 // spec-006 之后 home 不再做"复盘入口",所有 OCR 上传 / 复盘流程都在每段关系的
 // 对话页里(/pages/relationship/conversation),用户点关系卡进对话页 → + 按钮 → 选项发截图。
 // 原 goMockReplay / pickOcrFiles / processOcrFiles / replayStore 都删了。
@@ -66,6 +70,12 @@ const greeting = (() => {
       </view>
       <view class="manage-btn" @tap="goManageList">
         <text class="manage-btn-text">管理</text>
+      </view>
+      <view class="profile-btn" @tap="goProfile">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.6" />
+          <path d="M4 20c0-4 4-6 8-6s8 2 8 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+        </svg>
       </view>
     </view>
 
@@ -170,6 +180,24 @@ const greeting = (() => {
 .laoke-status-text {
   font-size: 26rpx;
   color: $color-text-tertiary;
+}
+.profile-btn {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  background-color: $color-surface;
+  border: 1rpx solid $color-border;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: 12rpx;
+  color: $color-text-secondary;
+
+  &:active {
+    background-color: $color-surface-subtle;
+    transform: scale(0.94);
+  }
 }
 .manage-btn {
   padding: 12rpx 20rpx;
