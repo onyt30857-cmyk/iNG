@@ -10,10 +10,11 @@ import type {
 import { useUserStore } from '../stores/user'
 import { DEV_TOKEN } from '../utils/dev-token'
 
-// dev 阶段没真登录时,fallback 到 DEV_TOKEN(跟 OCR/turn 同源策略)
+// 真用户 token,没登录返 undefined(让后端 401 → store mock fallback)
+// 注意:CRUD 这层不能 fallback DEV_TOKEN,否则会把 mock 3 段关系覆盖成 db 里真实的 1 条
 function authToken(): string | undefined {
   const store = useUserStore()
-  return store.token ?? DEV_TOKEN
+  return store.token ?? undefined
 }
 
 export const listRelationshipsApi = (params?: { archived?: boolean }) => {
@@ -74,8 +75,9 @@ export const extractProfileApi = (
   id: string,
   history: Array<{ speaker: 'user' | 'laoke'; text: string }>,
 ) =>
+  // dev 阶段强制 DEV_TOKEN(LLM 抽取必须打真后端),区别于 CRUD 类 — 见 authToken 注释
   apiPost<ExtractProfileResult>(
     `/relationships/${id}/extract-profile`,
     { history },
-    { token: authToken() },
+    { token: authToken() ?? DEV_TOKEN },
   )
