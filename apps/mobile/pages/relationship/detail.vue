@@ -110,6 +110,7 @@ const userKnownChips = computed<ChipItem[]>(() => {
 })
 
 // 删除某个 chip
+// spec-008 Phase 2.3:fact 删除时把 text 加进 rejected_facts,下次 LLM 抽取作反例
 async function removeChip(item: ChipItem) {
   if (!relationship.value) return
   const ok = await dialog.confirm('删掉这条?', {
@@ -119,10 +120,16 @@ async function removeChip(item: ChipItem) {
   })
   if (!ok || !relationship.value) return
   if (item.source === 'fact') {
-    const facts = ((relationship.value.basic_facts as any)?.key_facts ?? []) as string[]
-    const newFacts = facts.filter((t) => t !== item.text)
+    const bf = (relationship.value.basic_facts as any) ?? {}
+    const facts = (bf.key_facts ?? []) as string[]
+    const rejected = (bf.rejected_facts ?? []) as string[]
+    const newRejected = rejected.includes(item.text) ? rejected : [...rejected, item.text]
     await store.update(relationship.value.id, {
-      basic_facts: { ...(relationship.value.basic_facts as any), key_facts: newFacts },
+      basic_facts: {
+        ...bf,
+        key_facts: facts.filter((t) => t !== item.text),
+        rejected_facts: newRejected.slice(-50),
+      },
     })
   } else {
     const reminders = relationship.value.user_reminders ?? []
@@ -169,10 +176,15 @@ async function rejectPending(text: string) {
   if (!relationship.value) return
   const bf = (relationship.value.basic_facts as any) ?? {}
   const pending = (bf.pending_facts ?? []) as Array<{ text: string }>
+  // spec-008 Phase 2.3 反例学习:把拒掉的事实记进 rejected_facts,
+  // 下次抽取 prompt 会把这些作 negative example 传给 LLM
+  const rejected = (bf.rejected_facts ?? []) as string[]
+  const newRejected = rejected.includes(text) ? rejected : [...rejected, text]
   await store.update(relationship.value.id, {
     basic_facts: {
       ...bf,
       pending_facts: pending.filter((p) => p.text !== text),
+      rejected_facts: newRejected.slice(-50), // 最多 50,避免无限累积
     },
   })
 }

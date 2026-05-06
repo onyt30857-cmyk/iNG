@@ -33,6 +33,9 @@ const basicFactsSchema = z
       )
       .max(30)
       .optional(),
+    // spec-008 Phase 2.3 反例学习:用户主动 reject 的事实进这里,
+    // 下次抽取 prompt 把它们作 negative example 传给 LLM
+    rejected_facts: z.array(z.string().max(500)).max(50).optional(),
   })
   .strict() // 多余字段直接拒绝,防止注入
 

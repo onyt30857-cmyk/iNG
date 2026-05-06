@@ -105,6 +105,7 @@ function buildSystemPrompt(name: string): string {
 function buildUserMessage(
   history: ExtractProfileInput['history'],
   existingFacts: string[],
+  rejectedFacts: string[] = [],
 ): string {
   const lines: string[] = []
 
@@ -115,6 +116,16 @@ function buildUserMessage(
   } else {
     lines.push('# 现有档案')
     lines.push('(还是空的)')
+    lines.push('')
+  }
+
+  // spec-008 Phase 2.3 反例学习:用户之前明确拒绝过的事实,这次别再抽
+  if (rejectedFacts.length > 0) {
+    lines.push('# 兄弟之前明确拒绝的事实(这些是反例,不要再抽出来)')
+    for (const r of rejectedFacts) lines.push(`- ${r}`)
+    lines.push('')
+    lines.push('注意:不只是这些字面上的句子不要抽,**类似语义的也不要抽**。')
+    lines.push('例:他拒过"她是同事",这次再看到"她跟我一个公司"也别抽,他不喜欢这种归纳。')
     lines.push('')
   }
 
@@ -171,6 +182,9 @@ export async function extractRelationshipProfile(
   // 拿现有 key_facts(可能是 undefined)
   const existingFacts = ((current.basic_facts as Record<string, unknown> | null)
     ?.key_facts as string[] | undefined) ?? []
+  // spec-008 Phase 2.3:拿用户拒绝过的事实作 LLM 反例
+  const rejectedFacts = ((current.basic_facts as Record<string, unknown> | null)
+    ?.rejected_facts as string[] | undefined) ?? []
 
   const userOnlyHistory = input.history.filter((m) => m.speaker === 'user')
   if (userOnlyHistory.length === 0) {
@@ -191,7 +205,7 @@ export async function extractRelationshipProfile(
   const result = await callClaude(ctx, {
     system: buildSystemPrompt(current.name),
     messages: [
-      { role: 'user', content: buildUserMessage(input.history, existingFacts) },
+      { role: 'user', content: buildUserMessage(input.history, existingFacts, rejectedFacts) },
     ],
     max_tokens: 1500,
     skipPersonaCheck: true, // 抽取场景不是老 K 直接说话,不必跑 persona check
@@ -204,12 +218,17 @@ export async function extractRelationshipProfile(
     throw errors.internal(`抽取结果解析失败:${e instanceof Error ? e.message : String(e)}`)
   }
 
-  // 去重:跟已有 key_facts + pending_facts 双重比对
+  // 去重:跟已有 key_facts + pending_facts + rejected_facts 三重比对
+  // (rejected 一并跳过 — 用户都明确拒了,LLM 千万别再抽)
   const existingPending =
     ((current.basic_facts as Record<string, unknown> | null)?.pending_facts as
       | Array<{ text: string }>
       | undefined) ?? []
-  const allKnown = [...existingFacts, ...existingPending.map((p) => p.text)]
+  const allKnown = [
+    ...existingFacts,
+    ...existingPending.map((p) => p.text),
+    ...rejectedFacts,
+  ]
 
   const added: ExtractedFact[] = []
   let skipped = 0
