@@ -15,6 +15,9 @@
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
+  // Railway 用 alpine linux + openssl 3,prisma 默认只生成 native 引擎
+  // 没这条会 "Could not locate the binary engine" 启动失败
+  binaryTargets   = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {

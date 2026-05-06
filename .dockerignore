@@ -1,0 +1,39 @@
+# Build artifacts
+node_modules
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+
+# Dev / IDE
+.git
+.github
+.vscode
+.idea
+.DS_Store
+*.log
+*.local
+
+# 前端(API 部署不需要)
+apps/mobile
+apps/h5
+
+# 文档(不进 image)
+lianai-dev-kit/04-design
+lianai-dev-kit/00-vision
+lianai-dev-kit/02-architecture
+*.md
+!apps/api/prisma/migrations/**/*.md
+
+# 测试
+**/__tests__
+**/*.test.ts
+**/test
+**/coverage
+
+# 环境(用 Railway dashboard 注入)
+.env
+.env.local
+.env.development
+**/.env*
+!**/.env.example
