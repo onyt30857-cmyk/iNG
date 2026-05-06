@@ -13,6 +13,7 @@ import {
   type CallClaudeResult,
   type CallClaudeStreamHandlers,
 } from '../client.js'
+import { summarizeOldHistory } from './long-term-memory.js'
 
 /** 简化的对话历史(从前端传过来),只看 type + text 维度 */
 export interface ConversationTurnHistoryItem {
@@ -288,14 +289,22 @@ export async function runConversationTurn(
     '# 人格(从 parsing.md 内核继承)\n' +
     personaIntro.slice(0, 1500)
 
-  const userMessage = composeUserMessage(input)
-
   const ctx: AiCallContext = {
     user_id: input.user_id,
     relationship_id: input.relationship_id,
     ...(input.session_id !== undefined ? { session_id: input.session_id } : {}),
     scene: 'parsing', // 借用 parsing 做 audit_logs 分类,后续可扩 'conversation_turn'
   }
+
+  // Phase 4.1 长期记忆:history > 100 条时,把超出 80 条窗口的部分用 Haiku 摘要
+  // 失败降级 null,不阻断主流程
+  const longTermMemory = await summarizeOldHistory(
+    ctx,
+    input.history,
+    input.relationship_name,
+  )
+
+  const userMessage = composeUserMessage(input, longTermMemory)
 
   return callClaudeStream(
     ctx,
@@ -309,7 +318,10 @@ export async function runConversationTurn(
   )
 }
 
-export function composeUserMessage(input: ConversationTurnInput): string {
+export function composeUserMessage(
+  input: ConversationTurnInput,
+  longTermMemory?: string | null,
+): string {
   const lines: string[] = []
   lines.push(`# 关系\n你跟兄弟正在聊「${input.relationship_name}」这段关系。\n`)
 
@@ -317,6 +329,13 @@ export function composeUserMessage(input: ConversationTurnInput): string {
   if (input.signal_brief && input.signal_brief.trim().length > 0) {
     lines.push('# 你私下看到的(老 K 的 inner state,不是兄弟刚说的)')
     lines.push(input.signal_brief.trim())
+    lines.push('')
+  }
+
+  // Phase 4.1 长期记忆:超过 80 条窗口的旧对话摘要(老 K 的"累积观察")
+  if (longTermMemory && longTermMemory.trim().length > 0) {
+    lines.push('# 你跟兄弟更早聊过的累积观察(超过最近 80 条窗口的部分压缩成这段)')
+    lines.push(longTermMemory.trim())
     lines.push('')
   }
 
