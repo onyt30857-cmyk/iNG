@@ -112,26 +112,23 @@ const userKnownChips = computed<ChipItem[]>(() => {
 // 删除某个 chip
 async function removeChip(item: ChipItem) {
   if (!relationship.value) return
-  uni.showModal({
-    title: '删掉这条?',
-    content: `"${item.text}"`,
+  const ok = await dialog.confirm('删掉这条?', {
+    body: `"${item.text}"`,
     confirmText: '删掉',
-    confirmColor: '#B84A4A',
-    success: async (res) => {
-      if (!res.confirm || !relationship.value) return
-      if (item.source === 'fact') {
-        const facts = ((relationship.value.basic_facts as any)?.key_facts ?? []) as string[]
-        const newFacts = facts.filter((t) => t !== item.text)
-        await store.update(relationship.value.id, {
-          basic_facts: { ...(relationship.value.basic_facts as any), key_facts: newFacts },
-        })
-      } else {
-        const reminders = relationship.value.user_reminders ?? []
-        const newReminders = reminders.filter((t) => t !== item.text)
-        await store.update(relationship.value.id, { user_reminders: newReminders })
-      }
-    },
+    danger: true,
   })
+  if (!ok || !relationship.value) return
+  if (item.source === 'fact') {
+    const facts = ((relationship.value.basic_facts as any)?.key_facts ?? []) as string[]
+    const newFacts = facts.filter((t) => t !== item.text)
+    await store.update(relationship.value.id, {
+      basic_facts: { ...(relationship.value.basic_facts as any), key_facts: newFacts },
+    })
+  } else {
+    const reminders = relationship.value.user_reminders ?? []
+    const newReminders = reminders.filter((t) => t !== item.text)
+    await store.update(relationship.value.id, { user_reminders: newReminders })
+  }
 }
 
 // === 添加新 chip 的轻量底部 modal(替代跳 edit 表单) ===
@@ -463,29 +460,25 @@ function goEdit() {
   uni.navigateTo({ url: `/pages/relationship/edit?mode=edit&id=${id.value}` })
 }
 async function archiveIt() {
-  uni.showModal({
-    title: '归档关系?',
-    content: '归档后会从主列表消失,你可以随时从已归档恢复。',
-    success: async (res) => {
-      if (res.confirm) {
-        await store.archive(id.value)
-        uni.navigateBack()
-      }
-    },
+  const ok = await dialog.confirm('归档关系?', {
+    body: '归档后会从主列表消失,你可以随时从已归档恢复。',
+    confirmText: '归档',
   })
+  if (ok) {
+    await store.archive(id.value)
+    uni.navigateBack()
+  }
 }
 async function deleteIt() {
-  uni.showModal({
-    title: '删了就找不回来了',
-    content: '真的要删吗?30 天内还可以恢复。',
-    confirmColor: '#B84A4A',
-    success: async (res) => {
-      if (res.confirm) {
-        const ok = await store.softDelete(id.value)
-        if (ok) uni.navigateBack()
-      }
-    },
+  const ok = await dialog.confirm('删了就找不回来了', {
+    body: '真的要删吗?30 天内还可以恢复。',
+    confirmText: '删除',
+    danger: true,
   })
+  if (ok) {
+    const okDel = await store.softDelete(id.value)
+    if (okDel) uni.navigateBack()
+  }
 }
 </script>
 
