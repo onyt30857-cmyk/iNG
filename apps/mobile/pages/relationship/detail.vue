@@ -211,10 +211,13 @@ async function confirmAddChip() {
   uni.showToast({ title: '记下了', icon: 'none', duration: 1200 })
 }
 
-// 暴露未知项:老 K 还想知道的(关键创新)
-// 调研依据:Schilke & Reimann (OBHDP 2025) — 暴露"我不知道"反而构建信任
-//          Ben Franklin 效应 — 让对方帮一个小忙增加投入
+// Phase 2.5:暴露未知项 LLM 化(默认 fallback,LLM 生成成功后被覆盖)
+const llmUnknownPrompts = ref<string[] | null>(null)
 const unknownPrompts = computed<string[]>(() => {
+  if (llmUnknownPrompts.value && llmUnknownPrompts.value.length > 0) {
+    return llmUnknownPrompts.value
+  }
+  // fallback:LLM 还没生成时(冷启动 / 数据不足)用通用 prompt
   const name = relationship.value?.name ?? '她'
   return [
     `${name}最近忙什么?`,
@@ -436,17 +439,41 @@ const laokeInterestNote = computed(() => {
   return '老 K 觉得 — 兴趣度跟之前接近,稳着。'
 })
 
-// === Tab 2 原:我们 - 关系演变叙事(M1 mock)===
-// 这是调研建议的"老 K 写给你的一段月度叙事"
-const usNarrative = ref<string>(
-  `刚跟你聊上她的时候,你最焦虑的事是"她不回信息我做错了什么"。
-那时候你跟我反复看那一句"先这样吧",看了好几遍。
+// === Tab 2 原:我们 - 关系演变叙事(Phase 2.5 LLM 化)===
+const usNarrative = ref<string>('') // 默认空,LLM 生成后填
+const insightsLoading = ref(false)
 
-这周你给我看的截图里,她主动问你周末干嘛。
-你说你"反应没那么大了"——这话我记下了。
+async function regenerateInsights() {
+  if (!relationship.value || insightsLoading.value) return
+  insightsLoading.value = true
+  try {
+    const { generateInsightsApi } = await import('../../api/relationship.api')
+    const { serializeHistoryForLLM } = await import('../../utils/history-serializer')
+    const { buildSignalBrief } = await import('../../utils/signal-to-brief')
 
-我看着像两件事:她那边有点松,你这边稳了一点。`,
-)
+    const all = conversationStore.getMessages(id.value)
+    const history = serializeHistoryForLLM(all, {
+      relationshipName: relationship.value.name,
+      limit: 50,
+    })
+    const sig = signalsStore.getSignal(id.value)
+    const signalBrief = buildSignalBrief(sig)
+
+    const res = await generateInsightsApi(id.value, history, signalBrief)
+    if (res.ok) {
+      usNarrative.value = res.data.narrative
+      llmUnknownPrompts.value = res.data.unknown_prompts
+    } else {
+      await dialog.alert('生成失败', { body: res.error.message })
+    }
+  } catch (e) {
+    await dialog.alert('生成异常', {
+      body: e instanceof Error ? e.message : String(e),
+    })
+  } finally {
+    insightsLoading.value = false
+  }
+}
 
 // 关键时刻(M1 mock,M2 接老 K 自动从对话流摘要)
 interface KeyMoment {
@@ -743,13 +770,16 @@ async function deleteIt() {
         <text v-if="laokeInterestNote" class="interest-quote">{{ laokeInterestNote }}</text>
       </view>
 
-      <!-- 老 K 写的月度叙事 -->
+      <!-- 老 K 写的月度叙事(Phase 2.5 LLM 化) -->
       <view class="narrative" style="margin-top: 48rpx">
         <view class="narrative-head">
           <text class="narrative-label">老 K 给你写的</text>
-          <text class="narrative-date">这一个月</text>
+          <text class="narrative-regen" @tap="regenerateInsights">
+            {{ insightsLoading ? '生成中…' : (usNarrative ? '重新生成 ↺' : '让老 K 写一段 ↺') }}
+          </text>
         </view>
-        <text class="narrative-text">{{ usNarrative }}</text>
+        <text v-if="usNarrative" class="narrative-text">{{ usNarrative }}</text>
+        <text v-else class="narrative-empty">还没写过这段关系的叙事,点上面让老 K 写。</text>
       </view>
 
       <!-- 关键时刻 -->
@@ -1417,6 +1447,21 @@ async function deleteIt() {
   border-left: 4rpx solid $color-accent;
   padding: 36rpx 40rpx;
   box-shadow: $shadow-sm;
+}
+.narrative-regen {
+  font-size: 24rpx;
+  color: $color-text-secondary;
+  font-weight: $weight-medium;
+  letter-spacing: 0.2rpx;
+  padding: 4rpx 0;
+  &:active { opacity: 0.55; }
+}
+.narrative-empty {
+  display: block;
+  font-size: 26rpx;
+  color: $color-text-tertiary;
+  line-height: 1.6;
+  font-style: italic;
 }
 .narrative-head {
   display: flex;

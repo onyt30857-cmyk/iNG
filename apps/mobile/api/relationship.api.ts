@@ -80,3 +80,19 @@ export const extractProfileApi = (
     { history },
     { token: authToken() },
   )
+
+// Phase 2.5 关系叙事 + 暴露未知项 LLM 化
+export interface InsightsResult {
+  narrative: string
+  unknown_prompts: string[]
+}
+export const generateInsightsApi = (
+  id: string,
+  history: Array<{ speaker: 'user' | 'laoke'; text: string }>,
+  signalBrief?: string | null,
+) =>
+  apiPost<InsightsResult>(
+    `/relationships/${id}/generate-insights`,
+    { history, signal_brief: signalBrief ?? null },
+    { token: authToken() },
+  )

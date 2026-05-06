@@ -35,6 +35,7 @@ import {
   addUserReminder,
 } from '../../services/relationship/relationship.service.js'
 import { extractRelationshipProfile } from '../../services/relationship/profile-extraction.service.js'
+import { generateRelationshipInsights } from '../../services/relationship/relationship-insights.service.js'
 import { z } from 'zod'
 
 const extractProfileBodySchema = z.object({
@@ -141,6 +142,30 @@ export async function relationshipRoutes(app: FastifyInstance): Promise<void> {
     const { id } = relationshipIdParamSchema.parse(request.params)
     const body = extractProfileBodySchema.parse(request.body)
     const result = await extractRelationshipProfile(userId, id, body)
+    return { ok: true, data: result }
+  })
+
+  // ============== POST /v1/relationships/:id/generate-insights ==============
+  // Phase 2.5:基于 history + facts + signal,生成 narrative + 个性化 unknown_prompts
+  // 替代 detail.vue 的 hardcoded mock
+  app.post('/v1/relationships/:id/generate-insights', async (request) => {
+    const userId = request.user!.id
+    const { id } = relationshipIdParamSchema.parse(request.params)
+    const body = z
+      .object({
+        history: z
+          .array(
+            z.object({
+              speaker: z.enum(['user', 'laoke']),
+              text: z.string().min(1).max(8000),
+            }),
+          )
+          .max(80)
+          .default([]),
+        signal_brief: z.string().max(2000).nullish(),
+      })
+      .parse(request.body)
+    const result = await generateRelationshipInsights(userId, id, body)
     return { ok: true, data: result }
   })
 }
