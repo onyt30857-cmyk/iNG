@@ -87,4 +87,62 @@ export async function listFeedback(
   })
 }
 
+/**
+ * spec-009 实时反馈闭环 — 取最近 N 分钟内某段关系的负反馈(dislike + comment),
+ * 给 conversation-turn orchestrator 拼进下一轮 user_message,
+ * 让 Sonnet 立刻避开上次踩的坑。
+ */
+export interface RecentNegativeFeedback {
+  bubble_text: string | null
+  feedback_type: 'dislike' | 'comment'
+  feedback_note: string | null
+  /** 距现在多少分钟前 */
+  minutes_ago: number
+}
+
+export async function getRecentNegativeFeedback(
+  userId: string,
+  relationshipId: string,
+  opts: { withinMinutes?: number; limit?: number } = {},
+): Promise<RecentNegativeFeedback[]> {
+  const withinMinutes = opts.withinMinutes ?? 60
+  const limit = Math.min(opts.limit ?? 3, 10)
+  const cutoff = new Date(Date.now() - withinMinutes * 60_000)
+
+  const rows = await prisma.promptFeedback.findMany({
+    where: {
+      user_id: userId,
+      relationship_id: relationshipId,
+      feedback_type: { in: ['dislike', 'comment'] },
+      created_at: { gte: cutoff },
+    },
+    orderBy: { created_at: 'desc' },
+    take: limit,
+  })
+
+  const now = Date.now()
+  return rows.map((r) => ({
+    bubble_text: r.bubble_text,
+    feedback_type: r.feedback_type as 'dislike' | 'comment',
+    feedback_note: r.feedback_note,
+    minutes_ago: Math.max(1, Math.round((now - r.created_at.getTime()) / 60_000)),
+  }))
+}
+
+/** 把负反馈翻译成给 LLM 的硬指令文本(空数组返空字符串) */
+export function buildFeedbackDirective(items: RecentNegativeFeedback[]): string {
+  if (items.length === 0) return ''
+  const lines: string[] = ['[用户最近反馈 — 你必须避开这些问题]']
+  for (const f of items) {
+    const tag = f.feedback_type === 'comment' ? '兄弟具体说' : '被标'
+    const tail = f.feedback_note ? `${tag}:"${f.feedback_note}"` : tag
+    const quoted = f.bubble_text
+      ? `你 ${f.minutes_ago} 分钟前那条「${f.bubble_text.length > 50 ? f.bubble_text.slice(0, 50) + '...' : f.bubble_text}」`
+      : `${f.minutes_ago} 分钟前那次回复`
+    lines.push(`- ${quoted} → ${tail}`)
+  }
+  lines.push('这一轮必须吸取这些反馈,绝不重蹈覆辙。')
+  return lines.join('\n')
+}
+
 void errors

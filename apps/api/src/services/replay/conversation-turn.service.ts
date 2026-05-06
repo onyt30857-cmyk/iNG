@@ -17,6 +17,10 @@ import {
   getRelationshipById,
   listRelationships,
 } from '../relationship/relationship.service.js'
+import {
+  getRecentNegativeFeedback,
+  buildFeedbackDirective,
+} from '../feedback/feedback.service.js'
 
 export interface RunConversationTurnInput {
   user_text: string
@@ -49,8 +53,22 @@ export async function runConversationTurnForRelationship(
   })
   const intentDirective = buildIntentDirective(intentResult)
 
-  const userTextWithIntent = intentDirective
-    ? `${input.user_text}\n\n${intentDirective}`
+  // spec-009 实时反馈闭环:查最近 60 分钟该关系下的 dislike/comment,
+  // 拼进 user message 让 Sonnet 立刻吸取上次反馈。失败/空数组 → 跳过。
+  let feedbackDirective = ''
+  try {
+    const recentFb = await getRecentNegativeFeedback(userId, current.id, {
+      withinMinutes: 60,
+      limit: 3,
+    })
+    feedbackDirective = buildFeedbackDirective(recentFb)
+  } catch {
+    // 反馈查询失败不阻断主流程
+  }
+
+  const directiveBlock = [intentDirective, feedbackDirective].filter(Boolean).join('\n\n')
+  const userTextWithIntent = directiveBlock
+    ? `${input.user_text}\n\n${directiveBlock}`
     : input.user_text
 
   const turnInput: ConversationTurnInput = {
