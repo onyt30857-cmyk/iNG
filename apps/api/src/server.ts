@@ -15,6 +15,8 @@ import { sessionRoutes } from './routes/v1/session.route.js'
 import { ocrRoutes } from './routes/v1/ocr.route.js'
 import { conversationRoutes } from './routes/v1/conversation.route.js'
 import { feedbackRoutes } from './routes/v1/feedback.route.js'
+import { accountRoutes } from './routes/v1/account.route.js'
+import { startDeletionCron } from './workers/deletion-cron.js'
 
 async function buildApp() {
   // 把 logger 配置交给 Fastify 内部创建 —— 直接传 Pino 实例和 Fastify 4 的类型签名不兼容
@@ -74,6 +76,7 @@ async function buildApp() {
   await app.register(ocrRoutes)
   await app.register(conversationRoutes)
   await app.register(feedbackRoutes)
+  await app.register(accountRoutes)
 
   // 404 兜底
   app.setNotFoundHandler((req, reply) => {
@@ -99,6 +102,8 @@ async function main() {
       { event: 'server.started', port: config.PORT, env: config.NODE_ENV },
       `Server running on http://localhost:${config.PORT}`,
     )
+    // 启动数据真删 cron(CLAUDE.md §11 不变式 #2)
+    startDeletionCron()
   } catch (err) {
     logger.fatal({ event: 'server.start.failed', err }, '启动失败')
     process.exit(1)
