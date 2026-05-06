@@ -251,8 +251,12 @@ async function pickAvatar() {
       uploadingAvatar.value = true
       try {
         const { compressImageToAvatarDataUrl } = await import('../../utils/avatar-image')
+        const { uploadAvatarApi } = await import('../../api/relationship.api')
         const dataUrl = await compressImageToAvatarDataUrl(path)
-        await store.update(id.value, { avatar_url: dataUrl })
+        // 调后端 storage:配了 Supabase 真上传返 https URL,没配 fallback 返原 dataUrl
+        const upload = await uploadAvatarApi(dataUrl)
+        const finalUrl = upload.ok ? upload.data.url : dataUrl
+        await store.update(id.value, { avatar_url: finalUrl })
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
         await dialog.alert('换头像失败', { body: msg })

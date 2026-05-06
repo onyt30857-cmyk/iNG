@@ -24,12 +24,17 @@ const envSchema = z.object({
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL_ID: z.string().default('gemini-2.5-flash'),
 
-  // 阿里云 —— 脚手架阶段不必填
+  // 阿里云 —— 脚手架阶段不必填(已弃用,改用 Supabase)
   ALIYUN_ACCESS_KEY_ID: z.string().optional(),
   ALIYUN_ACCESS_KEY_SECRET: z.string().optional(),
   OSS_REGION: z.string().default('oss-cn-hangzhou'),
   OSS_BUCKET: z.string().default('lianai-dev'),
   ALIYUN_CONTENT_MODERATION_ENDPOINT: z.string().optional(),
+
+  // Supabase Storage —— 头像 / 截图 OSS,空则 fallback 到 base64 data URL(M1 dev 行为)
+  SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_SERVICE_KEY: z.string().optional(),
+  SUPABASE_AVATAR_BUCKET: z.string().default('lianai-avatars'),
 
   // 微信 —— 脚手架阶段不必填
   WECHAT_APP_ID: z.string().optional(),

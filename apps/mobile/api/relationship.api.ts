@@ -81,6 +81,18 @@ export const extractProfileApi = (
     { token: authToken() },
   )
 
+// Supabase 头像上传(无 keys 时 graceful fallback 返 dataUrl)
+export interface UploadAvatarResult {
+  url: string
+  driver: 'supabase' | 'data_url'
+}
+export const uploadAvatarApi = (dataUrl: string) =>
+  apiPost<UploadAvatarResult>(
+    '/storage/avatar',
+    { data_url: dataUrl },
+    { token: authToken() },
+  )
+
 // 付费墙 v0:今日 quota 查询
 export interface QuotaStatus {
   subscribed: boolean

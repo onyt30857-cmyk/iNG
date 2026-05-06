@@ -17,6 +17,7 @@ import { conversationRoutes } from './routes/v1/conversation.route.js'
 import { feedbackRoutes } from './routes/v1/feedback.route.js'
 import { accountRoutes } from './routes/v1/account.route.js'
 import { quotaRoutes } from './routes/v1/quota.route.js'
+import { storageRoutes } from './routes/v1/storage.route.js'
 import { startDeletionCron } from './workers/deletion-cron.js'
 
 async function buildApp() {
@@ -79,6 +80,7 @@ async function buildApp() {
   await app.register(feedbackRoutes)
   await app.register(accountRoutes)
   await app.register(quotaRoutes)
+  await app.register(storageRoutes)
 
   // 404 兜底
   app.setNotFoundHandler((req, reply) => {
