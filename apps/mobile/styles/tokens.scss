@@ -1,77 +1,83 @@
 // Design Tokens - 来源: lianai-dev-kit/04-design/design-system.md
 // 禁止 hardcode 颜色/字号/间距,全部从这里引用
 //
-// 2026-05-04: 主色从深墨紫改为墨青蓝(配色调研后,见 design-system.md §2)
+// 2026-05-07 v2 升级(基于参考图 — 现代约会 App 视觉语言):
+// - 主色:墨青蓝 → 鲜活紫(更年轻,但克制不彩虹)
+// - 背景:暖米 → 浅冷灰(更干净,跟卡片白形成对比)
+// - 圆角加大,阴影柔化
+// - 保留茶棕 accent(老 K 兄长"温度色"是产品 DNA,不删)
 
-// ========== 主色 - 墨青蓝 (Ink Navy) ==========
-$color-primary: #2E3A59;
-$color-primary-hover: #374569;
-$color-primary-deep: #1E2740;
-$color-primary-soft: #4B5577;
-$color-primary-subtle: #E5E8EF;
+// ========== 主色 - 鲜活紫 (Vibrant Violet) ==========
+$color-primary: #7C5CFF;          // 中饱和紫,跟参考图同调
+$color-primary-hover: #8E72FF;
+$color-primary-deep: #5B3FE0;     // 按下深紫
+$color-primary-soft: #A593FF;     // 浅紫(用于辅助元素)
+$color-primary-subtle: #EDE7FF;   // 极浅紫底(badge 背景等)
 
-// ========== 辅色 - 茶棕 (Tea Brown,只用于"温度感"小元素) ==========
+// ========== 辅色 - 茶棕 (Tea Brown,温度感小元素 / accent quote chip) ==========
 $color-accent: #A87C5F;
 $color-accent-soft: #C99A7C;
 $color-accent-subtle: #F5EBE2;
 
-// ========== 中性色 - 暖米 (Warm Cream) ==========
-$color-text-primary: #1E2740;
-$color-text-secondary: #4B5577;
-$color-text-tertiary: #7A8299;
-$color-text-disabled: #A8AEBE;
-$color-border: #E2DDD0;
-$color-surface-subtle: #EBE6DA;
-$color-background: #F4F1EA;
-$color-surface: #FFFFFF;
+// ========== 中性色 - 浅冷灰系(参考图同款) ==========
+$color-text-primary: #1F2433;     // 深近黑(略带蓝调)
+$color-text-secondary: #4A5066;
+$color-text-tertiary: #8A91A8;
+$color-text-disabled: #B8BECF;
+$color-border: #E5E8EF;
+$color-surface-subtle: #EEF1F6;
+$color-background: #F4F6FA;       // 浅冷灰背景(原暖米 #F4F1EA → 现 #F4F6FA)
+$color-surface: #FFFFFF;          // 纯白卡片
 
-// ========== 语义色 ==========
+// ========== 语义色(保留,不变 — 跟新主题仍然搭) ==========
 $color-success: #5A8A6F;
 $color-warning: #C77A2C;
-$color-danger: #B84A4A;
+$color-danger: #E5484D;            // 跟参考图 ❤️ 红同调,微调一下
 $color-info: #3D6B8C;
 
-// ========== 字号(以 iPhone 14 标准 16pt 为基准) ==========
-$font-display: 64rpx;     // 32pt
-$font-title-1: 48rpx;     // 24pt
-$font-title-2: 40rpx;     // 20pt
-$font-title-3: 36rpx;     // 18pt
-$font-body: 32rpx;        // 16pt
-$font-body-small: 28rpx;  // 14pt
-$font-caption: 26rpx;     // 13pt
-$font-footnote: 24rpx;    // 12pt
+// ========== 字号(以 iPhone 14 标准 16pt 为基准,不变) ==========
+$font-display: 64rpx;
+$font-title-1: 48rpx;
+$font-title-2: 40rpx;
+$font-title-3: 36rpx;
+$font-body: 32rpx;
+$font-body-small: 28rpx;
+$font-caption: 26rpx;
+$font-footnote: 24rpx;
 
 // ========== 字重 ==========
 $weight-regular: 400;
 $weight-medium: 500;
 $weight-semibold: 600;
 $weight-bold: 700;
+$weight-light: 300;
 
-// ========== 间距(8px 基础栅格) ==========
-$space-1: 8rpx;    // 4px
-$space-2: 16rpx;   // 8px
-$space-3: 24rpx;   // 12px
-$space-4: 32rpx;   // 16px
-$space-5: 40rpx;   // 20px
-$space-6: 48rpx;   // 24px
-$space-8: 64rpx;   // 32px
-$space-12: 96rpx;  // 48px
-$space-16: 128rpx; // 64px
+// ========== 间距(8px 基础栅格,不变) ==========
+$space-1: 8rpx;
+$space-2: 16rpx;
+$space-3: 24rpx;
+$space-4: 32rpx;
+$space-5: 40rpx;
+$space-6: 48rpx;
+$space-8: 64rpx;
+$space-12: 96rpx;
+$space-16: 128rpx;
 
-// ========== 圆角 ==========
-$radius-sm: 8rpx;     // 4px
-$radius: 16rpx;       // 8px
-$radius-md: 24rpx;    // 12px
-$radius-lg: 32rpx;    // 16px
-$radius-xl: 48rpx;    // 24px
+// ========== 圆角(整体加大,跟参考图大圆角风一致) ==========
+$radius-sm: 10rpx;
+$radius: 18rpx;
+$radius-md: 26rpx;
+$radius-lg: 36rpx;       // 卡片大圆角(原 32 → 36)
+$radius-xl: 52rpx;       // 主气泡 / hero 区(原 48 → 52)
 $radius-full: 9999rpx;
 
-// ========== 阴影 ==========
-$shadow-sm: 0 1rpx 4rpx rgba(30, 39, 64, 0.04);
-$shadow: 0 2rpx 6rpx rgba(30, 39, 64, 0.06);
-$shadow-md: 0 8rpx 12rpx rgba(30, 39, 64, 0.05);
-$shadow-lg: 0 20rpx 30rpx rgba(30, 39, 64, 0.06);
-$shadow-xl: 0 40rpx 50rpx rgba(30, 39, 64, 0.08);
+// ========== 阴影(柔化,模糊半径变大,alpha 变低) ==========
+// 参考图风:soft shadow,不锐利
+$shadow-sm: 0 2rpx 8rpx rgba(31, 36, 51, 0.04);
+$shadow: 0 4rpx 12rpx rgba(31, 36, 51, 0.06);
+$shadow-md: 0 12rpx 24rpx rgba(31, 36, 51, 0.06);
+$shadow-lg: 0 24rpx 40rpx rgba(31, 36, 51, 0.08);
+$shadow-xl: 0 40rpx 60rpx rgba(124, 92, 255, 0.10);  // hero 卡可带主色淡阴影
 
 // ========== 字体族 ==========
 $font-family-zh: -apple-system, BlinkMacSystemFont,
@@ -79,20 +85,20 @@ $font-family-zh: -apple-system, BlinkMacSystemFont,
                  "HarmonyOS Sans SC", "Source Han Sans SC",
                  sans-serif;
 
-// ========== 暗色模式覆盖 ==========
+// ========== 暗色模式覆盖(同步升级到紫主题) ==========
 @mixin dark-mode {
-  --color-background: #14181F;
-  --color-surface: #1A2030;
-  --color-surface-elevated: #232A3C;
-  --color-border: #2A3045;
-  --color-text-primary: #E8E8EE;
-  --color-text-secondary: #B8C0D0;
-  --color-text-tertiary: #7A8299;
-  --color-text-disabled: #5C627A;
-  --color-primary: #C9D4EC;
-  --color-primary-deep: #DCE5F5;
-  --color-primary-soft: #8E9CBC;
-  --color-primary-subtle: #2A3045;
+  --color-background: #141522;        // 深紫黑
+  --color-surface: #1E1F2E;
+  --color-surface-elevated: #292B3F;
+  --color-border: #2F3147;
+  --color-text-primary: #ECECF5;
+  --color-text-secondary: #B8BCD0;
+  --color-text-tertiary: #7A8099;
+  --color-text-disabled: #5A607A;
+  --color-primary: #A593FF;            // 暗色下用浅紫(对比度更够)
+  --color-primary-deep: #C2B6FF;
+  --color-primary-soft: #7C5CFF;
+  --color-primary-subtle: #2A2545;
   --color-accent: #C99A7C;
   --color-accent-soft: #A87C5F;
 }
