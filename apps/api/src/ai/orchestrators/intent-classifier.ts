@@ -21,6 +21,20 @@ export const USER_INTENTS = [
 ] as const
 export type UserIntent = (typeof USER_INTENTS)[number]
 
+// 对方("她")最近一句话里透出的语气 — 关键决定老 K 给的话术应该接什么调
+// 只在用户"转发她原话给老 K 看"或 history 里能看到她最新一句时才填,否则 null
+export const OTHER_TONES = [
+  'PLAYFUL', // 调皮、玩味、带钩子("怎么这么久才想起我了呢?有啥好事吗?")
+  'TEASING', // 撒娇/小埋怨("哼,你还知道找我啊"、"是不是又有事求我了")
+  'WARM', // 温暖、关心("今天怎么样,累不累")
+  'CASUAL', // 随意、平淡("还行吧")
+  'SERIOUS', // 严肃、正经("我们好好谈谈")
+  'WORRIED', // 担心、焦虑("最近你怎么了?")
+  'COLD', // 冷淡、保持距离("嗯。" / "好的。")
+  'POLITE', // 礼貌客气("方便的话再聊")
+] as const
+export type OtherTone = (typeof OTHER_TONES)[number]
+
 export interface IntentResult {
   intent: UserIntent
   /** 0-1 */
@@ -29,46 +43,74 @@ export interface IntentResult {
   evidence: string
   /** 可选第二意图(置信度接近时给) */
   secondary_intent?: UserIntent
+  /** 对方最新一句的语气(只在能看到她原话时填,否则 null) */
+  other_tone?: OtherTone
+  /** 对方语气的证据片段(她原话里支撑判断的关键字) */
+  other_tone_evidence?: string
 }
 
-const CLASSIFIER_SYSTEM_PROMPT = `你是练爱产品的意图分类器,目的是给 Sonnet 当 turn-planner 信号。
+const CLASSIFIER_SYSTEM_PROMPT = `你是练爱产品的意图分类器,给 Sonnet 当 turn-planner 信号。
+判断兄弟的意图 + 对方("她")最新一句的语气。只输出 JSON。
 
-输入是兄弟跟「老K」(资深兄长型 AI 角色)的对话历史 + 兄弟刚说的最新一句。
-你只输出 JSON,不要任何其他内容。
-
-# 意图枚举(从下面选 1 个,必要时给 secondary_intent)
+# 1. 兄弟意图(intent,从下面选 1 个,必要时给 secondary_intent)
 
 - ASK_DRAFT(最关键)— 兄弟在要话术,任何形式都算:
   · "帮我编一句"、"我该怎么回"、"给我个版本"、"直接给我"、"再来一版"
-  · "你说点啥我能用"、"换个表达"、"润色一下"、"我该说啥"、"接下来怎么说"
-  · 上下文里他刚发了截图,然后说"你看怎么回 / 这种情况说啥"也算
-- ASK_DIRECTION — 要方向但不要话术原文(怎么搞/啥思路/想法)
+  · "你说点啥我能用"、"换个表达"、"润色一下"、"接下来怎么说"
+  · 上下文里他刚发了截图或 [她回了:...],然后说"你看怎么回"也算
+- ASK_DIRECTION — 要方向但不要话术原文
 - SHARE_CONTEXT — 描述情况(她说了 X / 今天发生了 Y)
-- VENT — 倾诉抱怨(她又怎么样了,真烦,我快崩溃了)
-- QUERY_FACT — 问关于她的事实(她不是说过 X 吗?她以前提过吗?)
-- DISAGREE — 反驳老 K 上一句(我觉得不是 / 你说的不对 / 不应该这样)
-- FRUSTRATED — 不耐烦(说重点 / 别问了 / 行了 / 你倒是说啊 / 又问 / 别绕了)
-- SMALL_TALK — 闲聊或短回应(嗯/好的/哦/谢了/明白)
+- VENT — 倾诉抱怨
+- QUERY_FACT — 问关于她的事实
+- DISAGREE — 反驳老 K 上一句
+- FRUSTRATED — 不耐烦(含反讽:"行了我自己想吧")
+- SMALL_TALK — 闲聊短回应
 
-# 关键判断规则
+判断规则:
+- ASK_DRAFT 优先,哪怕拐弯("这样回行吗")
+- 兄弟刚发"[她回了:...]"+ 没明说要话术 → 也算 ASK_DRAFT(他粘对话明显是要老 K 帮接话)
+- FRUSTRATED + ASK_DRAFT 常并存 → 主 ASK_DRAFT,secondary FRUSTRATED
 
-- ASK_DRAFT 优先:只要兄弟有"想拿到一句具体可发的话"的诉求,就是 ASK_DRAFT,
-  哪怕他说话拐弯("你能不能直接告诉我说啥 / 这样回行吗")
-- 兄弟连续 SHARE_CONTEXT 后没明说要话术,但 history 里他之前已经问过"我该怎么回"
-  且老 K 没真给过 → 这次也算 ASK_DRAFT(他在补素材以期老 K 这次给)
-- FRUSTRATED 跟 ASK_DRAFT 经常一起出现 → 主意图填 ASK_DRAFT,secondary 填 FRUSTRATED
-- 反讽("行了我自己想吧")= FRUSTRATED,不要按字面理解
+# 2. 对方语气(other_tone,关键 — 决定老 K 回应该接什么调)
 
-# 输出格式(只输出 JSON,不要 markdown,不要解释)
+只在能看到她最新一句时填(用户用 [她回了:...] 包了她原话,
+或 history 里有 [<name>刚回了:...] 标记)。看不到就别填。
+
+- PLAYFUL — 调皮、玩味、带钩子
+  例:"怎么这么久才想起我了呢?有啥好事吗?" / "哟你还会主动?"
+- TEASING — 撒娇、小埋怨
+  例:"哼,你还知道找我啊" / "是不是又有事求我了"
+- WARM — 温暖、关心
+  例:"今天怎么样,累不累"
+- CASUAL — 随意、平淡
+  例:"还行吧" / "嗯,在干嘛"
+- SERIOUS — 严肃正经
+  例:"我们好好谈谈" / "我得跟你说个事"
+- WORRIED — 担心、焦虑
+  例:"最近你怎么了?"
+- COLD — 冷淡、保持距离
+  例:"嗯。" / "好的。"
+- POLITE — 礼貌客气
+  例:"方便的话再聊"
+
+判断技巧:
+- 反问、句末"了呢/啊/呗"、调侃语气词 → PLAYFUL
+- 冒号 + 单字 / 句号收尾 + 短 → COLD(微妙看上下文)
+- 主动接话 + 带钩子 → PLAYFUL(机会很大,别错过)
+
+# 3. 输出格式(只 JSON,不要 markdown)
 
 {
   "intent": "ASK_DRAFT",
   "confidence": 0.92,
-  "evidence": "兄弟原话里的一段,字面体现意图",
-  "secondary_intent": "FRUSTRATED"
+  "evidence": "兄弟原话支撑意图的片段",
+  "secondary_intent": "FRUSTRATED",
+  "other_tone": "PLAYFUL",
+  "other_tone_evidence": "怎么这么久才想起我了呢?有啥好事吗?"
 }
 
-如果置信度低于 0.55,默认填 SHARE_CONTEXT。`
+如果意图 confidence 低于 0.55,默认 SHARE_CONTEXT。
+如果看不到她原话,other_tone 字段省略。`
 
 const HAIKU_MODEL_ID = 'claude-haiku-4-5'
 
@@ -116,6 +158,10 @@ function safeParseJson(raw: string): IntentResult {
     ...(parsed.secondary_intent && USER_INTENTS.includes(parsed.secondary_intent as UserIntent)
       ? { secondary_intent: parsed.secondary_intent as UserIntent }
       : {}),
+    ...(parsed.other_tone && OTHER_TONES.includes(parsed.other_tone as OtherTone)
+      ? { other_tone: parsed.other_tone as OtherTone }
+      : {}),
+    ...(parsed.other_tone_evidence ? { other_tone_evidence: parsed.other_tone_evidence } : {}),
   }
 }
 
@@ -143,7 +189,7 @@ export async function classifyUserIntent(input: ClassifyIntentInput): Promise<In
   }
 }
 
-/** 把 intent 翻译成 Sonnet system prompt 里的硬响应规则 */
+/** 把 intent + other_tone 翻译成 Sonnet system prompt 里的硬响应规则 */
 export function buildIntentDirective(result: IntentResult | null): string {
   if (!result) return ''
 
@@ -151,6 +197,10 @@ export function buildIntentDirective(result: IntentResult | null): string {
   lines.push(`[user_intent: ${result.intent}, confidence: ${result.confidence.toFixed(2)}]`)
   if (result.evidence) lines.push(`[evidence: "${result.evidence}"]`)
   if (result.secondary_intent) lines.push(`[secondary: ${result.secondary_intent}]`)
+  if (result.other_tone) {
+    lines.push(`[她的语气: ${result.other_tone}${result.other_tone_evidence ? ` — "${result.other_tone_evidence}"` : ''}]`)
+    lines.push(buildToneDirective(result.other_tone))
+  }
 
   // 每种意图的硬响应规则
   switch (result.intent) {
@@ -203,4 +253,30 @@ export function buildIntentDirective(result: IntentResult | null): string {
   }
 
   return lines.join('\n')
+}
+
+/** 对方语气 → 老 K 给的话术应该接什么调(关键产品差异化) */
+function buildToneDirective(tone: OtherTone): string {
+  switch (tone) {
+    case 'PLAYFUL':
+      return '[语气硬规则] 她在调皮带钩子,你给的话**必须俏皮接住**,不能老老实实正面回。' +
+        '可以反问、玩笑、自嘲、装傻或反钩。例:她"你还知道找我啊?"→ 你给"哎呀这不就来了吗" /' +
+        ' "嫌我来晚啦"。绝对不要平淡老实回("没啥好事就是想你"是失败案例)。'
+    case 'TEASING':
+      return '[语气硬规则] 她在撒娇/小埋怨,你给的话要**接住情绪 + 一点哄但不油**。' +
+        '不要 explain,不要"我错了"式认错,可以装傻 / 反将一军 / 直接哄。' +
+        '例:她"哼你还知道我啊"→ "得得得,这不一回过神就是你嘛"。'
+    case 'WARM':
+      return '[语气提示] 她在温暖关心,你给的话**真诚但不油**,简短回应她的关心 + 反问她。'
+    case 'CASUAL':
+      return '[语气提示] 她随意回的,你也别太用力,接得自然 / 短促 / 留钩子。'
+    case 'SERIOUS':
+      return '[语气硬规则] 她在严肃,你**绝对不要俏皮**,真诚 + 简短直回主题。'
+    case 'WORRIED':
+      return '[语气硬规则] 她在担心,你**先安抚后说事**,别开玩笑。'
+    case 'COLD':
+      return '[语气提示] 她冷着,你给的话要**短、真诚,不黏**。别强行制造话题,可以直接道一句歉或简短回应,不要凑话。'
+    case 'POLITE':
+      return '[语气提示] 她在客气保持距离,你**不要进**,简短礼貌回。'
+  }
 }
