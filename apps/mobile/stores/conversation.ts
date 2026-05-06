@@ -389,19 +389,22 @@ export const useConversationStore = defineStore('conversation', () => {
     const streamingId = appendStreamingLaokeText(relationshipId)
     updateStreamingLaokeText(relationshipId, streamingId, '')
 
-    // 收集 conversation 历史(只取 user_text 和 laoke_text,其它类型 turn 不需要)
+    // 收集对话历史:把所有类型的过往都翻译成 LLM 能读的行(尤其截图 OCR 内容,
+    // 这样老 K 能"翻找过去内容")。skipIds 排除当前 streaming 占位 + 当前 userText
+    const { serializeHistoryForLLM } = await import('../utils/history-serializer')
+    const { useRelationshipStore } = await import('./relationship')
+    const relStore = useRelationshipStore()
+    const relName = relStore.findById(relationshipId)?.name ?? '她'
+
     const all = messagesByRelationship.value[relationshipId] ?? []
-    const history: Array<{ speaker: 'user' | 'laoke'; text: string }> = []
-    for (const m of all) {
-      if (m.type === 'user_text') {
-        history.push({ speaker: 'user', text: m.text })
-      } else if (m.type === 'laoke_text' && !m.is_thinking) {
-        history.push({ speaker: 'laoke', text: m.text })
-      }
-    }
-    // 去掉刚 append 的"用户最新一条"(避免重复进 user_text 字段)
-    const userMsgIndex = history.findIndex((h) => h.speaker === 'user' && h.text === userText)
-    if (userMsgIndex >= 0) history.splice(userMsgIndex, 1)
+    // 找到刚 append 的"用户最新一条"id(text 匹配),从 history 里跳过避免重复
+    const lastUserMsg = [...all].reverse().find((m) => m.type === 'user_text' && m.text === userText)
+    const skipIds = [streamingId, ...(lastUserMsg ? [lastUserMsg.id] : [])]
+    const history = serializeHistoryForLLM(all, {
+      relationshipName: relName,
+      skipIds,
+      limit: 50,
+    })
 
     let fullText = ''
     try {
@@ -504,19 +507,24 @@ export const useConversationStore = defineStore('conversation', () => {
   function appendUserScreenshots(
     relationshipId: string,
     urls: string[],
-    opts: { silent?: boolean } = {},
-  ) {
+    opts: {
+      silent?: boolean
+      ocr_messages?: Array<{ speaker: 'user' | 'other'; text: string; timestamp?: string | null }>
+    } = {},
+  ): string {
+    const id = `us-${Date.now()}`
     const list = messagesByRelationship.value[relationshipId] ?? []
     list.push({
-      id: `us-${Date.now()}`,
+      id,
       type: 'user_screenshots',
       urls,
       count: urls.length,
+      ocr_messages: opts.ocr_messages,
       created_at: new Date().toISOString(),
     })
     messagesByRelationship.value[relationshipId] = [...list]
 
-    if (opts.silent) return
+    if (opts.silent) return id
 
     // mock 老 K 看截图反馈(用户随手发截图时占位,OCR 真接入后调用方传 silent=true 跳过)
     setTimeout(() => {
@@ -544,6 +552,23 @@ export const useConversationStore = defineStore('conversation', () => {
       }
       messagesByRelationship.value[relationshipId] = [...cur]
     }, 3500)
+
+    return id
+  }
+
+  /** OCR 完成后回写到对应 user_screenshots 消息,让后续 turn 的 history 能看到截图内容 */
+  function setScreenshotsOcrMessages(
+    relationshipId: string,
+    messageId: string,
+    ocrMessages: Array<{ speaker: 'user' | 'other'; text: string; timestamp?: string | null }>,
+  ): void {
+    const list = messagesByRelationship.value[relationshipId] ?? []
+    const idx = list.findIndex((m) => m.id === messageId)
+    if (idx === -1) return
+    const m = list[idx]
+    if (!m || m.type !== 'user_screenshots') return
+    list[idx] = { ...m, ocr_messages: ocrMessages }
+    messagesByRelationship.value[relationshipId] = [...list]
   }
 
   return {
@@ -555,6 +580,7 @@ export const useConversationStore = defineStore('conversation', () => {
     latestTime,
     appendUserText,
     appendUserScreenshots,
+    setScreenshotsOcrMessages,
     appendStreamingLaokeText,
     updateStreamingLaokeText,
     finishStreamingLaokeText,

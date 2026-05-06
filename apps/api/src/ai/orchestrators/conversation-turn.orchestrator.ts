@@ -123,8 +123,9 @@ export function composeUserMessage(input: ConversationTurnInput): string {
   }
 
   if (input.history.length > 0) {
-    lines.push('# 之前的对话(最近的在最后)')
-    const recent = input.history.slice(-20)
+    lines.push('# 之前的对话(最近的在最后,你能"翻找过去内容"全靠这段)')
+    // 从 20 → 80,让老 K 真有记忆。前端 history 已经把截图 OCR 内容内联了,你能看到截图里的话
+    const recent = input.history.slice(-80)
     for (const m of recent) {
       const who = m.speaker === 'user' ? '兄弟' : '你(老 K)'
       lines.push(`${who}: ${m.text}`)

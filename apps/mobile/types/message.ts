@@ -87,6 +87,8 @@ export interface UserScreenshotsMessage extends BaseMessage {
   urls: string[]
   /** count = urls.length,留字段方便老消息兼容 */
   count: number
+  /** OCR 出来的对话内容(每张截图里的对话 messages 平铺),给后续 turn 复盘"翻找历史"看 */
+  ocr_messages?: Array<{ speaker: 'user' | 'other'; text: string; timestamp?: string | null }>
 }
 
 // 用户操作反馈("我选了方向 1" / "今晚不发")

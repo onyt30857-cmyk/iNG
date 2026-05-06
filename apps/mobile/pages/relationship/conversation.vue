@@ -120,9 +120,12 @@ async function handleScreenshotsChosen(payload: { note: string; paths: string[] 
 
   // silent=true:不让 conversationStore 触发自己的 mock 老 K 回复(我们自己接 PARSING 流式)
   // 直接传真实 blob URLs(uni.chooseImage 给的 tempFilePaths),让气泡显示真图
-  conversationStore.appendUserScreenshots(relationshipId.value, payload.paths, {
-    silent: true,
-  })
+  // 拿到 screenshotsMsgId 用于 OCR 完成后回写 ocr_messages,让后续 turn 能"翻找"截图内容
+  const screenshotsMsgId = conversationStore.appendUserScreenshots(
+    relationshipId.value,
+    payload.paths,
+    { silent: true },
+  )
   if (payload.note) {
     conversationStore.appendUserText(relationshipId.value, payload.note, {
       silent: true,
@@ -162,6 +165,12 @@ async function handleScreenshotsChosen(payload: { note: string; paths: string[] 
     // spec-007 Phase 19.1:把 OCR 出的 messages 累积到该关系的信号原料里
     if (ocrMessages.length > 0) {
       signalsStore.appendOcrMessages(relationshipId.value, ocrMessages)
+      // 同时回写到刚才那条 user_screenshots message,让 history 序列化时能看到截图内容
+      conversationStore.setScreenshotsOcrMessages(
+        relationshipId.value,
+        screenshotsMsgId,
+        ocrMessages,
+      )
     }
     if (ocrMessages.length === 0) {
       conversationStore.updateStreamingLaokeText(
@@ -188,16 +197,14 @@ async function handleScreenshotsChosen(payload: { note: string; paths: string[] 
       '你看完截图,自然给个分析或问个具体的——别走流程、别分阶段。',
     ].filter(Boolean).join('\n')
 
-    // 收集对话历史(不含本次 streaming 占位气泡)
+    // 收集对话历史(用全类型 serializer:包含截图 OCR 内容、操作反馈等,LLM 能翻找过去)
+    const { serializeHistoryForLLM } = await import('../../utils/history-serializer')
     const all = conversationStore.getMessages(relationshipId.value)
-    const turnHistory: Array<{ speaker: 'user' | 'laoke'; text: string }> = []
-    for (const m of all) {
-      if (m.id === streamingMsgId) continue
-      if (m.type === 'user_text') turnHistory.push({ speaker: 'user', text: m.text })
-      else if (m.type === 'laoke_text' && !m.is_thinking && m.text) {
-        turnHistory.push({ speaker: 'laoke', text: m.text })
-      }
-    }
+    const turnHistory = serializeHistoryForLLM(all, {
+      relationshipName: relationship.value?.name ?? '她',
+      skipIds: [streamingMsgId],
+      limit: 50,
+    })
 
     let parsingFullText = ''
     conversationStore.updateStreamingLaokeText(
