@@ -125,9 +125,6 @@ function confirmNoteAndPickImages() {
     </view>
 
     <view class="chat-input">
-      <view :class="['plus-btn', actionsOpen && 'plus-btn-open']" @tap="toggleActions">
-        <text class="plus-icon">+</text>
-      </view>
       <view class="input-wrap">
         <textarea
           class="input"
@@ -139,6 +136,9 @@ function confirmNoteAndPickImages() {
           maxlength="2000"
           @focus="actionsOpen = false"
         />
+      </view>
+      <view :class="['plus-btn', actionsOpen && 'plus-btn-open']" @tap="toggleActions">
+        <text class="plus-icon">+</text>
       </view>
       <button class="send-btn" :disabled="!canSend" @tap="send">
         <text class="send-icon">↑</text>
