@@ -13,30 +13,40 @@ const props = defineProps<{
 }>()
 
 // === 话术 chip 解析(spec-009)===
-// LLM 给的话术用引号包 "..." 或 "..." 或 「...」。
-// 把整段拆成 [{ type: 'quote'|'plain', text }],"quote" 渲染成可复制高亮块。
+// 只把"独占一行的引号片段"识别成可复制话术 chip(那是老 K 真给的话术),
+// 解释段里 inline quote 对方原话(如"她那句'有啥好事'")保持原文渲染。
+// 这样避免 false positive 把解释里的引用错做成 chip。
 interface Segment {
   type: 'quote' | 'plain'
   text: string
 }
-const QUOTE_REGEX = /["""「『]([^"""「」『』]{2,200})["""」』]/g
+// 整行只有引号片段(允许两端空白)
+const FULL_QUOTE_LINE = /^[\s]*["""「『]([^"""「」『』\n]{2,200})["""」』][\s]*$/
 const segments = computed<Segment[]>(() => {
   const t = props.text
   if (!t) return []
   const out: Segment[] = []
-  let lastIdx = 0
-  let m: RegExpExecArray | null
-  // 重置 regex(因为是 /g)
-  QUOTE_REGEX.lastIndex = 0
-  while ((m = QUOTE_REGEX.exec(t)) !== null) {
-    const before = t.slice(lastIdx, m.index)
-    if (before.trim()) out.push({ type: 'plain', text: before })
-    out.push({ type: 'quote', text: m[1]! })
-    lastIdx = QUOTE_REGEX.lastIndex
+  const lines = t.split('\n')
+  let plainBuf: string[] = []
+
+  function flushPlain() {
+    if (plainBuf.length === 0) return
+    const txt = plainBuf.join('\n').replace(/^\n+|\n+$/g, '')
+    if (txt) out.push({ type: 'plain', text: txt })
+    plainBuf = []
   }
-  const after = t.slice(lastIdx)
-  if (after.trim()) out.push({ type: 'plain', text: after })
-  // 如果没匹配到任何 quote,降级为单段 plain
+
+  for (const line of lines) {
+    const fullMatch = line.match(FULL_QUOTE_LINE)
+    if (fullMatch) {
+      flushPlain()
+      out.push({ type: 'quote', text: fullMatch[1]! })
+    } else {
+      plainBuf.push(line)
+    }
+  }
+  flushPlain()
+
   return out.length > 0 ? out : [{ type: 'plain', text: t }]
 })
 
@@ -300,7 +310,7 @@ async function confirmComment() {
 .text-segments {
   display: flex;
   flex-direction: column;
-  gap: 8rpx;
+  gap: 4rpx;
   width: 100%;
 }
 .text {
@@ -316,10 +326,10 @@ async function confirmComment() {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  gap: 16rpx;
-  padding: 20rpx 24rpx;
-  margin: 8rpx 0;
-  border-radius: 18rpx;
+  gap: 12rpx;
+  padding: 16rpx 20rpx;
+  margin: 6rpx 0;
+  border-radius: 16rpx;
   background-color: rgba(217, 165, 78, 0.12); // 暖金黄淡(跟"已收藏"星色同源,提示这是可拿走的内容)
   border: 1rpx solid rgba(217, 165, 78, 0.3);
   transition: background-color 0.18s, transform 0.12s;
