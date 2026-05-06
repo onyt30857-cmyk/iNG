@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { FeedbackType } from '../../api/feedback.api'
+import { useConversationStore } from '../../stores/conversation'
 
 const props = defineProps<{
   text: string
@@ -10,6 +11,21 @@ const props = defineProps<{
   messageId?: string
   relationshipId?: string
 }>()
+
+const convStore = useConversationStore()
+const isSaved = computed(() =>
+  !!props.messageId &&
+  !!props.relationshipId &&
+  convStore.isQuoteSaved(props.relationshipId, props.messageId),
+)
+function toggleSave() {
+  if (!props.messageId || !props.relationshipId) return
+  if (isSaved.value) {
+    convStore.unsaveQuote(props.relationshipId, props.messageId)
+  } else {
+    convStore.saveQuote(props.relationshipId, props.messageId, props.text)
+  }
+}
 
 // === spec-009 反馈状态 ===
 const submittingFeedback = ref(false)
@@ -103,8 +119,15 @@ async function confirmComment() {
         </template>
       </view>
 
-      <!-- spec-009 反馈区(完成态才显示)-->
+      <!-- spec-009 反馈区 + 收藏(完成态才显示)-->
       <view v-if="showFeedback" class="feedback-row">
+        <view
+          :class="['fb-btn', isSaved && 'fb-active-save']"
+          @tap="toggleSave"
+        >
+          <text class="fb-icon">{{ isSaved ? '★' : '☆' }}</text>
+          <text class="fb-label">{{ isSaved ? '已收藏' : '收藏' }}</text>
+        </view>
         <view
           :class="['fb-btn', feedbackGiven === 'like' && 'fb-active-like']"
           @tap="onLike"
@@ -318,6 +341,11 @@ async function confirmComment() {
 }
 .fb-active-comment {
   background-color: rgba(168, 124, 95, 0.12); // accent 淡
+  opacity: 1;
+}
+.fb-active-save {
+  background-color: rgba(217, 165, 78, 0.18); // 收藏星黄淡
+  border-color: rgba(217, 165, 78, 0.4);
   opacity: 1;
 }
 .fb-thanks {

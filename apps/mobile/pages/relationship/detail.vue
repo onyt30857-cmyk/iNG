@@ -89,17 +89,8 @@ const ageRangeLabel = computed(() => {
   return map[ar] ?? ar
 })
 
-// L3 老 K 看见的(M1 mock,M2 由 Profile Updater 自动)
-const laokeObservations = ref<Array<{ text: string; recordedDaysAgo: number }>>([
-  {
-    text: '她不喜欢被催着回消息——你一晚上发 4 条她次日才一起回。',
-    recordedDaysAgo: 3,
-  },
-  {
-    text: '每次提到她姐姐她语气会变得轻一点,这事在她心里有重量。',
-    recordedDaysAgo: 3,
-  },
-])
+// (spec-009 audit:删除原 hardcoded mock"老 K 看见的"。真信号在"我们"Tab verdict-card,
+//  抽取的 facts 在 Section 3"你告诉老 K 的"chips 里展示)
 
 // L2 你告诉老 K 的(key_facts + user_reminders 合并展示成 chip,带来源标记)
 interface ChipItem {
@@ -455,6 +446,10 @@ function keyMomentDate(iso: string): string {
 // === Tab 3: 工具箱 - 收藏 ===
 const savedDrafts = computed(() => conversationStore.getSavedDrafts(id.value))
 const savedPlannings = computed(() => conversationStore.getSavedPlannings(id.value))
+const savedQuotes = computed(() => conversationStore.getSavedQuotes(id.value))
+function unsaveQuote(qid: string) {
+  conversationStore.unsaveQuote(id.value, qid)
+}
 
 function unsaveDraft(draftId: string) {
   conversationStore.unsaveDraft(id.value, draftId)
@@ -464,10 +459,6 @@ function copyDraftText(text: string) {
     data: text,
     success: () => uni.showToast({ title: '复制了', icon: 'none' }),
   })
-}
-
-function feedbackBad(_idx: number) {
-  uni.showToast({ title: '记下来了,下次会调整', icon: 'none' })
 }
 
 function goEdit() {
@@ -512,13 +503,20 @@ async function deleteIt() {
           :size="92"
         />
         <view class="avatar-edit-badge">
-          <text class="avatar-edit-icon">{{ uploadingAvatar ? '…' : '✎' }}</text>
+          <text v-if="uploadingAvatar" class="avatar-edit-icon-loading">…</text>
+          <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <path d="M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4L16.5 3.5z"
+              stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
         </view>
       </view>
       <view class="hero-name-row">
         <text class="hero-name">{{ relationship.name }}</text>
         <view class="hero-name-edit" @tap="openRenameModal">
-          <text class="hero-name-edit-icon">✎</text>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4L16.5 3.5z"
+              stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
         </view>
       </view>
       <view class="vitals">
@@ -566,8 +564,8 @@ async function deleteIt() {
       </view>
       <view :class="['tab', activeTab === 'toolbox' && 'active']" @tap="activeTab = 'toolbox'">
         <text class="tab-text">工具箱</text>
-        <text v-if="savedDrafts.length + savedPlannings.length > 0" class="tab-count">
-          {{ savedDrafts.length + savedPlannings.length }}
+        <text v-if="savedQuotes.length + savedDrafts.length + savedPlannings.length > 0" class="tab-count">
+          {{ savedQuotes.length + savedDrafts.length + savedPlannings.length }}
         </text>
       </view>
     </view>
@@ -598,20 +596,10 @@ async function deleteIt() {
         </view>
       </view>
 
-      <!-- ===== Section 2: 老 K 看见的(L3 累积观察) ===== -->
-      <view class="section">
-        <text class="section-title">老 K 看见的</text>
-        <view v-for="(obs, i) in laokeObservations" :key="i" class="quote">
-          <text class="quote-text">{{ obs.text }}</text>
-          <view class="quote-foot">
-            <text class="quote-source">第 {{ obs.recordedDaysAgo }} 天 · 自这次复盘提取</text>
-            <text class="quote-feedback" @tap="feedbackBad(i)">这条不准 →</text>
-          </view>
-        </view>
-        <view v-if="laokeObservations.length === 0" class="empty-line">
-          <text class="empty-line-text">还没看出什么,等下次复盘。</text>
-        </view>
-      </view>
+      <!-- spec-009 audit:删除"老 K 看见的"section — 之前是 hardcoded mock,
+        且跟 Section 3"你告诉老 K 的"共享 key_facts 会重复显示,
+        真信号已在"我们"Tab 顶部 verdict-card 展示 -->
+
 
       <!-- ===== Section 3: 你告诉老 K 的(L2 用户主动 chip + 自动抽取) ===== -->
       <view class="section">
@@ -719,8 +707,30 @@ async function deleteIt() {
 
     <!-- ============ Tab 3: 工具箱 ============ -->
     <view v-if="activeTab === 'toolbox'" class="content">
-      <!-- 收藏的话术 -->
+      <!-- spec-009 audit:收藏的老 K 一段话(对话流上点 ☆ 触发) -->
       <view class="section">
+        <text class="section-title">收藏的回复 ({{ savedQuotes.length }})</text>
+        <view v-if="savedQuotes.length === 0" class="empty-line">
+          <text class="empty-line-text">和老 K 聊的时候,在他回复下面点 ☆ 收藏,这里能找到。</text>
+        </view>
+        <view v-else>
+          <view v-for="q in savedQuotes" :key="q.id" class="saved-card">
+            <view class="saved-card-head">
+              <text class="saved-card-direction">老 K 说的</text>
+              <view class="saved-card-unsave" @tap="unsaveQuote(q.id)">
+                <text class="saved-card-unsave-icon">★</text>
+              </view>
+            </view>
+            <view class="saved-card-text" @tap="copyDraftText(q.text)">
+              <text class="saved-text">{{ q.text }}</text>
+              <text class="saved-copy">点击复制 ⧉</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 收藏的话术(spec-005 ReplyDraft 结构,spec-006 后罕见出现,有数据才显示) -->
+      <view v-if="savedDrafts.length > 0" class="section">
         <text class="section-title">收藏的话术 ({{ savedDrafts.length }})</text>
         <view v-if="savedDrafts.length === 0" class="empty-line">
           <text class="empty-line-text">和老 K 聊的时候,觉得哪句好用就点 ☆ 收藏。</text>
@@ -741,8 +751,8 @@ async function deleteIt() {
         </view>
       </view>
 
-      <!-- 收藏的方向 -->
-      <view class="section">
+      <!-- 收藏的方向(spec-005 PlanningContent 结构,spec-006 后罕见,有数据才显示) -->
+      <view v-if="savedPlannings.length > 0" class="section">
         <text class="section-title">收藏的方向 ({{ savedPlannings.length }})</text>
         <view v-if="savedPlannings.length === 0" class="empty-line">
           <text class="empty-line-text">老 K 给的"做什么/为什么/红线/退路",觉得有用就点 ☆。</text>
@@ -836,7 +846,10 @@ async function deleteIt() {
   justify-content: center;
   box-shadow: $shadow-sm;
 }
-.avatar-edit-icon {
+.avatar-edit-badge {
+  color: $color-text-secondary;
+}
+.avatar-edit-icon-loading {
   font-size: 22rpx;
   color: $color-text-secondary;
   line-height: 1;
@@ -864,10 +877,8 @@ async function deleteIt() {
 
   &:active { background-color: $color-surface-subtle; }
 }
-.hero-name-edit-icon {
-  font-size: 24rpx;
+.hero-name-edit {
   color: $color-text-tertiary;
-  line-height: 1;
 }
 .vitals {
   margin-top: 16rpx;

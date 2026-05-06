@@ -243,6 +243,30 @@ export const useConversationStore = defineStore('conversation', () => {
   const savedDrafts = ref<Record<string, ReplyDraft[]>>({})        // relationshipId → drafts
   const savedPlannings = ref<Record<string, Array<{ id: string; content: PlanningContent; saved_at: string }>>>({})
 
+  // spec-009 audit:老 K free text 回复的收藏(spec-006 之后老 K 主要是 free text,
+  // ReplyDraft/PlanningContent 几乎不再出现,工具箱永远空。加这个让收藏闭环)
+  const savedQuotes = ref<Record<string, Array<{ id: string; text: string; saved_at: string }>>>({})
+
+  function saveQuote(relationshipId: string, messageId: string, text: string): void {
+    const cur = savedQuotes.value[relationshipId] ?? []
+    if (cur.find((q) => q.id === messageId)) return
+    savedQuotes.value[relationshipId] = [
+      ...cur,
+      { id: messageId, text, saved_at: new Date().toISOString() },
+    ]
+    uni.showToast({ title: '收藏了', icon: 'none', duration: 1200 })
+  }
+  function unsaveQuote(relationshipId: string, messageId: string): void {
+    const cur = savedQuotes.value[relationshipId] ?? []
+    savedQuotes.value[relationshipId] = cur.filter((q) => q.id !== messageId)
+  }
+  function isQuoteSaved(relationshipId: string, messageId: string): boolean {
+    return !!savedQuotes.value[relationshipId]?.find((q) => q.id === messageId)
+  }
+  function getSavedQuotes(relationshipId: string) {
+    return savedQuotes.value[relationshipId] ?? []
+  }
+
   function isFreshConversation(relationshipId: string): boolean {
     const list = messagesByRelationship.value[relationshipId]
     if (!list) return true
@@ -613,5 +637,9 @@ export const useConversationStore = defineStore('conversation', () => {
     savePlanning,
     isPlanningSaved,
     getSavedPlannings,
+    saveQuote,
+    unsaveQuote,
+    isQuoteSaved,
+    getSavedQuotes,
   }
 })
