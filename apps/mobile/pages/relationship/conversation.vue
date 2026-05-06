@@ -129,14 +129,10 @@ async function handleScreenshotsChosen(payload: { note: string; paths: string[] 
     })
   }
 
-  // 准备一条 streaming laoke_text 气泡,OCR 完成后流式 append PARSING 文字
+  // 准备一条 streaming laoke_text 气泡,初始 is_thinking=true(显示三点跳动 dot loader,不显示文字)
+  // OCR 完成 → turn 第一个 chunk 进来时自动切到 streaming 状态(文字 + 闪烁光标)
   const streamingMsgId = conversationStore.appendStreamingLaokeText(
     relationshipId.value,
-  )
-  conversationStore.updateStreamingLaokeText(
-    relationshipId.value,
-    streamingMsgId,
-    '我先看一眼...',
   )
 
   try {
@@ -324,6 +320,7 @@ function handleSavePlanning(planningId: string, content: import('../../types/mes
           v-else-if="m.type === 'laoke_text'"
           :text="m.text"
           :is-thinking="m.is_thinking"
+          :is-streaming="m.is_streaming"
         />
         <LaokeQuestionBubble
           v-else-if="m.type === 'laoke_question'"

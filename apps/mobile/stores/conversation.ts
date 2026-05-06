@@ -450,7 +450,8 @@ export const useConversationStore = defineStore('conversation', () => {
       id,
       type: 'laoke_text',
       text: '',
-      is_thinking: true,
+      is_thinking: true, // 等第一个 chunk(显示三个跳点 dot loader)
+      is_streaming: false,
       created_at: new Date().toISOString(),
     })
     messagesByRelationship.value[relationshipId] = [...list]
@@ -467,7 +468,9 @@ export const useConversationStore = defineStore('conversation', () => {
     if (idx === -1) return
     const m = list[idx]
     if (!m || m.type !== 'laoke_text') return
-    list[idx] = { ...m, text, is_thinking: true }
+    // text 仍空 → 还在 thinking;有任何字符 → 切到 streaming(光标闪烁)
+    const hasText = text.length > 0
+    list[idx] = { ...m, text, is_thinking: !hasText, is_streaming: hasText }
     messagesByRelationship.value[relationshipId] = [...list]
   }
 
@@ -477,7 +480,7 @@ export const useConversationStore = defineStore('conversation', () => {
     if (idx === -1) return
     const m = list[idx]
     if (!m || m.type !== 'laoke_text') return
-    list[idx] = { ...m, is_thinking: false }
+    list[idx] = { ...m, is_thinking: false, is_streaming: false }
     messagesByRelationship.value[relationshipId] = [...list]
   }
 

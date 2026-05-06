@@ -36,11 +36,15 @@ export interface SystemDividerMessage extends BaseMessage {
 }
 
 // 老 K 文字气泡(包括 PARSING 输出 / 简短回应)
-// 也用于"thinking" 状态(is_thinking=true 时显示动画)
+// 状态:
+// - is_thinking=true:还没拿到第一个 chunk,气泡里只显示跳动 dot loader
+// - is_streaming=true:正在流式接收文字,文字末尾跟一个闪烁光标
+// - 两者都 false:稳定状态(完成)
 export interface LaokeTextMessage extends BaseMessage {
   type: 'laoke_text'
   text: string
   is_thinking?: boolean
+  is_streaming?: boolean
 }
 
 // 老 K 提问(REFLECTING):带序号 1/3
