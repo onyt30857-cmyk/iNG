@@ -12,6 +12,42 @@ const props = defineProps<{
   relationshipId?: string
 }>()
 
+// === 话术 chip 解析(spec-009)===
+// LLM 给的话术用引号包 "..." 或 "..." 或 「...」。
+// 把整段拆成 [{ type: 'quote'|'plain', text }],"quote" 渲染成可复制高亮块。
+interface Segment {
+  type: 'quote' | 'plain'
+  text: string
+}
+const QUOTE_REGEX = /["""「『]([^"""「」『』]{2,200})["""」』]/g
+const segments = computed<Segment[]>(() => {
+  const t = props.text
+  if (!t) return []
+  const out: Segment[] = []
+  let lastIdx = 0
+  let m: RegExpExecArray | null
+  // 重置 regex(因为是 /g)
+  QUOTE_REGEX.lastIndex = 0
+  while ((m = QUOTE_REGEX.exec(t)) !== null) {
+    const before = t.slice(lastIdx, m.index)
+    if (before.trim()) out.push({ type: 'plain', text: before })
+    out.push({ type: 'quote', text: m[1]! })
+    lastIdx = QUOTE_REGEX.lastIndex
+  }
+  const after = t.slice(lastIdx)
+  if (after.trim()) out.push({ type: 'plain', text: after })
+  // 如果没匹配到任何 quote,降级为单段 plain
+  return out.length > 0 ? out : [{ type: 'plain', text: t }]
+})
+
+function copyQuote(text: string) {
+  uni.setClipboardData({
+    data: text,
+    success: () => uni.showToast({ title: '已复制,直接粘到聊天框就行', icon: 'none', duration: 1600 }),
+    fail: () => uni.showToast({ title: '复制失败', icon: 'none' }),
+  })
+}
+
 const convStore = useConversationStore()
 const isSaved = computed(() =>
   !!props.messageId &&
@@ -114,8 +150,26 @@ async function confirmComment() {
           <view class="dot"></view>
         </view>
         <template v-else>
-          <text class="text">{{ text }}</text>
-          <text v-if="isStreaming" class="caret">│</text>
+          <view class="text-segments">
+            <template v-for="(seg, i) in segments" :key="i">
+              <view
+                v-if="seg.type === 'quote'"
+                class="quote-chip"
+                @tap="copyQuote(seg.text)"
+              >
+                <text class="quote-chip-text">{{ seg.text }}</text>
+                <view class="quote-chip-action">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <rect x="9" y="9" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.8" />
+                    <path d="M5 15V5a2 2 0 012-2h10" stroke="currentColor" stroke-width="1.8" />
+                  </svg>
+                  <text class="quote-chip-action-text">复制</text>
+                </view>
+              </view>
+              <text v-else class="text">{{ seg.text }}</text>
+            </template>
+            <text v-if="isStreaming" class="caret">│</text>
+          </view>
         </template>
       </view>
 
@@ -243,11 +297,61 @@ async function confirmComment() {
   border-left-color: $color-accent;
 }
 
+.text-segments {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  width: 100%;
+}
 .text {
   font-size: 34rpx;
   line-height: 1.6;
   color: $color-text-primary;
   white-space: pre-wrap;
+}
+
+// === 话术 chip(可复制高亮块,spec-009)===
+.quote-chip {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 20rpx 24rpx;
+  margin: 8rpx 0;
+  border-radius: 18rpx;
+  background-color: rgba(217, 165, 78, 0.12); // 暖金黄淡(跟"已收藏"星色同源,提示这是可拿走的内容)
+  border: 1rpx solid rgba(217, 165, 78, 0.3);
+  transition: background-color 0.18s, transform 0.12s;
+
+  &:active {
+    background-color: rgba(217, 165, 78, 0.22);
+    transform: scale(0.98);
+  }
+}
+.quote-chip-text {
+  flex: 1;
+  font-size: 32rpx;
+  color: $color-text-primary;
+  line-height: 1.5;
+  font-weight: $weight-medium;
+  letter-spacing: 0.5rpx;
+}
+.quote-chip-action {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6rpx;
+  padding: 6rpx 12rpx;
+  border-radius: 999rpx;
+  background-color: rgba(217, 165, 78, 0.2);
+  color: #C68B2E;
+  flex-shrink: 0;
+}
+.quote-chip-action-text {
+  font-size: 22rpx;
+  color: #C68B2E;
+  font-weight: $weight-medium;
 }
 
 .caret {
