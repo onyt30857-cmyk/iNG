@@ -116,14 +116,12 @@ export const useRelationshipSignalsStore = defineStore('relationship-signals', (
 
   /**
    * 演示模式注入 demo signal(spec-007 / 19.x demo)
-   * 只对没真累积消息的关系注入,真用户传过 OCR 后会被 recompute 覆盖。
+   * 强制覆盖(包括已经有真累积消息的关系),按钮就是"演示模式",真用户不会主动按。
+   * 用户后续做新 OCR / recompute 会自然覆盖回真信号。
    */
   async function seedDemoSignals(relationshipIds: ReadonlyArray<string>): Promise<void> {
     const { buildDemoSnapshot } = await import('../utils/demo-signals')
     relationshipIds.forEach((relId, idx) => {
-      const msgs = getAccumulated(relId)
-      // 已经有真累积消息的不动(避免覆盖用户真实数据)
-      if (msgs.length > 0) return
       const snap = buildDemoSnapshot(idx)
       signalsByRelationship.value[relId] = snap
       saveSignal(relId, snap)
