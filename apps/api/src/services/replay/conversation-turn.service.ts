@@ -21,6 +21,11 @@ import {
   getRecentNegativeFeedback,
   buildFeedbackDirective,
 } from '../feedback/feedback.service.js'
+import {
+  guardUserInput,
+  buildRefusalReply,
+} from '../../ai/red-line-guard.js'
+import { prisma } from '../../lib/prisma.js'
 
 export interface RunConversationTurnInput {
   user_text: string
@@ -42,6 +47,43 @@ export async function runConversationTurnForRelationship(
     .filter((r) => r.id !== current.id)
     .map((r) => r.name)
     .filter((n) => n.trim().length >= 2)
+
+  // ★ 红线运行时拦截(spec-009):用户输入双层检测(关键词 + Haiku 二次确认)
+  // 触发 → 不调 Sonnet,流式输出预制拒绝回应,落 moderation_logs
+  const guardResult = await guardUserInput(
+    {
+      user_id: userId,
+      relationship_id: current.id,
+      scene: 'parsing', // 借用现有 scene 做 audit 分类
+    },
+    input.user_text,
+  )
+  if (guardResult) {
+    const v = guardResult.violation
+    // 落库
+    await prisma.moderationLog.create({
+      data: {
+        source_type: 'user_input',
+        user_id: userId,
+        content: input.user_text.slice(0, 4000),
+        service: 'internal_red_line',
+        passed: false,
+        category: v.category,
+        confidence: v.layer === 'llm' ? 0.9 : 0.7,
+        raw_response: { matched: v.matched_text, layer: v.layer } as object,
+      },
+    }).catch(() => {/* moderation log 失败不阻断拒绝回应 */})
+
+    // 流式回应预制拒绝文本
+    const refusal = buildRefusalReply(v.category)
+    handlers.onChunk(refusal)
+    return {
+      text: refusal,
+      usage: { input_tokens: 0, output_tokens: 0 },
+      persona_check: { passed: true, violations: [] },
+      duration_ms: 0,
+    }
+  }
 
   // 2026-05-06:Sonnet 之前先跑 Haiku intent classifier,绕开"陷入上一段话出不来"的
   // in-context 模仿陷阱。失败降级 null,不阻断主流程。
