@@ -14,12 +14,25 @@ export const relationshipStageSchema = z.enum([
 ])
 
 // basic_facts JSON 内部 schema(放 how_we_met / age_range / key_facts 等自由字段)
+// spec-008 Phase 2.2:加 pending_facts 待确认区,low confidence 抽取进这里,
+// 用户在档案页 ✓ 后转入 key_facts(高 confidence 抽取直接进 key_facts)
 const basicFactsSchema = z
   .object({
     how_we_met: z.string().max(200, '怎么认识的最多 200 字').optional(),
     age_range: z.string().max(20).optional(),
     gender: z.enum(['FEMALE', 'MALE', 'UNSPECIFIED']).optional(),
-    key_facts: z.array(z.string().max(500)).max(20).optional(),
+    key_facts: z.array(z.string().max(500)).max(50).optional(),
+    pending_facts: z
+      .array(
+        z.object({
+          text: z.string().max(500),
+          evidence_quote: z.string().max(800),
+          kind: z.enum(['background', 'preference', 'person', 'event']),
+          captured_at: z.string(), // ISO
+        }),
+      )
+      .max(30)
+      .optional(),
   })
   .strict() // 多余字段直接拒绝,防止注入
 

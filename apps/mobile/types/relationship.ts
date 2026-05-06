@@ -17,11 +17,20 @@ export const RELATIONSHIP_STAGE_LABELS: Record<RelationshipStage, string> = {
   ENDED: '已结束',
 }
 
+export interface PendingFact {
+  text: string
+  evidence_quote: string
+  kind: 'background' | 'preference' | 'person' | 'event'
+  captured_at: string
+}
+
 export interface BasicFacts {
   how_we_met?: string
   age_range?: string
   gender?: 'FEMALE' | 'MALE' | 'UNSPECIFIED'
   key_facts?: string[]
+  /** spec-008 Phase 2.2 待确认区:low confidence 抽取放这里,用户 ✓ 后转入 key_facts */
+  pending_facts?: PendingFact[]
 }
 
 export interface Relationship {

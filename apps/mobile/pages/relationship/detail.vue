@@ -131,6 +131,52 @@ async function removeChip(item: ChipItem) {
   }
 }
 
+// === spec-008 Phase 2.2 待确认区(low confidence 抽取的事实)===
+const pendingFacts = computed(() => {
+  if (!relationship.value) return []
+  return ((relationship.value.basic_facts as any)?.pending_facts ?? []) as Array<{
+    text: string
+    evidence_quote: string
+    kind: 'background' | 'preference' | 'person' | 'event'
+    captured_at: string
+  }>
+})
+
+const KIND_LABEL: Record<string, string> = {
+  background: '背景',
+  preference: '偏好',
+  person: '人',
+  event: '事',
+}
+
+async function approvePending(text: string) {
+  if (!relationship.value) return
+  const bf = (relationship.value.basic_facts as any) ?? {}
+  const pending = (bf.pending_facts ?? []) as Array<{ text: string }>
+  const facts = (bf.key_facts ?? []) as string[]
+  const item = pending.find((p) => p.text === text)
+  if (!item) return
+  await store.update(relationship.value.id, {
+    basic_facts: {
+      ...bf,
+      key_facts: [...facts, item.text],
+      pending_facts: pending.filter((p) => p.text !== text),
+    },
+  })
+}
+
+async function rejectPending(text: string) {
+  if (!relationship.value) return
+  const bf = (relationship.value.basic_facts as any) ?? {}
+  const pending = (bf.pending_facts ?? []) as Array<{ text: string }>
+  await store.update(relationship.value.id, {
+    basic_facts: {
+      ...bf,
+      pending_facts: pending.filter((p) => p.text !== text),
+    },
+  })
+}
+
 // === 添加新 chip 的轻量底部 modal(替代跳 edit 表单) ===
 const addModalOpen = ref(false)
 const newChipText = ref('')
@@ -595,6 +641,27 @@ async function deleteIt() {
       <!-- ===== Section 3: 你告诉老 K 的(L2 用户主动 chip + 自动抽取) ===== -->
       <view class="section">
         <text class="section-title">你告诉老 K 的</text>
+
+        <!-- spec-008 Phase 2.2 待确认区:low confidence 抽取的事实,用户 ✓ 后转入正式 chips -->
+        <view v-if="pendingFacts.length > 0" class="pending-block">
+          <text class="pending-block-title">老 K 不太确定 · 你看准不准</text>
+          <view v-for="p in pendingFacts" :key="p.text" class="pending-card">
+            <view class="pending-card-head">
+              <text class="pending-tag">{{ KIND_LABEL[p.kind] || p.kind }}</text>
+              <text class="pending-text">{{ p.text }}</text>
+            </view>
+            <text class="pending-quote">原话:"{{ p.evidence_quote }}"</text>
+            <view class="pending-actions">
+              <view class="pending-btn pending-btn-reject" @tap="rejectPending(p.text)">
+                <text class="pending-btn-text-reject">不准</text>
+              </view>
+              <view class="pending-btn pending-btn-approve" @tap="approvePending(p.text)">
+                <text class="pending-btn-text-approve">✓ 收下</text>
+              </view>
+            </view>
+          </view>
+        </view>
+
         <view v-if="userKnownChips.length > 0" class="chips">
           <view v-for="(chip, i) in userKnownChips" :key="i" class="chip">
             <text class="chip-text">{{ chip.text }}</text>
@@ -1027,6 +1094,90 @@ async function deleteIt() {
 }
 
 // === Chips(你告诉老 K 的) ===
+// === spec-008 Phase 2.2 待确认区 ===
+.pending-block {
+  margin-bottom: 24rpx;
+  padding: 24rpx 28rpx;
+  background-color: rgba(168, 124, 95, 0.08); // accent 极淡
+  border: 1rpx dashed rgba(168, 124, 95, 0.35);
+  border-radius: 24rpx;
+}
+.pending-block-title {
+  display: block;
+  font-size: 22rpx;
+  color: $color-accent;
+  font-weight: $weight-medium;
+  letter-spacing: 1rpx;
+  margin-bottom: 16rpx;
+}
+.pending-card {
+  padding: 20rpx 0;
+  border-top: 1rpx solid rgba(168, 124, 95, 0.2);
+
+  &:first-of-type { border-top: none; padding-top: 8rpx; }
+}
+.pending-card-head {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12rpx;
+  margin-bottom: 8rpx;
+}
+.pending-tag {
+  flex-shrink: 0;
+  font-size: 20rpx;
+  color: $color-accent;
+  background-color: rgba(168, 124, 95, 0.16);
+  padding: 4rpx 12rpx;
+  border-radius: 999rpx;
+  line-height: 1.4;
+  margin-top: 4rpx;
+}
+.pending-text {
+  flex: 1;
+  font-size: 28rpx;
+  color: $color-text-primary;
+  line-height: 1.5;
+  font-weight: $weight-medium;
+}
+.pending-quote {
+  display: block;
+  font-size: 22rpx;
+  color: $color-text-tertiary;
+  line-height: 1.5;
+  font-style: italic;
+  margin-bottom: 16rpx;
+}
+.pending-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 12rpx;
+  justify-content: flex-end;
+}
+.pending-btn {
+  padding: 10rpx 24rpx;
+  border-radius: 999rpx;
+  transition: opacity 0.18s, transform 0.12s;
+
+  &:active { transform: scale(0.95); }
+}
+.pending-btn-reject {
+  background-color: transparent;
+  border: 1rpx solid $color-border;
+}
+.pending-btn-approve {
+  background-color: $color-accent;
+}
+.pending-btn-text-reject {
+  font-size: 24rpx;
+  color: $color-text-secondary;
+}
+.pending-btn-text-approve {
+  font-size: 24rpx;
+  color: $color-background;
+  font-weight: $weight-medium;
+}
+
 .chips {
   display: flex;
   flex-direction: row;

@@ -204,11 +204,17 @@ export async function extractRelationshipProfile(
     throw errors.internal(`抽取结果解析失败:${e instanceof Error ? e.message : String(e)}`)
   }
 
-  // 去重:跟已有 key_facts 比对
+  // 去重:跟已有 key_facts + pending_facts 双重比对
+  const existingPending =
+    ((current.basic_facts as Record<string, unknown> | null)?.pending_facts as
+      | Array<{ text: string }>
+      | undefined) ?? []
+  const allKnown = [...existingFacts, ...existingPending.map((p) => p.text)]
+
   const added: ExtractedFact[] = []
   let skipped = 0
   for (const f of parsed.facts) {
-    if (isDuplicate(f.text, existingFacts)) {
+    if (isDuplicate(f.text, allKnown)) {
       skipped++
       continue
     }
@@ -223,11 +229,26 @@ export async function extractRelationshipProfile(
     }
   }
 
-  // 写回 basic_facts.key_facts
-  const merged = [...existingFacts, ...added.map((f) => f.text)]
+  // spec-008 Phase 2.2:high confidence 直接进 key_facts,low confidence 进 pending_facts
+  const highFacts = added.filter((f) => f.confidence === 'high')
+  const lowFacts = added.filter((f) => f.confidence === 'low')
+
+  const now = new Date().toISOString()
+  const newKeyFacts = [...existingFacts, ...highFacts.map((f) => f.text)]
+  const newPendingFacts = [
+    ...existingPending,
+    ...lowFacts.map((f) => ({
+      text: f.text,
+      evidence_quote: f.evidence_quote,
+      kind: f.kind,
+      captured_at: now,
+    })),
+  ]
+
   const newBasicFacts = {
     ...((current.basic_facts as Record<string, unknown> | null) ?? {}),
-    key_facts: merged,
+    key_facts: newKeyFacts,
+    ...(newPendingFacts.length > 0 ? { pending_facts: newPendingFacts } : {}),
   }
 
   const updated = await updateRelationship(userId, relationshipId, {
