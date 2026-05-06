@@ -185,6 +185,61 @@ function addToldFact() {
   openAddModal()
 }
 
+// === 头像换图 + 改名(避免关系多了认错人) ===
+const uploadingAvatar = ref(false)
+
+async function pickAvatar() {
+  if (!relationship.value || uploadingAvatar.value) return
+  uni.chooseImage({
+    count: 1,
+    sizeType: ['compressed'],
+    sourceType: ['album', 'camera'],
+    success: async (res) => {
+      const path = (res.tempFilePaths?.[0] as string) ?? ''
+      if (!path) return
+      uploadingAvatar.value = true
+      try {
+        const { compressImageToAvatarDataUrl } = await import('../../utils/avatar-image')
+        const dataUrl = await compressImageToAvatarDataUrl(path)
+        await store.update(id.value, { avatar_url: dataUrl })
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        if (typeof window !== 'undefined' && window.alert) window.alert('换头像失败:' + msg)
+      } finally {
+        uploadingAvatar.value = false
+      }
+    },
+    fail: () => {
+      // 用户取消选图,静默
+    },
+  })
+}
+
+const renameModalOpen = ref(false)
+const renameInput = ref('')
+
+function openRenameModal() {
+  if (!relationship.value) return
+  renameInput.value = relationship.value.name
+  renameModalOpen.value = true
+}
+function closeRenameModal() {
+  renameModalOpen.value = false
+}
+async function confirmRename() {
+  const name = renameInput.value.trim()
+  if (!name || !relationship.value) {
+    closeRenameModal()
+    return
+  }
+  if (name === relationship.value.name) {
+    closeRenameModal()
+    return
+  }
+  await store.update(id.value, { name })
+  closeRenameModal()
+}
+
 // === spec-008 MVP:从对话历史抽取关于"她"的稳定事实 ===
 const extracting = ref(false)
 
@@ -193,6 +248,7 @@ async function extractFromConversation() {
   extracting.value = true
   try {
     const { extractProfileApi } = await import('../../api/relationship.api')
+    const { DEV_RELATIONSHIP_ID } = await import('../../utils/dev-token')
     // 收集对话历史,只取 user_text + laoke_text
     const allMsgs = conversationStore.getMessages(id.value)
     const history: Array<{ speaker: 'user' | 'laoke'; text: string }> = []
@@ -209,22 +265,39 @@ async function extractFromConversation() {
       }
       return
     }
-    const res = await extractProfileApi(id.value, history)
+    // dev 阶段:mock 关系 id 后端找不到,统一打到 DEV_RELATIONSHIP_ID 取真 LLM 抽取,
+    // 拿到 facts 后合并到当前 mock relationship 本地 cache(同 conversation turn 模式)
+    const res = await extractProfileApi(DEV_RELATIONSHIP_ID, history)
     if (!res.ok) {
       if (typeof window !== 'undefined' && window.alert) {
         window.alert('抽取失败:' + res.error.message)
       }
       return
     }
-    // 用 server 返回的最新值覆盖 cache(后端已经合并写入 basic_facts.key_facts)
-    store.replaceLocalCopy(res.data.relationship)
     const added = res.data.added
     const skipped = res.data.skipped_duplicates
+    // 把抽到的 facts merge 到当前关系本地 cache(走 store.update,mock 模式下本地写)
+    if (added.length > 0) {
+      const existingFacts =
+        ((relationship.value.basic_facts as Record<string, unknown> | null)?.key_facts as
+          | string[]
+          | undefined) ?? []
+      const newFacts = [...existingFacts, ...added.map((f) => f.text)]
+      await store.update(id.value, {
+        basic_facts: {
+          ...(relationship.value.basic_facts ?? {}),
+          key_facts: newFacts,
+        },
+      })
+    }
     if (typeof window !== 'undefined' && window.alert) {
       if (added.length === 0) {
         window.alert(`没新东西可抽${skipped > 0 ? `(跳过 ${skipped} 条已知)` : ''}。`)
       } else {
-        const lines = [`新增 ${added.length} 条 · ${skipped > 0 ? `跳过 ${skipped} 条已知 · ` : ''}下方"你告诉老 K 的"已更新:`, '']
+        const lines = [
+          `新增 ${added.length} 条${skipped > 0 ? ` · 跳过 ${skipped} 条已知` : ''}:`,
+          '',
+        ]
         for (const f of added) {
           const tag = { background: '背景', preference: '偏好', person: '人', event: '事' }[f.kind]
           lines.push(`[${tag}] ${f.text}`)
@@ -445,18 +518,55 @@ async function deleteIt() {
   <view v-if="relationship" class="page">
     <!-- ============ Hero ============ -->
     <view class="hero">
-      <RelationshipAvatar
-        :name="relationship.name"
-        :seed="relationship.avatar_seed"
-        :size="92"
-      />
-      <text class="hero-name">{{ relationship.name }}</text>
+      <view class="avatar-wrap" @tap="pickAvatar">
+        <RelationshipAvatar
+          :name="relationship.name"
+          :seed="relationship.avatar_seed"
+          :url="relationship.avatar_url"
+          :size="92"
+        />
+        <view class="avatar-edit-badge">
+          <text class="avatar-edit-icon">{{ uploadingAvatar ? '…' : '✎' }}</text>
+        </view>
+      </view>
+      <view class="hero-name-row">
+        <text class="hero-name">{{ relationship.name }}</text>
+        <view class="hero-name-edit" @tap="openRenameModal">
+          <text class="hero-name-edit-icon">✎</text>
+        </view>
+      </view>
       <view class="vitals">
         <text class="vital">{{ stageLabel }}</text>
         <text class="vital-sep">·</text>
         <text class="vital">第 {{ daysSinceCreated }} 天</text>
         <text v-if="lastTalkAgo" class="vital-sep">·</text>
         <text v-if="lastTalkAgo" class="vital">最近聊过 {{ lastTalkAgo }}</text>
+      </view>
+    </view>
+
+    <!-- 改名底部 modal(复用 add-modal 视觉,跟"想到啥告诉老 K"那个 modal 同款)-->
+    <view v-if="renameModalOpen" class="add-modal-overlay" @tap="closeRenameModal">
+      <view class="add-modal-scrim"></view>
+      <view class="add-modal" @tap.stop>
+        <view class="add-modal-handle"></view>
+        <text class="add-modal-title">改个称呼</text>
+        <text class="add-modal-sub">她叫什么,你跟我说</text>
+        <input
+          v-model="renameInput"
+          class="rename-input-line"
+          placeholder="比如 小美"
+          maxlength="20"
+          :focus="renameModalOpen"
+          @confirm="confirmRename"
+        />
+        <view class="add-modal-buttons">
+          <view class="add-modal-cancel" @tap="closeRenameModal">
+            <text class="add-modal-cancel-text">取消</text>
+          </view>
+          <view class="add-modal-confirm" @tap="confirmRename">
+            <text class="add-modal-confirm-text">改</text>
+          </view>
+        </view>
       </view>
     </view>
 
@@ -519,12 +629,7 @@ async function deleteIt() {
 
       <!-- ===== Section 3: 你告诉老 K 的(L2 用户主动 chip + 自动抽取) ===== -->
       <view class="section">
-        <view class="section-title-row">
-          <text class="section-title">你告诉老 K 的</text>
-          <view class="auto-extract-btn" @tap="extractFromConversation">
-            <text class="auto-extract-btn-text">{{ extracting ? '整理中…' : '从对话整理 ↺' }}</text>
-          </view>
-        </view>
+        <text class="section-title">你告诉老 K 的</text>
         <view v-if="userKnownChips.length > 0" class="chips">
           <view v-for="(chip, i) in userKnownChips" :key="i" class="chip">
             <text class="chip-text">{{ chip.text }}</text>
@@ -548,7 +653,12 @@ async function deleteIt() {
           <text class="add-knowledge-arrow">›</text>
         </view>
 
-        <text class="add-knowledge-tip">越多老 K 越懂她,反馈越准。</text>
+        <view class="extract-row">
+          <text class="add-knowledge-tip">越多老 K 越懂她,反馈越准。</text>
+          <text class="extract-link" @tap="extractFromConversation">
+            {{ extracting ? '整理中…' : '从对话里整理 ↺' }}
+          </text>
+        </view>
       </view>
 
       <!-- ===== Section 4: 老 K 还想知道的(暴露未知项 — 关键创新) ===== -->
@@ -721,12 +831,57 @@ async function deleteIt() {
   flex-direction: column;
   align-items: center;
 }
-.hero-name {
+.avatar-wrap {
+  position: relative;
+
+  &:active { opacity: 0.85; }
+}
+.avatar-edit-badge {
+  position: absolute;
+  right: -2rpx;
+  bottom: -2rpx;
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  background-color: $color-surface;
+  border: 2rpx solid $color-background;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: $shadow-sm;
+}
+.avatar-edit-icon {
+  font-size: 22rpx;
+  color: $color-text-secondary;
+  line-height: 1;
+}
+.hero-name-row {
   margin-top: 32rpx;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12rpx;
+}
+.hero-name {
   font-size: 52rpx;
   font-weight: $weight-bold;
   color: $color-text-primary;
   letter-spacing: -1rpx;
+}
+.hero-name-edit {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:active { background-color: $color-surface-subtle; }
+}
+.hero-name-edit-icon {
+  font-size: 24rpx;
+  color: $color-text-tertiary;
+  line-height: 1;
 }
 .vitals {
   margin-top: 16rpx;
@@ -793,26 +948,24 @@ async function deleteIt() {
   letter-spacing: 1.5rpx;
   margin-bottom: 24rpx;
 }
-.section-title-row {
+// "你告诉老 K 的" 区底部,tip 跟"从对话整理"链并排,跟整页低饱和调一致
+.extract-row {
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24rpx;
-
-  .section-title { margin-bottom: 0; }
+  gap: 16rpx;
+  margin-top: 16rpx;
 }
-.auto-extract-btn {
-  padding: 10rpx 20rpx;
-  border-radius: 14rpx;
-  background-color: $color-primary-subtle;
-
-  &:active { opacity: 0.85; }
-}
-.auto-extract-btn-text {
-  font-size: 22rpx;
-  color: $color-primary;
+.extract-link {
+  font-size: 24rpx;
+  color: $color-text-secondary;
   font-weight: $weight-medium;
+  letter-spacing: 0.2rpx;
+  flex-shrink: 0;
+  padding: 6rpx 0;
+
+  &:active { opacity: 0.6; }
 }
 
 // === 老 K 引文(她 Tab) ===
@@ -1330,6 +1483,17 @@ async function deleteIt() {
   min-height: 160rpx;
   margin-bottom: 24rpx;
   line-height: 1.5;
+}
+// 单行输入(改名用,比 textarea 矮)
+.rename-input-line {
+  width: 100%;
+  background-color: $color-surface;
+  border: 2rpx solid $color-border;
+  border-radius: 20rpx;
+  padding: 24rpx 28rpx;
+  font-size: 30rpx;
+  color: $color-text-primary;
+  margin-bottom: 24rpx;
 }
 .add-modal-buttons {
   display: flex;

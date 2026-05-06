@@ -84,6 +84,7 @@ export async function updateRelationship(
   if (input.name !== undefined) data.name = input.name
   if (input.stage !== undefined) data.stage = input.stage
   if (input.avatar_seed !== undefined) data.avatar_seed = input.avatar_seed
+  if (input.avatar_url !== undefined) data.avatar_url = input.avatar_url
   if (input.basic_facts !== undefined) {
     data.basic_facts = input.basic_facts as Prisma.InputJsonValue
   }

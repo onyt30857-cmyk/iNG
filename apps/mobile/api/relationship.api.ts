@@ -8,10 +8,12 @@ import type {
   SessionHistoryItem,
 } from '../types/relationship'
 import { useUserStore } from '../stores/user'
+import { DEV_TOKEN } from '../utils/dev-token'
 
+// dev 阶段没真登录时,fallback 到 DEV_TOKEN(跟 OCR/turn 同源策略)
 function authToken(): string | undefined {
   const store = useUserStore()
-  return store.token ?? undefined
+  return store.token ?? DEV_TOKEN
 }
 
 export const listRelationshipsApi = (params?: { archived?: boolean }) => {

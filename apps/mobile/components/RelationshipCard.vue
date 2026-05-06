@@ -45,6 +45,7 @@ const timeText = computed(() => {
     <RelationshipAvatar
       :name="relationship.name"
       :seed="relationship.avatar_seed"
+      :url="relationship.avatar_url"
       :size="56"
     />
     <view class="info">

@@ -49,6 +49,9 @@ export interface CreateRelationshipInput {
 export interface UpdateRelationshipInput {
   name?: string
   stage?: RelationshipStage
+  avatar_seed?: string
+  /** 头像 URL(dev 阶段是 data URL,M2 接 OSS 后是 https URL) */
+  avatar_url?: string | null
   basic_facts?: BasicFacts
   user_reminders?: string[]
 }

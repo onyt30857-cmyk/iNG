@@ -5,10 +5,13 @@ import { computed } from 'vue'
 interface Props {
   name: string
   seed?: string | null
+  /** 用户上传的头像 URL(可以是 https URL 或 data URL),优先于渐变首字 */
+  url?: string | null
   size?: number  // px
 }
 const props = withDefaults(defineProps<Props>(), {
   seed: null,
+  url: null,
   size: 48,
 })
 
@@ -53,10 +56,11 @@ const fontSize = computed(() => Math.round(props.size * 0.42))
     :style="{
       width: size + 'px',
       height: size + 'px',
-      background: `linear-gradient(135deg, ${colors.from}, ${colors.to})`,
+      background: url ? 'transparent' : `linear-gradient(135deg, ${colors.from}, ${colors.to})`,
     }"
   >
-    <text class="initial" :style="{ fontSize: fontSize + 'px' }">{{ initial }}</text>
+    <image v-if="url" class="avatar-img" :src="url" mode="aspectFill" />
+    <text v-else class="initial" :style="{ fontSize: fontSize + 'px' }">{{ initial }}</text>
   </view>
 </template>
 
@@ -68,6 +72,11 @@ const fontSize = computed(() => Math.round(props.size * 0.42))
   justify-content: center;
   flex-shrink: 0;
   overflow: hidden;
+}
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 .initial {
   color: #ffffff;

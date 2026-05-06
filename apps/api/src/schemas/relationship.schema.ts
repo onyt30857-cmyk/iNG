@@ -35,10 +35,13 @@ export const createRelationshipSchema = z.object({
 })
 
 // 更新:所有字段 optional,但 name 仍要校验长度(空字符串排除)
+// avatar_url 暂时存 data URL(M1 dev 简化,M2 接 OSS 后改 https URL),
+// 256x256 jpeg base64 一般在 30-50KB,250KB 上限留余量
 export const updateRelationshipSchema = z.object({
   name: z.string().trim().min(1).max(20).optional(),
   stage: relationshipStageSchema.optional(),
   avatar_seed: z.string().max(50).optional(),
+  avatar_url: z.string().max(250_000, '头像太大,换张小一点的').nullable().optional(),
   basic_facts: basicFactsSchema.optional(),
   user_reminders: userRemindersSchema.optional(),
 })

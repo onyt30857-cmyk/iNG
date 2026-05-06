@@ -258,6 +258,7 @@ const ctaDisabled = computed(
             v-if="selectedRelationship"
             :name="selectedRelationship.name"
             :seed="selectedRelationship.avatar_seed"
+            :url="selectedRelationship.avatar_url"
             :size="36"
           />
           <view v-else class="rel-avatar-placeholder">
@@ -281,7 +282,7 @@ const ctaDisabled = computed(
             :class="['rel-item', selectedRelationshipId === r.id && 'rel-item-selected']"
             @tap="selectRelationshipFromList(r.id)"
           >
-            <RelationshipAvatar :name="r.name" :seed="r.avatar_seed" :size="48" />
+            <RelationshipAvatar :name="r.name" :seed="r.avatar_seed" :url="r.avatar_url" :size="48" />
             <view class="rel-item-info">
               <text class="rel-item-name">{{ r.name }}</text>
               <text class="rel-item-stage">{{ RELATIONSHIP_STAGE_LABELS[r.stage] }}</text>
