@@ -119,37 +119,27 @@ async function confirmComment() {
         </template>
       </view>
 
-      <!-- spec-009 反馈区 + 收藏(完成态才显示)-->
+      <!-- spec-009 反馈区 + 收藏(完成态才显示),单行文字链风,跟整页低饱和调一致 -->
       <view v-if="showFeedback" class="feedback-row">
-        <view
-          :class="['fb-btn', isSaved && 'fb-active-save']"
+        <text
+          :class="['fb-link', isSaved && 'fb-link-saved']"
           @tap="toggleSave"
-        >
-          <text class="fb-icon">{{ isSaved ? '★' : '☆' }}</text>
-          <text class="fb-label">{{ isSaved ? '已收藏' : '收藏' }}</text>
-        </view>
-        <view
-          :class="['fb-btn', feedbackGiven === 'like' && 'fb-active-like']"
+        >{{ isSaved ? '已收藏' : '收藏' }}</text>
+        <text class="fb-sep">·</text>
+        <text
+          :class="['fb-link', feedbackGiven === 'like' && 'fb-link-like']"
           @tap="onLike"
-        >
-          <text class="fb-icon">👍</text>
-          <text class="fb-label">有用</text>
-        </view>
-        <view
-          :class="['fb-btn', feedbackGiven === 'dislike' && 'fb-active-dislike']"
+        >有用</text>
+        <text class="fb-sep">·</text>
+        <text
+          :class="['fb-link', feedbackGiven === 'dislike' && 'fb-link-dislike']"
           @tap="onDislike"
-        >
-          <text class="fb-icon">👎</text>
-          <text class="fb-label">不行</text>
-        </view>
-        <view
-          :class="['fb-btn', feedbackGiven === 'comment' && 'fb-active-comment']"
+        >不行</text>
+        <text class="fb-sep">·</text>
+        <text
+          :class="['fb-link', feedbackGiven === 'comment' && 'fb-link-comment']"
           @tap="onCommentTap"
-        >
-          <text class="fb-icon">💬</text>
-          <text class="fb-label">说哪不对</text>
-        </view>
-        <text v-if="feedbackGiven" class="fb-thanks">谢了,会改</text>
+        >说哪不对</text>
       </view>
     </view>
   </view>
@@ -298,61 +288,38 @@ async function confirmComment() {
   40% { opacity: 1; transform: translateY(-6rpx) scale(1); }
 }
 
-// === spec-009 反馈区 — 视觉提升,不再"小气" ===
+// === spec-009 反馈区 — 单行文字链风,跟 detail.vue quote-feedback / extract-link 同款 ===
 .feedback-row {
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 14rpx;
   margin-top: 14rpx;
-  padding-left: 4rpx;
-  opacity: 0.85;
+  padding-left: 6rpx;
+  white-space: nowrap;
 }
-.fb-btn {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8rpx;
-  padding: 12rpx 22rpx;
-  border-radius: 999rpx;
-  background-color: $color-surface-subtle;
-  border: 1rpx solid $color-border;
-  transition: background-color 0.18s, border-color 0.18s, transform 0.12s;
-
-  &:active { transform: scale(0.95); }
-}
-.fb-icon {
-  font-size: 28rpx;
-  line-height: 1;
-}
-.fb-label {
+.fb-link {
   font-size: 24rpx;
-  color: $color-text-secondary;
+  color: $color-text-tertiary;
+  line-height: 1.2;
   font-weight: $weight-medium;
+  letter-spacing: 0.2rpx;
+  padding: 4rpx 0;
+  transition: color 0.18s, opacity 0.12s;
+
+  &:active { opacity: 0.55; }
+}
+.fb-sep {
+  font-size: 20rpx;
+  color: $color-text-disabled;
   line-height: 1;
 }
-.fb-active-like {
-  background-color: rgba(90, 138, 111, 0.15); // 跟 success 同色淡
-  opacity: 1;
-}
-.fb-active-dislike {
-  background-color: rgba(184, 74, 74, 0.12); // danger 淡
-  opacity: 1;
-}
-.fb-active-comment {
-  background-color: rgba(168, 124, 95, 0.12); // accent 淡
-  opacity: 1;
-}
-.fb-active-save {
-  background-color: rgba(217, 165, 78, 0.18); // 收藏星黄淡
-  border-color: rgba(217, 165, 78, 0.4);
-  opacity: 1;
-}
-.fb-thanks {
-  margin-left: 8rpx;
-  font-size: 20rpx;
-  color: $color-text-tertiary;
-}
+
+// 选中态只换色,无背景框,保持文字链感
+.fb-link-saved { color: #C68B2E; }      // 收藏:暖金黄
+.fb-link-like { color: $color-success; }
+.fb-link-dislike { color: $color-danger; }
+.fb-link-comment { color: $color-accent; }
 
 // === 评论 modal ===
 .cm-overlay {
