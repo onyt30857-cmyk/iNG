@@ -70,11 +70,6 @@ function goBack() {
       </view>
     </view>
 
-    <!-- mock 提示条(只在没真实登录时显示) -->
-    <view v-if="store.usingMock" class="mock-banner">
-      <text class="mock-banner-text">演示数据 · 真实登录后会拉服务端数据</text>
-    </view>
-
     <!-- 注入演示信号按钮(独立一块,避免被 banner 嵌套吃事件) -->
     <button
       v-if="store.usingMock"

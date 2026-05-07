@@ -79,10 +79,6 @@ const greeting = (() => {
       </view>
     </view>
 
-    <view v-if="store.usingMock" class="mock-banner">
-      <text class="mock-banner-text">演示数据 · 真实登录后会拉服务端数据</text>
-    </view>
-
     <!-- 引导 -->
     <view v-if="store.items.length > 0" class="hint">
       <text class="hint-text">点一段关系,看看她最近</text>
