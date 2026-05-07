@@ -265,7 +265,8 @@ async function confirmComment() {
   width: 44rpx;
   height: 44rpx;
   border-radius: 50%;
-  background-color: $color-primary;
+  // 双色系:老 K 头像浅紫底(从 $color-primary 改 $color-laoke-subtle,降视觉重量)
+  background-color: $color-laoke-subtle;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -275,7 +276,8 @@ async function confirmComment() {
   position: relative;
 }
 .avatar-icon {
-  color: $color-background; // 反白 stroke on primary 紫底
+  // 头像 SVG 简笔的描边色:从反白改为深紫(在浅紫底上读得清)
+  color: $color-laoke-deep;
   display: block;
 }
 .avatar-pulse::before {
@@ -283,7 +285,7 @@ async function confirmComment() {
   position: absolute;
   inset: -6rpx;
   border-radius: 50%;
-  background-color: $color-primary;
+  background-color: $color-laoke;
   opacity: 0.25;
   animation: avatar-halo 1.6s ease-in-out infinite;
   z-index: -1;
@@ -301,8 +303,10 @@ async function confirmComment() {
 
 .bubble {
   background-color: $color-surface;
-  border-radius: 28rpx 28rpx 28rpx 8rpx;
-  border-left: 2rpx solid $color-primary;
+  // 微信温和圆角:从 28rpx 收紧到 16rpx(微信式)
+  border-radius: 16rpx 16rpx 16rpx 4rpx;
+  // 老 K 标识:左 2rpx 紫色边条(从 $color-primary 改 $color-laoke,跟头像呼应)
+  border-left: 2rpx solid $color-laoke;
   padding: 24rpx 28rpx;
   box-shadow: $shadow-sm;
   display: flex;
@@ -316,7 +320,8 @@ async function confirmComment() {
   border-left-color: $color-text-disabled;
 }
 .bubble.streaming {
-  border-left-color: $color-accent;
+  // streaming 时边条变深紫(从 $color-accent 茶棕改 $color-laoke-deep,统一双色系)
+  border-left-color: $color-laoke-deep;
 }
 
 .text-segments {

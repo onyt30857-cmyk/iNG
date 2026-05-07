@@ -1,41 +1,55 @@
 // Design Tokens - 来源: lianai-dev-kit/04-design/design-system.md
 // 禁止 hardcode 颜色/字号/间距,全部从这里引用
 //
-// 2026-05-07 v2 升级(基于参考图 — 现代约会 App 视觉语言):
-// - 主色:墨青蓝 → 鲜活紫(更年轻,但克制不彩虹)
-// - 背景:暖米 → 浅冷灰(更干净,跟卡片白形成对比)
-// - 圆角加大,阴影柔化
-// - 保留茶棕 accent(老 K 兄长"温度色"是产品 DNA,不删)
+// 2026-05-08 v3 升级(微信风格双色系,/liu-bang Q1-Q5 + 我推荐 7 项细节):
+// - 主色:鲜活紫 → 微信绿 #07C160(用户行为专用 — 发送/CTA/列表点击)
+// - 老 K 辅色:紫降饱和 #9B82FF(老 K 输出专用 — 头像/边条/judgment_card/draft/pattern_flag)
+// - 茶棕 accent 保留(老 K 兄长温度 chip)
+// - 圆角整体收紧(从现代风 → 微信温和风,主气泡 52→24rpx)
+// - 阴影更克制(微信几乎不用阴影,主要靠分隔线)
+// - 背景从 #F4F6FA → #EDEDED(微信原生浅灰)
+// - 新增 $color-divider 微信浅灰分隔线
+//
+// 双色系分工(关键):
+// - $color-primary  (微信绿):用户气泡 / 发送按钮 / 主 CTA / 列表点击 / focus 边框
+// - $color-laoke    (紫降饱和):老 K 头像背景 / 老 K 气泡左边条 / judgment_card 边框 / draft_reply_card / pattern_flag 装饰
 
-// ========== 主色 - 鲜活紫 (Vibrant Violet) ==========
-$color-primary: #7C5CFF;          // 中饱和紫,跟参考图同调
-$color-primary-hover: #8E72FF;
-$color-primary-deep: #5B3FE0;     // 按下深紫
-$color-primary-soft: #A593FF;     // 浅紫(用于辅助元素)
-$color-primary-subtle: #EDE7FF;   // 极浅紫底(badge 背景等)
+// ========== 主色 - 微信绿 (WeChat Green,用户行为专用) ==========
+$color-primary: #07C160;          // 微信原生绿
+$color-primary-hover: #06AD56;
+$color-primary-deep: #06994B;     // 按下深绿
+$color-primary-soft: #95DBB1;     // 浅绿(disabled / hint)
+$color-primary-subtle: #E7F7EE;   // 极浅绿底(badge 背景等)
 
-// ========== 辅色 - 茶棕 (Tea Brown,温度感小元素 / accent quote chip) ==========
+// ========== 老 K 辅色 - 紫降饱和 (Laoke Violet,老 K 输出专用) ==========
+$color-laoke: #9B82FF;             // 紫降饱和(从 #7C5CFF 降下来)
+$color-laoke-hover: #B0A0FF;
+$color-laoke-deep: #7C5CFF;       // 老 K 强判断 / pattern_flag 强调边框
+$color-laoke-subtle: #EFEAFF;     // 极浅紫底(judgment_card 内层 / 老 K 头像浅底)
+
+// ========== 辅色 - 茶棕 (Tea Brown,保留,quote chip 等历史 chip) ==========
 $color-accent: #A87C5F;
 $color-accent-soft: #C99A7C;
 $color-accent-subtle: #F5EBE2;
 
-// ========== 中性色 - 浅冷灰系(参考图同款) ==========
-$color-text-primary: #1F2433;     // 深近黑(略带蓝调)
+// ========== 中性色 - 微信浅灰系 ==========
+$color-text-primary: #1F2433;     // 深近黑(不变)
 $color-text-secondary: #4A5066;
 $color-text-tertiary: #8A91A8;
 $color-text-disabled: #B8BECF;
 $color-border: #E5E8EF;
-$color-surface-subtle: #EEF1F6;
-$color-background: #F4F6FA;       // 浅冷灰背景(原暖米 #F4F1EA → 现 #F4F6FA)
+$color-divider: #F0F2F5;          // ★ 新增:微信浅灰分隔线(列表项/卡片之间)
+$color-surface-subtle: #F7F7F7;   // 微调:贴近微信浅灰
+$color-background: #EDEDED;       // ★ 微调:微信原生浅灰(原 #F4F6FA)
 $color-surface: #FFFFFF;          // 纯白卡片
 
-// ========== 语义色(保留,不变 — 跟新主题仍然搭) ==========
+// ========== 语义色(保留) ==========
 $color-success: #5A8A6F;
 $color-warning: #C77A2C;
-$color-danger: #E5484D;            // 跟参考图 ❤️ 红同调,微调一下
+$color-danger: #E5484D;
 $color-info: #3D6B8C;
 
-// ========== 字号(以 iPhone 14 标准 16pt 为基准,不变) ==========
+// ========== 字号(不变) ==========
 $font-display: 64rpx;
 $font-title-1: 48rpx;
 $font-title-2: 40rpx;
@@ -63,21 +77,21 @@ $space-8: 64rpx;
 $space-12: 96rpx;
 $space-16: 128rpx;
 
-// ========== 圆角(整体加大,跟参考图大圆角风一致) ==========
-$radius-sm: 10rpx;
-$radius: 18rpx;
-$radius-md: 26rpx;
-$radius-lg: 36rpx;       // 卡片大圆角(原 32 → 36)
-$radius-xl: 52rpx;       // 主气泡 / hero 区(原 48 → 52)
+// ========== 圆角(整体收紧到微信温和风) ==========
+$radius-sm: 8rpx;        // 小元素 / chip
+$radius: 12rpx;          // 默认
+$radius-md: 16rpx;       // 中等卡片
+$radius-lg: 20rpx;       // 大卡片
+$radius-xl: 24rpx;       // 主气泡(原 52rpx 偏现代,现在像微信)
+$radius-bubble-tail: 4rpx; // 气泡尾巴方向那个角(微信式)
 $radius-full: 9999rpx;
 
-// ========== 阴影(柔化,模糊半径变大,alpha 变低) ==========
-// 参考图风:soft shadow,不锐利
-$shadow-sm: 0 2rpx 8rpx rgba(31, 36, 51, 0.04);
-$shadow: 0 4rpx 12rpx rgba(31, 36, 51, 0.06);
-$shadow-md: 0 12rpx 24rpx rgba(31, 36, 51, 0.06);
-$shadow-lg: 0 24rpx 40rpx rgba(31, 36, 51, 0.08);
-$shadow-xl: 0 40rpx 60rpx rgba(124, 92, 255, 0.10);  // hero 卡可带主色淡阴影
+// ========== 阴影(微信式克制) ==========
+$shadow-sm: 0 1rpx 4rpx rgba(0, 0, 0, 0.04);
+$shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+$shadow-md: 0 4rpx 12rpx rgba(0, 0, 0, 0.06);
+$shadow-lg: 0 8rpx 24rpx rgba(0, 0, 0, 0.08);
+$shadow-xl: 0 16rpx 32rpx rgba(155, 130, 255, 0.10);  // 老 K 主色淡阴(从紫色出)
 
 // ========== 字体族 ==========
 $font-family-zh: -apple-system, BlinkMacSystemFont,
@@ -85,20 +99,24 @@ $font-family-zh: -apple-system, BlinkMacSystemFont,
                  "HarmonyOS Sans SC", "Source Han Sans SC",
                  sans-serif;
 
-// ========== 暗色模式覆盖(同步升级到紫主题) ==========
+// ========== 暗色模式覆盖(同步双色系) ==========
 @mixin dark-mode {
-  --color-background: #141522;        // 深紫黑
-  --color-surface: #1E1F2E;
-  --color-surface-elevated: #292B3F;
-  --color-border: #2F3147;
+  --color-background: #1A1A1A;        // 微信暗色背景
+  --color-surface: #2C2C2C;
+  --color-surface-elevated: #3A3A3A;
+  --color-border: #3F3F3F;
+  --color-divider: #2A2A2A;
   --color-text-primary: #ECECF5;
   --color-text-secondary: #B8BCD0;
   --color-text-tertiary: #7A8099;
   --color-text-disabled: #5A607A;
-  --color-primary: #A593FF;            // 暗色下用浅紫(对比度更够)
-  --color-primary-deep: #C2B6FF;
-  --color-primary-soft: #7C5CFF;
-  --color-primary-subtle: #2A2545;
+  --color-primary: #07C160;            // 微信绿暗色不变
+  --color-primary-deep: #06994B;
+  --color-primary-soft: #2A4A36;
+  --color-primary-subtle: #1A2A20;
+  --color-laoke: #B0A0FF;              // 紫色提亮(暗色对比度)
+  --color-laoke-deep: #9B82FF;
+  --color-laoke-subtle: #2A2545;
   --color-accent: #C99A7C;
   --color-accent-soft: #A87C5F;
 }

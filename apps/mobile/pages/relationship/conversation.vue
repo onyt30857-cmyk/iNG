@@ -425,10 +425,9 @@ function handleSavePlanning(planningId: string, content: import('../../types/mes
   display: flex;
   flex-direction: row;
   align-items: center;
-  background-color: rgba(244, 241, 234, 0.92);
-  backdrop-filter: blur(20rpx);
-  -webkit-backdrop-filter: blur(20rpx);
-  border-bottom: 1rpx solid $color-border;
+  // 微信式纯白顶栏 + 灰底线(去暖米黄毛玻璃)
+  background-color: $color-surface;
+  border-bottom: 1rpx solid $color-divider;
   gap: 8rpx;
 }
 .back-btn {
@@ -463,21 +462,19 @@ function handleSavePlanning(planningId: string, content: import('../../types/mes
   line-height: 1.2;
 }
 
-// AI 合规提示条:跟 header 一样的毛玻璃,消息从下面滚过去被 blur,不会"透出来"重叠
+// AI 合规提示条:微信式低调灰底细条(去暖米黄毛玻璃)
 .ai-disclaimer {
   position: sticky;
   top: calc(env(safe-area-inset-top, 16rpx) + 88rpx);
   z-index: 9;
-  padding: 16rpx 32rpx;
-  background-color: rgba(244, 241, 234, 0.88);  // 跟 header 一致的暖米黄半透明
-  backdrop-filter: blur(20rpx);
-  -webkit-backdrop-filter: blur(20rpx);
-  border-bottom: 1rpx solid rgba($color-info, 0.15);
+  padding: 8rpx 32rpx 12rpx;
+  background-color: $color-surface-subtle;
+  border-bottom: 1rpx solid $color-divider;
   text-align: center;
 }
 .ai-disclaimer-text {
-  font-size: 24rpx;
-  color: $color-info;
+  font-size: 22rpx;  // 缩小字号,降低存在感
+  color: $color-text-tertiary;
   line-height: 1.4;
 }
 .more-btn {
