@@ -9,6 +9,7 @@ import { z } from 'zod'
 import { requireAuth } from '../../middleware/auth.js'
 import { conversationTurnSchema } from '../../schemas/conversation.schema.js'
 import { runConversationTurnForRelationship } from '../../services/replay/conversation-turn.service.js'
+import { AppError } from '../../lib/error.js'
 
 const paramsSchema = z.object({
   relationshipId: z.string().min(1),
@@ -36,9 +37,18 @@ export async function conversationRoutes(app: FastifyInstance): Promise<void> {
           },
         )
       } catch (err) {
+        // 临时调试(2026-05-07):把真实错误信息(detail / code / stack 头部)也漏给前端,
+        // 方便 Sam 在浏览器 devtools 直接看 Anthropic API 调用失败的根因。
+        // debug 完(LLM 跑通)请把 STREAM_ERROR_VERBOSE 删掉,只保留友好 message。
         const msg = err instanceof Error ? err.message : String(err)
+        const verbose =
+          err instanceof AppError
+            ? ` | code=${err.code} | detail=${err.detail ?? '(无)'}`
+            : err instanceof Error
+              ? ` | stack=${(err.stack ?? '').split('\n').slice(0, 2).join(' / ')}`
+              : ''
         if (!reply.raw.writableEnded) {
-          reply.raw.write(`\n\n[STREAM_ERROR] ${msg}`)
+          reply.raw.write(`\n\n[STREAM_ERROR] ${msg}${verbose}`)
         }
       }
       reply.raw.end()
