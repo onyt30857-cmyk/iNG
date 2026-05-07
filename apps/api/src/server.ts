@@ -1,8 +1,13 @@
 // Fastify 入口
-// 启动顺序: config 校验 → app 创建 → 中间件 → 路由 → listen
+// 启动顺序: Sentry init → config 校验 → app 创建 → 中间件 → 路由 → listen
+
+// ⚠️ Sentry instrument 必须是**第一行 import**(在所有其他 import 之前),
+// 才能让 OpenTelemetry hook 拦截到 http / db driver 等模块加载。
+import './instrument.js'
 
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
+import * as Sentry from '@sentry/node'
 import { config, isDev } from './config/index.js'
 import { logger } from './lib/logger.js'
 import { errorHandler } from './middleware/error-handler.js'
@@ -118,6 +123,8 @@ async function main() {
     logger.info({ event: 'server.shutdown', signal }, '准备关闭')
     try {
       await app.close()
+      // flush 让 Sentry 把 buffer 里没发出去的事件发完(2 秒超时)
+      await Sentry.flush(2000)
       process.exit(0)
     } catch (err) {
       logger.error({ event: 'server.shutdown.failed', err })
@@ -130,5 +137,7 @@ async function main() {
 
 main().catch((err) => {
   logger.fatal({ event: 'main.crashed', err })
-  process.exit(1)
+  Sentry.captureException(err)
+  // 给 Sentry 2 秒时间发出去再退
+  Sentry.flush(2000).finally(() => process.exit(1))
 })

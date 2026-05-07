@@ -3,9 +3,30 @@
 
 import type { FastifyError, FastifyReply, FastifyRequest } from 'fastify'
 import { ZodError } from 'zod'
+import * as Sentry from '@sentry/node'
 import { AppError, ErrorCodes } from '../lib/error.js'
 import { logger } from '../lib/logger.js'
 import { isDev, isProd } from '../config/index.js'
+
+/**
+ * 把错误送 Sentry。SENTRY_DSN 没配时 captureException 是 noop,无副作用。
+ * 加 tags / user 给 Sentry 看板分组用。
+ */
+function reportToSentry(
+  error: unknown,
+  request: FastifyRequest,
+  level: 'error' | 'warning' = 'error',
+): void {
+  Sentry.withScope((scope) => {
+    scope.setLevel(level)
+    scope.setTag('route', request.url)
+    scope.setTag('method', request.method)
+    if (request.id) scope.setTag('request_id', String(request.id))
+    const userId = (request as { user?: { id?: string } }).user?.id
+    if (userId) scope.setUser({ id: userId })
+    Sentry.captureException(error)
+  })
+}
 
 interface ErrorResponse {
   ok: false
@@ -33,6 +54,11 @@ export function errorHandler(
       },
       error.message,
     )
+
+    // 5xx 才上报(4xx 是客户端错误,例如校验/鉴权,正常预期内不算告警)
+    if (error.statusCode >= 500) {
+      reportToSentry(error, request, 'error')
+    }
 
     const body: ErrorResponse = {
       ok: false,
@@ -72,11 +98,12 @@ export function errorHandler(
     return reply.status(fastifyErr.statusCode).send(body)
   }
 
-  // 兜底 —— 未知错误,500
+  // 兜底 —— 未知错误,500。这种是真正应该告警的,优先上报 Sentry
   logger.error(
     { event: 'unhandled.error', err: error, url: request.url, method: request.method },
     '未捕获的错误',
   )
+  reportToSentry(error, request, 'error')
 
   const body: ErrorResponse = {
     ok: false,
