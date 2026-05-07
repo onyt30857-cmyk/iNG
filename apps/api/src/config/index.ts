@@ -32,8 +32,15 @@ const envSchema = z.object({
   ALIYUN_CONTENT_MODERATION_ENDPOINT: z.string().optional(),
 
   // Supabase Storage —— 头像 / 截图 OSS,空则 fallback 到 base64 data URL(M1 dev 行为)
-  SUPABASE_URL: z.string().url().optional(),
-  SUPABASE_SERVICE_KEY: z.string().optional(),
+  // preprocess 把空字符串当 undefined(Railway Variables UI 没法真删 key,只能留空)
+  SUPABASE_URL: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().url().optional(),
+  ),
+  SUPABASE_SERVICE_KEY: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().optional(),
+  ),
   SUPABASE_AVATAR_BUCKET: z.string().default('lianai-avatars'),
 
   // 微信 —— 脚手架阶段不必填
