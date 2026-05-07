@@ -32,7 +32,8 @@ if (process.env.SENTRY_DSN) {
     dsn_prefix: process.env.SENTRY_DSN.split('@')[0]?.slice(0, 30) + '...',
   })
 
-  // 临时(2026-05-08):验证 DSN 真通 — 启动时发一条 info message 到 Sentry。
-  // 看到后下次 push 就删,这条只是端到端连通性 ping。
-  Sentry.captureMessage('lianai-api startup ping (verification)', 'info')
+  // 临时(2026-05-08):验证 DSN 真通 — 启动时发一条 warning 到 Sentry。
+  // 用 warning 而不是 info,Sentry 默认 inbound filter 把 info 过滤掉显示不出来。
+  // 看到后下次 push 删,这条只是端到端连通性 ping。
+  Sentry.captureMessage('lianai-api startup ping (verification)', 'warning')
 }
