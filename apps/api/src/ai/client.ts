@@ -147,7 +147,9 @@ export async function callClaude(
       code: ErrorCodes.AI_CALL_FAILED,
       message: '老 K 这边出了点意外,你重新试一下',
       statusCode: 502,
-      detail: err instanceof Error ? err.message : String(err),
+      // Anthropic SDK 把底层 fetch / DNS / TLS 错误包装成 "Connection error.",
+      // 真实根因在 err.cause(可能再嵌套)。临时调试展开整条 cause 链。
+      detail: err instanceof Error ? flattenErrorChain(err) : String(err),
     })
   }
 
@@ -288,7 +290,9 @@ export async function callClaudeStream(
       code: ErrorCodes.AI_CALL_FAILED,
       message: '老 K 这边出了点意外,你重新试一下',
       statusCode: 502,
-      detail: err instanceof Error ? err.message : String(err),
+      // Anthropic SDK 把底层 fetch / DNS / TLS 错误包装成 "Connection error.",
+      // 真实根因在 err.cause(可能再嵌套)。临时调试展开整条 cause 链。
+      detail: err instanceof Error ? flattenErrorChain(err) : String(err),
     })
   }
 
@@ -330,6 +334,41 @@ export async function callClaudeStream(
  */
 function composeAuditTarget(params: CallClaudeParams): string {
   return params.messages.map((m) => m.content).join('\n')
+}
+
+/**
+ * 临时调试用(2026-05-07):展开 Error.cause 链,把整条嵌套链拍扁成单行字符串。
+ *
+ * Anthropic SDK 把底层 fetch / DNS / TLS / 超时 错误统一包装成 "Connection error.",
+ * 真实根因藏在 .cause 里(可能还嵌套 .cause.cause,如 fetch → undici → DNS)。
+ *
+ * debug 完(LLM 跑通)可以保留这个函数,但 callClaude / callClaudeStream 的 detail 字段
+ * 改回 err.message 单层即可。
+ */
+function flattenErrorChain(err: unknown, depth = 0): string {
+  if (depth > 5) return '<too deep>'
+  if (err instanceof Error) {
+    const head = `${err.name}: ${err.message}`
+    const cause = (err as { cause?: unknown }).cause
+    const errors = (err as { errors?: unknown[] }).errors
+    const code = (err as { code?: string }).code
+    const status = (err as { status?: number }).status
+    const meta = [
+      code ? `code=${code}` : null,
+      status ? `status=${status}` : null,
+    ]
+      .filter(Boolean)
+      .join(' ')
+    const causeStr = cause ? ' << ' + flattenErrorChain(cause, depth + 1) : ''
+    const errorsStr =
+      Array.isArray(errors) && errors.length > 0
+        ? ' | errors=[' +
+          errors.map((e) => flattenErrorChain(e, depth + 1)).join(', ') +
+          ']'
+        : ''
+    return [head, meta, causeStr, errorsStr].filter(Boolean).join(' ')
+  }
+  return String(err)
 }
 
 /** Gemini OCR 已弃用 — 2026-05-05 Sam 决定 OCR 改用 Claude vision(见 callClaudeVision) */
