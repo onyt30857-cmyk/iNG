@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "pnpm --filter @lianai/mobile build:h5",
+  "outputDirectory": "apps/mobile/dist/build/h5",
+  "framework": null,
+  "github": {
+    "silent": true
+  }
+}
