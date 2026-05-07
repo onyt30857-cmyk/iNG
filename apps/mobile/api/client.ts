@@ -12,7 +12,9 @@ function devBaseUrl(): string {
 
 // 生产 API:Railway 部署的 lianai-api 服务
 // 上线绑定自定义域名后改回 https://api.lianai.com/v1
-const BASE_URL = process.env.NODE_ENV === 'production'
+//
+// export 出去给 replay.api.ts 等流式调用复用,避免再次"client.ts 改了 replay.api.ts 没跟上"的漂移
+export const BASE_URL = process.env.NODE_ENV === 'production'
   ? 'https://ing-production-6f04.up.railway.app/v1'
   : devBaseUrl()
 

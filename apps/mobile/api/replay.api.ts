@@ -3,8 +3,16 @@
 // 后端端点:POST /v1/sessions/:id/run-{parsing|reflecting|diagnosing|planning|drafting}
 // 详见 apps/api/src/routes/v1/session.route.ts
 
-import { apiPost } from './client'
+import { apiPost, BASE_URL } from './client'
 import { DEV_TOKEN } from '../utils/dev-token'
+import { useUserStore } from '../stores/user'
+
+// 跟 relationship.api.ts 同样的 authToken pattern:
+// 优先 store.token(真匿名账号),fallback DEV_TOKEN(本地 dev seed)
+function authToken(): string {
+  const store = useUserStore()
+  return store.token ?? DEV_TOKEN
+}
 
 export interface ParsingMessage {
   speaker: 'user' | 'other'
@@ -78,15 +86,9 @@ async function streamHTTPCommon(
   body: Record<string, unknown>,
   onChunk: (text: string) => void,
 ): Promise<void> {
-  const hostname =
-    typeof window !== 'undefined' && window.location?.hostname
-      ? window.location.hostname
-      : 'localhost'
-  const baseUrl =
-    process.env.NODE_ENV === 'production'
-      ? 'https://api.lianai.com/v1'
-      : `http://${hostname}:3000/v1`
-  const url = `${baseUrl}${endpoint}`
+  // 复用 client.ts 的 BASE_URL,避免再发生"两边漂移"
+  // (本来这里写死 https://api.lianai.com/v1,生产模式 DNS 解析失败 → Failed to fetch)
+  const url = `${BASE_URL}${endpoint}`
 
   // eslint-disable-next-line no-console
   console.log('[stream] fetch start', url)
@@ -96,7 +98,7 @@ async function streamHTTPCommon(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${DEV_TOKEN}`,
+        Authorization: `Bearer ${authToken()}`,
       },
       body: JSON.stringify(body),
     })
