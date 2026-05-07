@@ -19,9 +19,17 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('30d'),
 
   // AI —— 脚手架阶段不必填,后续 spec 才用
-  ANTHROPIC_API_KEY: z.string().optional(),
+  // trim:防 Railway / .env 粘贴时混入末尾换行 / tab / BOM,
+  // 之前真发生过这事(SDK 把 key 拼进 HTTP header 报 "is not a legal HTTP header value")
+  ANTHROPIC_API_KEY: z.preprocess(
+    (v) => (typeof v === 'string' ? v.trim() : v),
+    z.string().min(1).optional(),
+  ),
   CLAUDE_MODEL_ID: z.string().default('claude-sonnet-4-20250514'),
-  GEMINI_API_KEY: z.string().optional(),
+  GEMINI_API_KEY: z.preprocess(
+    (v) => (typeof v === 'string' ? v.trim() : v),
+    z.string().min(1).optional(),
+  ),
   GEMINI_MODEL_ID: z.string().default('gemini-2.5-flash'),
 
   // 阿里云 —— 脚手架阶段不必填(已弃用,改用 Supabase)
