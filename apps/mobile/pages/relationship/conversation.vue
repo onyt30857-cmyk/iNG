@@ -60,12 +60,16 @@ watch(messages, () => {
 })
 
 function goBack() {
-  // 失败时 reLaunch 兜底,避免页面栈状态异常时返回不了主页
-  uni.navigateBack({
-    fail: () => {
-      uni.reLaunch({ url: '/pages/home/index' })
-    },
-  })
+  // H5 hash router 下 navigateBack 在某些场景 fail callback 不触发(看起来"无反应")。
+  // 显式判断 page stack:只有 1 层时直接 reLaunch 到 home,不依赖 fail 回调。
+  const pages = getCurrentPages()
+  if (pages.length > 1) {
+    uni.navigateBack({
+      fail: () => uni.reLaunch({ url: '/pages/home/index' }),
+    })
+  } else {
+    uni.reLaunch({ url: '/pages/home/index' })
+  }
 }
 
 // 顶部 ⋯ 进入关系档案二级页(spec-007 §UI:5 维度 / 老 K 看到的 / 关键时刻 都在 detail.vue)
