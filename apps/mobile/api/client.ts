@@ -10,8 +10,10 @@ function devBaseUrl(): string {
   return 'http://localhost:3000/v1'
 }
 
+// 生产 API:Railway 部署的 lianai-api 服务
+// 上线绑定自定义域名后改回 https://api.lianai.com/v1
 const BASE_URL = process.env.NODE_ENV === 'production'
-  ? 'https://api.lianai.com/v1'
+  ? 'https://ing-production-6f04.up.railway.app/v1'
   : devBaseUrl()
 
 interface SuccessResponse<T> {
