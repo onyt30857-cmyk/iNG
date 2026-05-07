@@ -41,12 +41,22 @@ const envSchema = z.object({
 
   // Supabase Storage —— 头像 / 截图 OSS,空则 fallback 到 base64 data URL(M1 dev 行为)
   // preprocess 把空字符串当 undefined(Railway Variables UI 没法真删 key,只能留空)
+  // trim 处理跟 ANTHROPIC_API_KEY 同样的坑:Railway 粘贴时混入末尾空白,
+  // .url() 校验 fail / Authorization header 拼接 fail。preprocess 在校验前 trim + 空字符串 → undefined。
   SUPABASE_URL: z.preprocess(
-    (v) => (v === '' ? undefined : v),
+    (v) => {
+      if (typeof v !== 'string') return v
+      const trimmed = v.trim()
+      return trimmed === '' ? undefined : trimmed
+    },
     z.string().url().optional(),
   ),
   SUPABASE_SERVICE_KEY: z.preprocess(
-    (v) => (v === '' ? undefined : v),
+    (v) => {
+      if (typeof v !== 'string') return v
+      const trimmed = v.trim()
+      return trimmed === '' ? undefined : trimmed
+    },
     z.string().optional(),
   ),
   SUPABASE_AVATAR_BUCKET: z.string().default('lianai-avatars'),
