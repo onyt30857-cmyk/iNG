@@ -107,6 +107,18 @@ export const useUserStore = defineStore('user', () => {
     storage.remove(StorageKeys.USER)
   }
 
+  /** 替换 user(PATCH /users/me 之后回写)*/
+  function setUser(next: User): void {
+    user.value = next
+    userId.value = next.id
+    storage.set(StorageKeys.USER, next)
+  }
+
+  /** 是否走完 onboarding(spec-018)*/
+  function isOnboarded(): boolean {
+    return !!user.value?.onboarding_completed_at
+  }
+
   return {
     userId,
     token,
@@ -117,7 +129,9 @@ export const useUserStore = defineStore('user', () => {
     generateBackup,
     recoverWithBackup,
     isLoggedIn,
+    isOnboarded,
     setAuth,
+    setUser,
     updateTokens,
     logout,
   }

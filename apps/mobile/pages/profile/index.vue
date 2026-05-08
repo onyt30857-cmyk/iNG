@@ -18,6 +18,10 @@ function goBack() {
   else uni.reLaunch({ url: '/pages/home/index' })
 }
 
+function goEditProfile() {
+  uni.navigateTo({ url: '/pages/profile/edit' })
+}
+
 async function onGenerateBackup() {
   if (generating.value) return
   generating.value = true
@@ -90,6 +94,28 @@ async function onConfirmRecover() {
     </view>
 
     <view class="body">
+      <!-- 个人资料(spec-018)-->
+      <view class="section">
+        <text class="section-title">个人资料</text>
+        <view class="profile-card" @tap="goEditProfile">
+          <view class="profile-avatar-wrap">
+            <image
+              v-if="userStore.user?.avatar_url"
+              :src="userStore.user.avatar_url"
+              mode="aspectFill"
+              class="profile-avatar"
+            />
+            <view v-else class="profile-avatar profile-avatar-default">
+              {{ (userStore.user?.nickname ?? '?').slice(0, 1) }}
+            </view>
+          </view>
+          <view class="profile-info">
+            <text class="profile-name">{{ userStore.user?.nickname ?? '未填昵称' }}</text>
+            <text class="profile-meta">点击编辑 →</text>
+          </view>
+        </view>
+      </view>
+
       <!-- 当前账户信息 -->
       <view class="section">
         <text class="section-title">当前账户</text>
@@ -233,6 +259,50 @@ async function onConfirmRecover() {
   border-radius: 24rpx;
   padding: 24rpx 28rpx;
   box-shadow: $shadow-sm;
+}
+
+.profile-card {
+  background: $color-surface;
+  border-radius: 24rpx;
+  padding: 28rpx;
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  box-shadow: $shadow-sm;
+}
+.profile-card:active { background: $color-surface-subtle; }
+.profile-avatar-wrap {
+  width: 96rpx;
+  height: 96rpx;
+}
+.profile-avatar {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+  background: $color-laoke-subtle;
+}
+.profile-avatar-default {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40rpx;
+  font-weight: $weight-semibold;
+  color: $color-laoke-deep;
+}
+.profile-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+.profile-name {
+  font-size: 34rpx;
+  font-weight: $weight-semibold;
+  color: $color-text-primary;
+}
+.profile-meta {
+  font-size: 24rpx;
+  color: $color-text-tertiary;
 }
 .info-row {
   display: flex;

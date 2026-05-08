@@ -52,6 +52,24 @@
       "style": {
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/onboarding/welcome",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/onboarding/profile",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/profile/edit",
+      "style": {
+        "navigationBarTitleText": "编辑资料"
+      }
     }
   ],
   "globalStyle": {

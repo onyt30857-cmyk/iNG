@@ -195,3 +195,6 @@ export const apiGet = <T>(path: string, options?: Omit<RequestOptions, 'method' 
 
 export const apiPost = <T>(path: string, data?: Record<string, unknown>, options?: Omit<RequestOptions, 'method' | 'data'>) =>
   request<T>(path, { ...options, method: 'POST', data })
+
+export const apiPatch = <T>(path: string, data?: Record<string, unknown>, options?: Omit<RequestOptions, 'method' | 'data'>) =>
+  request<T>(path, { ...options, method: 'PATCH', data })

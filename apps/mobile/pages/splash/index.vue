@@ -1,15 +1,20 @@
 <script setup lang="ts">
-// 启动页 - 1.5 秒后跳主页
-// SVG 插图: 候选 A 光球(老 K 角标),色彩=墨青蓝家族(2026-05-04 调研定稿)
+// 启动页 - 1.5 秒后根据 onboarding 状态决定下一站
+// 没走完 onboarding → /pages/onboarding/welcome
+// 走完了 → /pages/home/index
 import { onMounted } from 'vue'
 import { apiGet } from '../../api/client'
+import { useUserStore } from '../../stores/user'
 
 onMounted(() => {
-  // 后台静默 ping 后端,不阻塞 splash 显示
   apiGet<{ message: string }>('/hello').catch(() => { /* splash 不暴露网络问题 */ })
 
   setTimeout(() => {
-    uni.reLaunch({ url: '/pages/home/index' })
+    const userStore = useUserStore()
+    const next = userStore.isOnboarded()
+      ? '/pages/home/index'
+      : '/pages/onboarding/welcome'
+    uni.reLaunch({ url: next })
   }, 1500)
 })
 </script>
