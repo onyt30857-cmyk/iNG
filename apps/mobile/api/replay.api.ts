@@ -4,14 +4,12 @@
 // 详见 apps/api/src/routes/v1/session.route.ts
 
 import { apiPost, BASE_URL } from './client'
-import { DEV_TOKEN } from '../utils/dev-token'
 import { useUserStore } from '../stores/user'
 
-// 跟 relationship.api.ts 同样的 authToken pattern:
-// 优先 store.token(真匿名账号),fallback DEV_TOKEN(本地 dev seed)
+// 只用真匿名账号 token。DEV_TOKEN fallback 已删除 —— 防止真用户看到 dev seed
 function authToken(): string {
   const store = useUserStore()
-  return store.token ?? DEV_TOKEN
+  return store.token ?? ''
 }
 
 export interface ParsingMessage {
@@ -50,7 +48,7 @@ export async function runParsing(
   },
 ) {
   return apiPost<ParsingResult>(`/sessions/${sessionId}/run-parsing`, body, {
-    token: DEV_TOKEN,
+    token: authToken(),
   })
 }
 
@@ -74,7 +72,7 @@ export async function runOcr(body: {
   relationship_id: string
   images: OcrInputImage[]
 }) {
-  return apiPost<OcrResultData>('/ocr', body, { token: DEV_TOKEN })
+  return apiPost<OcrResultData>('/ocr', body, { token: authToken() })
 }
 
 /**
@@ -216,7 +214,7 @@ export async function runReflecting(
   return apiPost<ReflectingResult>(
     `/sessions/${sessionId}/run-reflecting`,
     body,
-    { token: DEV_TOKEN },
+    { token: authToken() },
   )
 }
 
@@ -239,7 +237,7 @@ export async function runDiagnosing(
   return apiPost<DiagnosingResult>(
     `/sessions/${sessionId}/run-diagnosing`,
     body,
-    { token: DEV_TOKEN },
+    { token: authToken() },
   )
 }
 
@@ -262,7 +260,7 @@ export async function runPlanning(
   return apiPost<PlanningResult>(
     `/sessions/${sessionId}/run-planning`,
     body,
-    { token: DEV_TOKEN },
+    { token: authToken() },
   )
 }
 
@@ -296,6 +294,6 @@ export async function runDrafting(
   return apiPost<DraftingResult>(
     `/sessions/${sessionId}/run-drafting`,
     body,
-    { token: DEV_TOKEN },
+    { token: authToken() },
   )
 }

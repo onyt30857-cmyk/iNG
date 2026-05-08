@@ -8,13 +8,13 @@ import type {
   SessionHistoryItem,
 } from '../types/relationship'
 import { useUserStore } from '../stores/user'
-import { DEV_TOKEN } from '../utils/dev-token'
 
-// dev 阶段 fallback DEV_TOKEN(seed-dev 已建 3 段真关系小雨/小美/玲玲,不会覆盖 mock)
-// M2 微信登录接通后,user.token 优先于 DEV_TOKEN 生效
+// 只用真匿名账号 token。spec-010 已上线,DEV_TOKEN fallback 必须移除 ——
+// 否则真用户在 store.token 还未 init 时会用 dev-user-1 鉴权,看到 dev seed 数据(小雨/小美/玲玲)
+// App.vue 已在 mount 时 await ensureSession(),理论上 store.token 永远应有值
 function authToken(): string | undefined {
   const store = useUserStore()
-  return store.token ?? DEV_TOKEN
+  return store.token
 }
 
 export const listRelationshipsApi = (params?: { archived?: boolean }) => {
