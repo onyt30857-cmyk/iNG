@@ -19,8 +19,13 @@ onShow(() => {
   console.log('[App] show')
 })
 
-onHide(() => {
+onHide(async () => {
   console.log('[App] hide')
+  // spec-013 模块 D 行为埋点:用户离开 App(后台/切换),作为"5 分钟离开率"信号
+  // flushNow 强制把队列里没发的事件立刻发出
+  const { reportBehavior, flushNow } = await import('./utils/behavior-tracker')
+  reportBehavior('user_left_app')
+  void flushNow()
 })
 </script>
 

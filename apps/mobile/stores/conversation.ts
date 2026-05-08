@@ -503,6 +503,16 @@ export const useConversationStore = defineStore('conversation', () => {
       )
     }
     finishStreamingLaokeText(relationshipId, streamingId)
+
+    // spec-013 模块 D 行为埋点:老 K 流式完成,作为后续 KPI 分母
+    void import('../utils/behavior-tracker').then(({ reportBehavior }) => {
+      reportBehavior('laoke_reply_received', {
+        relationship_id: relationshipId,
+        message_id: streamingId,
+        reference_at: new Date().toISOString(),
+        metadata: { text_length: fullText.length },
+      })
+    })
   }
 
   /**
