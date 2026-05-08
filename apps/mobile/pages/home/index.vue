@@ -27,6 +27,37 @@ function openRelationshipSpace(relationshipId: string) {
   uni.navigateTo({ url: `/pages/relationship/conversation?id=${relationshipId}` })
 }
 
+// 滑动删除关系(Sam 2026-05-08 反馈:右滑触发删除流程)
+// 跟现有删除逻辑一致 — confirm modal + store.softDelete
+const swipeStartX = ref(0)
+const swipeStartId = ref('')
+
+function onSwipeStart(e: TouchEvent, id: string) {
+  swipeStartX.value = e.touches[0]?.clientX ?? 0
+  swipeStartId.value = id
+}
+
+async function onSwipeEnd(e: TouchEvent, id: string, name: string) {
+  if (swipeStartId.value !== id) return
+  const dx = (e.changedTouches[0]?.clientX ?? 0) - swipeStartX.value
+  swipeStartId.value = ''
+  // 右滑 > 80px 触发删除流程(避免误触,要求明显滑动)
+  if (dx <= 80) return
+  const res = await uni.showModal({
+    title: '删除这段关系?',
+    content: `删除"${name}"后,聊天记录、关系档案都会一起没了,而且找不回来。`,
+    confirmText: '删除',
+    confirmColor: '#E5484D',
+    cancelText: '再想想',
+  })
+  if (res.confirm) {
+    const ok = await store.softDelete(id)
+    if (ok) {
+      uni.showToast({ title: '已删除', icon: 'none', duration: 1500 })
+    }
+  }
+}
+
 function closeEntry() {
   entryOpen.value = false
   entryRelationshipId.value = null
@@ -68,10 +99,15 @@ const greeting = (() => {
           <text class="laoke-status-text">老 K 在听</text>
         </view>
       </view>
-      <view class="manage-btn" @tap="goManageList">
-        <text class="manage-btn-text">管理</text>
+      <view class="icon-btn" @tap="goManageList">
+        <!-- 列表图标(管理),跟 profile-btn 同尺寸+同形,Sam 反馈"图文不一致难看" -->
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <line x1="4" y1="6" x2="20" y2="6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          <line x1="4" y1="12" x2="20" y2="12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          <line x1="4" y1="18" x2="20" y2="18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
       </view>
-      <view class="profile-btn" @tap="goProfile">
+      <view class="icon-btn" @tap="goProfile">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
           <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.6" />
           <path d="M4 20c0-4 4-6 8-6s8 2 8 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
@@ -84,14 +120,20 @@ const greeting = (() => {
       <text class="hint-text">点一段关系,看看她最近</text>
     </view>
 
-    <!-- 关系列表(主入口) -->
+    <!-- 关系列表(主入口)— 包 swipe wrapper 支持右滑删除 -->
     <view v-if="store.items.length > 0" class="rel-list">
-      <RelationshipCard
+      <view
         v-for="r in store.items"
         :key="r.id"
-        :relationship="r"
-        @tap="openRelationshipSpace(r.id)"
-      />
+        class="rel-swipe-wrap"
+        @touchstart="(e) => onSwipeStart(e, r.id)"
+        @touchend="(e) => onSwipeEnd(e, r.id, r.name)"
+      >
+        <RelationshipCard
+          :relationship="r"
+          @tap="openRelationshipSpace(r.id)"
+        />
+      </view>
     </view>
 
     <!-- 0 关系空态 -->
@@ -178,7 +220,8 @@ const greeting = (() => {
   font-size: 26rpx;
   color: $color-text-tertiary;
 }
-.profile-btn {
+// 顶栏图标按钮(管理 + 个人):同尺寸 + 同形,视觉一致
+.icon-btn {
   width: 64rpx;
   height: 64rpx;
   border-radius: 50%;
@@ -195,12 +238,6 @@ const greeting = (() => {
     background-color: $color-surface-subtle;
     transform: scale(0.94);
   }
-}
-.manage-btn {
-  padding: 12rpx 20rpx;
-  border-radius: 16rpx;
-
-  &:active { background-color: $color-surface-subtle; }
 }
 .manage-btn-text {
   font-size: 26rpx;

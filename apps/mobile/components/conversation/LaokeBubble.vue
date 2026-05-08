@@ -533,7 +533,7 @@ async function confirmComment() {
   flex: 1;
   height: 88rpx;
   background-color: $color-primary;
-  border-radius: 20rpx;
+  border-radius: $radius-md;  // 20rpx → token $radius-md(16rpx),全局统一
   display: flex;
   align-items: center;
   justify-content: center;
@@ -542,7 +542,7 @@ async function confirmComment() {
 }
 .cm-submit-text {
   font-size: 28rpx;
-  color: $color-background;
+  color: $color-surface;
   font-weight: $weight-medium;
 }
 </style>

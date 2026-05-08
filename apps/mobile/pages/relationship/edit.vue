@@ -284,7 +284,7 @@ function scheduleAutoSave() {
   height: 96rpx;
   background-color: $color-primary;
   border: none;
-  border-radius: 20rpx;
+  border-radius: $radius-md;  // 20rpx → token,全局统一
   display: flex;
   align-items: center;
   justify-content: center;
@@ -296,6 +296,6 @@ function scheduleAutoSave() {
 .save-btn-text {
   font-size: 32rpx;
   font-weight: $weight-medium;
-  color: $color-background;
+  color: $color-surface;
 }
 </style>

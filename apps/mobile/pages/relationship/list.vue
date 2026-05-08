@@ -261,28 +261,30 @@ function goBack() {
   align-items: center;
   padding: 160rpx 64rpx 0;
 }
+// 空态视觉跟 home/index.vue 严格保持一致 — Sam 反馈"全局样式要统一"
 .empty-icon {
-  width: 160rpx;
-  height: 160rpx;
+  width: 96rpx;
+  height: 96rpx;
   border-radius: 50%;
   background-color: $color-surface;
-  border: 2rpx dashed $color-border;
+  border: 1rpx dashed $color-text-disabled;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 48rpx;
+  margin-bottom: 32rpx;
 }
-.empty-icon-text { font-size: 64rpx; color: $color-text-disabled; }
-.empty-title { font-size: 34rpx; font-weight: $weight-medium; color: $color-text-primary; margin-bottom: 16rpx; }
-.empty-hint { font-size: 28rpx; color: $color-text-tertiary; line-height: 1.6; text-align: center; margin-bottom: 48rpx; }
+.empty-icon-text { font-size: 40rpx; color: $color-text-tertiary; font-weight: $weight-light; line-height: 1; }
+.empty-title { font-size: 32rpx; font-weight: $weight-medium; color: $color-text-primary; margin-bottom: 12rpx; }
+.empty-hint { font-size: 26rpx; color: $color-text-tertiary; line-height: 1.6; text-align: center; margin-bottom: 40rpx; }
 .empty-cta {
   background-color: $color-primary;
-  color: $color-background;
-  font-size: 30rpx;
-  font-weight: $weight-medium;
-  padding: 24rpx 48rpx;
-  border-radius: 16rpx;
+  color: $color-surface;
+  font-size: 26rpx;
+  font-weight: $weight-regular;
+  padding: 16rpx 40rpx;
+  border-radius: 9999rpx;   // 微信式胶囊
   border: none;
+  letter-spacing: 1rpx;
   &::after { border: none; }
   &:active { background-color: $color-primary-deep; }
 }
