@@ -105,14 +105,16 @@ const timeText = computed(() => {
 }
 
 .stage-tag {
-  background-color: $color-accent-subtle;
+  // 双色系:关系阶段是用户视角的"她现在是什么状态",用中性灰底
+  // 不用 $color-accent 茶棕(那是老 K 装饰色,跟阶段语义无关)
+  background-color: $color-divider;
   border-radius: 999rpx;
   padding: 4rpx 14rpx;
   flex-shrink: 0;
 }
 .stage-tag-text {
   font-size: 20rpx;
-  color: $color-accent;
+  color: $color-text-tertiary;
   font-weight: $weight-medium;
 }
 

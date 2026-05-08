@@ -10,6 +10,7 @@ import { Buffer } from 'node:buffer'
 import { getSupabaseClient, isSupabaseConfigured } from '../../lib/supabase.js'
 import { config } from '../../config/index.js'
 import { errors } from '../../lib/error.js'
+import { logger } from '../../lib/logger.js'
 
 export interface PutAvatarResult {
   url: string
@@ -55,8 +56,8 @@ export async function putAvatar(
     .from(config.SUPABASE_AVATAR_BUCKET)
     .upload(filename, buffer, {
       contentType,
-      upsert: true, // 同 user 下覆盖旧的(不留垃圾)
-      cacheControl: '31536000', // 1 年(头像内容不变,文件名带 timestamp 已防 stale)
+      upsert: true,
+      cacheControl: '31536000', // 1 年(文件名带 timestamp 已防 stale)
     })
 
   if (error) {
@@ -67,7 +68,44 @@ export async function putAvatar(
     .from(config.SUPABASE_AVATAR_BUCKET)
     .getPublicUrl(filename)
 
+  // 换了新的旧的不保留 — fire-and-forget 异步清理该 user 之前的所有头像
+  // (不 await,不阻塞 response。失败只 log,不影响新头像生效)
+  void cleanupOldAvatars(userId, filename)
+
   return { url: data.publicUrl, driver: 'supabase' }
+}
+
+async function cleanupOldAvatars(userId: string, currentFilename: string): Promise<void> {
+  try {
+    const supabase = getSupabaseClient()
+    if (!supabase) return
+    const { data: list } = await supabase.storage
+      .from(config.SUPABASE_AVATAR_BUCKET)
+      .list(userId)
+    if (!list || list.length === 0) return
+    // currentFilename 是 ${userId}/avatar-xxx.png,list 里的 name 是 'avatar-xxx.png'(无 userId 前缀)
+    const currentBase = currentFilename.split('/').pop()
+    const oldPaths = list
+      .filter((f) => f.name !== currentBase)
+      .map((f) => `${userId}/${f.name}`)
+    if (oldPaths.length === 0) return
+    const { error } = await supabase.storage
+      .from(config.SUPABASE_AVATAR_BUCKET)
+      .remove(oldPaths)
+    if (error) {
+      logger.warn(
+        { event: 'avatar.cleanup.failed', user_id: userId, count: oldPaths.length, err: error.message },
+        '清旧头像失败,不影响新头像',
+      )
+    } else {
+      logger.info(
+        { event: 'avatar.cleanup.ok', user_id: userId, removed: oldPaths.length },
+        `清掉 ${oldPaths.length} 个旧头像`,
+      )
+    }
+  } catch (e) {
+    logger.warn({ event: 'avatar.cleanup.threw', err: e }, 'cleanupOldAvatars 抛错(忽略)')
+  }
 }
 
 /**
