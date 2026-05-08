@@ -1,10 +1,32 @@
 <script setup lang="ts">
-defineProps<{ text: string; subtle?: boolean; isOtherQuote?: boolean; quoteName?: string }>()
+const props = defineProps<{ text: string; subtle?: boolean; isOtherQuote?: boolean; quoteName?: string }>()
+
+// Q2 E:长按菜单(微信经典)— 复制全文 + 收藏(M2 接 backend 时打通)
+async function onLongPress() {
+  if (props.subtle) return // 系统消息不允许复制操作
+  const res = await uni.showActionSheet({
+    itemList: ['复制', '收藏'],
+    itemColor: '#1F2433',
+  })
+  if (res.tapIndex === 0) {
+    uni.setClipboardData({
+      data: props.text,
+      showToast: false,
+    })
+    uni.showToast({ title: '已复制', icon: 'none', duration: 1200 })
+  } else if (res.tapIndex === 1) {
+    uni.showToast({ title: '收藏功能下版本接通', icon: 'none', duration: 1500 })
+  }
+}
 </script>
 
 <template>
   <view class="row" :class="{ 'row-quote': isOtherQuote }">
-    <view class="bubble" :class="{ subtle, 'bubble-quote': isOtherQuote }">
+    <view
+      class="bubble"
+      :class="{ subtle, 'bubble-quote': isOtherQuote }"
+      @longpress="onLongPress"
+    >
       <text v-if="isOtherQuote" class="quote-tag">{{ quoteName || '她' }} 回的</text>
       <text class="text">{{ text }}</text>
     </view>
