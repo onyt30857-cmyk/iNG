@@ -439,7 +439,7 @@ export const useConversationStore = defineStore('conversation', () => {
     let fullText = ''
     try {
       // 动态 import 避免 store 顶层 import api(顶层循环依赖风险)
-      const { streamConversationTurnHTTP } = await import('../api/replay.api')
+      const { streamConversationTurnHTTP } = await import('../api/conversation.api')
 
       // spec-007 Phase 19.5:把当前关系的 signal 翻译成老 K 视角 brief 塞进请求,
       // 当 LLM 的 inner state(他"私下看到的")。数据不足时 brief 为 null,后端会跳过。

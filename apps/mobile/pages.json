@@ -42,12 +42,6 @@
       }
     },
     {
-      "path": "pages/replay/session",
-      "style": {
-        "navigationStyle": "custom"
-      }
-    },
-    {
       "path": "pages/relationship/conversation",
       "style": {
         "navigationStyle": "custom"

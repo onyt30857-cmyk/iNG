@@ -6,7 +6,7 @@
 // 只在 H5 模式可用(依赖浏览器 Image / canvas / FileReader API)。
 // 原生 App 模式后续用 uni-app 的 uni.compressImage(M2)。
 
-import type { OcrInputImage, OcrMediaType } from '../api/replay.api'
+import type { OcrInputImage, OcrMediaType } from '../api/conversation.api'
 
 const MAX_LONG_SIDE = 2000
 const JPEG_QUALITY = 0.85
