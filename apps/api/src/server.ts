@@ -15,6 +15,7 @@ import { registerRequestLog } from './middleware/request-log.js'
 import { healthRoute } from './routes/health.route.js'
 import { helloRoute } from './routes/hello.route.js'
 import { authRoutes } from './routes/v1/auth.route.js'
+import { userRoutes } from './routes/v1/user.route.js'
 import { relationshipRoutes } from './routes/v1/relationship.route.js'
 import { sessionRoutes } from './routes/v1/session.route.js'
 import { ocrRoutes } from './routes/v1/ocr.route.js'
@@ -91,6 +92,7 @@ async function buildApp() {
   await app.register(healthRoute)
   await app.register(helloRoute)
   await app.register(authRoutes)
+  await app.register(userRoutes)
   await app.register(relationshipRoutes)
   await app.register(sessionRoutes)
   await app.register(ocrRoutes)

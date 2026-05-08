@@ -58,6 +58,11 @@ model User {
   usage_stage    UsageStage @default(NEWBIE)
   total_sessions Int        @default(0)
 
+  // Onboarding(spec-018):
+  // null = 还没走完 Welcome→填昵称头像 流程,前端检测到要跳转 onboarding 页
+  // 有值 = 已经走完,直接进主页
+  onboarding_completed_at DateTime? @db.Timestamptz
+
   // 用户语气指纹(JSON 存储)
   // 详见 user-language-fingerprint 表
 
