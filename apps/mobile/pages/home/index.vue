@@ -9,11 +9,8 @@ import { onMounted, ref } from 'vue'
 import { apiGet } from '../../api/client'
 import { useRelationshipStore } from '../../stores/relationship'
 import RelationshipCard from '../../components/RelationshipCard.vue'
-import EntrySheet from '../../components/replay/EntrySheet.vue'
 
 const store = useRelationshipStore()
-const entryOpen = ref(false)
-const entryRelationshipId = ref<string | null>(null)
 
 onMounted(async () => {
   // 静默 ping 后端 + 拉关系列表
@@ -100,11 +97,6 @@ async function confirmDelete(id: string, name: string) {
 // 点列表外面任意位置 → 关闭打开的 swipe(类似 iOS 行为)
 function closeAllSwipe() {
   if (activeSwipeId.value) activeSwipeId.value = null
-}
-
-function closeEntry() {
-  entryOpen.value = false
-  entryRelationshipId.value = null
 }
 
 function goCreate() {
@@ -205,18 +197,7 @@ const greeting = (() => {
       <text class="new-text">记一段新关系</text>
     </view>
 
-    <!-- spec-006 之后"复盘"融进每段关系对话页,首页这两个旧入口已废:
-      · "开发调试 · 直接进 mock 复盘流程"(spec-005 wizard 旧入口)
-      · "上传 1-5 张聊天截图开始真复盘"(同上)
-      实际路径:点关系卡 → 进对话页 → + 按钮上传截图 / 粘贴对方原话 → 老 K 流式回应 -->
-
-    <!-- entry 抽屉保留(开发态用),实际入口已转移到详情页主 CTA -->
-    <EntrySheet
-      v-if="entryOpen"
-      :open="entryOpen"
-      :default-relationship-id="entryRelationshipId"
-      @close="closeEntry"
-    />
+    <!-- spec-006 之后"复盘"融进每段关系对话页:点关系卡 → 进对话页 → + 按钮上传截图 / 粘贴对方原话 → 老 K 流式回应 -->
   </view>
 </template>
 

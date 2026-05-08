@@ -5,7 +5,6 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { storage, StorageKeys } from '../utils/storage'
 import { apiPost } from '../api/client'
-import { DEV_TOKEN, DEV_USER_ID } from '../utils/dev-token'
 import type { User } from '../types/user'
 
 export const useUserStore = defineStore('user', () => {
@@ -26,22 +25,9 @@ export const useUserStore = defineStore('user', () => {
   async function ensureSession(): Promise<void> {
     if (token.value && user.value) return // 已有真账户
 
-    // dev 阶段:用 seed-dev 创建的 DEV_USER_ID 跟 DEV_TOKEN(已经有 3 段关系数据 + 累积反馈)
-    // 避免每次刷新匿名账户都是空 db。生产阶段(没 DEV_TOKEN)走真匿名 register
-    if (process.env.NODE_ENV !== 'production' && DEV_TOKEN) {
-      setAuth({
-        user: {
-          id: DEV_USER_ID,
-          nickname: 'DevTony',
-          avatar_url: null,
-          usage_stage: 'NEWBIE',
-        } as User,
-        token: DEV_TOKEN,
-        refresh_token: DEV_TOKEN, // dev 只用 access,refresh 占位
-      })
-      return
-    }
-
+    // 2026-05-08:dev 也走真匿名注册(Sam"按上线真生产"决策)。
+    // 之前 dev 模式用 DEV_TOKEN 跳过注册的旁路已删 — dev 行为 = prod 行为,
+    // 防止"dev seed 漏给真用户"类风险再次发生。
     const res = await apiPost<{
       user: User
       token: string
