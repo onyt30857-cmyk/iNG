@@ -48,9 +48,11 @@ interface RequestOptions {
 /**
  * Silent token refresh — 全局单飞(同一时间多个 401 共享一次 refresh)
  * 成功 → 写新 token 进 store,返 true
- * 失败 → 返 false,上层走原 401 路径
+ * 失败 → 返 false,上层走原 401 路径(client.ts 会触发 dialog 给用户选恢复 / 新会话)
  */
 let refreshInflight: Promise<boolean> | null = null
+// 防 dialog 风暴:并发多个 401 都失败时,只弹一次
+let reauthDialogShown = false
 async function tryRefresh(): Promise<boolean> {
   if (refreshInflight) return refreshInflight
   refreshInflight = (async () => {
@@ -91,6 +93,42 @@ async function tryRefresh(): Promise<boolean> {
     }
   })()
   return refreshInflight
+}
+
+/**
+ * Silent reauth 失败 → 弹 dialog 让用户选(恢复账号 / 新会话)
+ * 防 dialog 风暴:并发多个 401 失败只弹一次,1 分钟内不重复弹
+ */
+async function handleRefreshFailed(): Promise<void> {
+  if (reauthDialogShown) return
+  reauthDialogShown = true
+  // 1 分钟后允许再弹(给用户从恢复页回来重试的窗口)
+  setTimeout(() => { reauthDialogShown = false }, 60_000)
+
+  const { useAppDialog } = await import('../composables/useAppDialog')
+  const { useUserStore } = await import('../stores/user')
+  const dialog = useAppDialog()
+  const userStore = useUserStore()
+
+  const wantNewSession = await dialog.confirm('登录会话过期了', {
+    body:
+      '账号会话失效了,得重新进。\n\n' +
+      '保存过备份码 → 用备份码恢复原账号(关系数据都还在)\n' +
+      '没保存过 → 开始新会话(原数据找不回来了)',
+    confirmText: '开始新会话',
+    cancelText: '去恢复',
+    danger: true,
+  })
+
+  if (wantNewSession) {
+    // 用户选新会话 → 清旧 token + 重新匿名注册
+    userStore.logout()
+    await userStore.ensureSession()
+    uni.reLaunch({ url: '/pages/home/index' })
+  } else {
+    // 去恢复 → profile 页(那里有备份码恢复入口)
+    uni.reLaunch({ url: '/pages/profile/index' })
+  }
 }
 
 /**
@@ -143,6 +181,8 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       const newToken = useUserStore().token ?? undefined
       return request<T>(path, { ...options, token: newToken, _isReauthRetry: true })
     }
+    // refresh 也失败 → 弹 dialog 让用户选恢复 / 新会话(fire and forget,不阻塞当前请求返 401)
+    void handleRefreshFailed()
   }
 
   return res
