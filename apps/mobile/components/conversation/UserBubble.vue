@@ -29,9 +29,23 @@ defineProps<{ text: string; subtle?: boolean; isOtherQuote?: boolean; quoteName?
 }
 .bubble {
   background-color: $color-primary-subtle;
-  border-radius: 28rpx 28rpx 8rpx 28rpx;
-  padding: 24rpx 28rpx;
+  // 微信温和圆角(从 28 收紧到 16),右下尾巴方向小角(4rpx)
+  border-radius: 16rpx 16rpx 4rpx 16rpx;
+  padding: 18rpx 24rpx;
   max-width: 84%;
+  position: relative;
+}
+// 微信式右上气泡尾巴(Q2 ACE 之 A — 气泡尾巴)
+.bubble:not(.subtle):not(.bubble-quote)::after {
+  content: '';
+  position: absolute;
+  right: -8rpx;
+  top: 14rpx;
+  width: 0;
+  height: 0;
+  border-top: 8rpx solid transparent;
+  border-bottom: 8rpx solid transparent;
+  border-left: 10rpx solid $color-primary-subtle;
 }
 .bubble.subtle {
   background-color: transparent;
