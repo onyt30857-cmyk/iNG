@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Users, MessageSquareWarning, LayoutDashboard, LogOut, Activity } from 'lucide-react'
+import { Users, MessageSquareWarning, LayoutDashboard, LogOut, Activity, FileCode2, ClipboardCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { auth } from '@/lib/auth'
@@ -19,6 +19,8 @@ const NAV: NavItem[] = [
   { href: '/users', label: '用户', icon: Users },
   { href: '/feedback', label: '反馈', icon: MessageSquareWarning },
   { href: '/llm', label: 'AI 监控', icon: Activity },
+  { href: '/prompts', label: 'Prompt 工程', icon: FileCode2 },
+  { href: '/annotations', label: '人工评分', icon: ClipboardCheck },
   // M2 阶段加:红线 / 数据分析 / 隐私 / 运维
 ]
 

@@ -27,6 +27,10 @@ import { adminAuthRoutes } from './routes/v1/admin/auth.route.js'
 import { adminUserRoutes } from './routes/v1/admin/users.route.js'
 import { adminFeedbackRoutes } from './routes/v1/admin/feedback.route.js'
 import { adminLlmRoutes } from './routes/v1/admin/llm.route.js'
+import { adminPromptRoutes } from './routes/v1/admin/prompts.route.js'
+import { adminAnnotationRoutes } from './routes/v1/admin/annotations.route.js'
+import { adminBehaviorRoutes } from './routes/v1/admin/behavior.route.js'
+import { behaviorRoutes } from './routes/v1/behavior.route.js'
 import { probeRoutes } from './routes/v1/probe.route.js'
 import { startDeletionCron } from './workers/deletion-cron.js'
 import { cleanupDevSeedIfExists } from './workers/cleanup-dev-seed-on-boot.js'
@@ -98,6 +102,10 @@ async function buildApp() {
   await app.register(adminUserRoutes)
   await app.register(adminFeedbackRoutes)
   await app.register(adminLlmRoutes)
+  await app.register(adminPromptRoutes)
+  await app.register(adminAnnotationRoutes)
+  await app.register(adminBehaviorRoutes)
+  await app.register(behaviorRoutes)
 
   // 远程诊断端点(给 Claude 自主排查用,prod 必须带 DEBUG_PROBE_SECRET)
   await app.register(probeRoutes)

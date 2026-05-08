@@ -819,3 +819,152 @@ enum RefundStatus {
   DONE // 平台 API 成功,Payment 状态已 sync
   REJECTED // admin 拒绝
 }
+
+// ============================================================
+// AI 质量监控(spec-013)
+// PM 视角的 5 模块体系:A 调用监控(已用 AiCallLog)/ B Prompt 工程台
+// / C 人工评分 / D 隐性反馈 / E Persona 监控(复用 AiCallLog)
+// ============================================================
+
+// === 模块 B:Prompt 工程台 ===
+
+model PromptVersion {
+  id             String    @id @default(cuid())
+  // 'conversation_turn' / 'parsing' / 'ocr' / 'intent_classifier' 等
+  name           String
+  // 自增 per name
+  version        Int
+  content        String    @db.Text
+  // admin_user_id 或 'system'(脚本灌库)
+  author         String
+  notes          String?   @db.Text
+  // null = staging only;非空 = 当前/历史 deployed
+  deployed_at    DateTime? @db.Timestamptz
+  rolled_back_at DateTime? @db.Timestamptz
+  // 灰度比例 0-100(deployed_at 非空才有意义,默认 100 = 全量)
+  rollout_pct    Int       @default(100)
+
+  created_at DateTime @default(now()) @db.Timestamptz
+
+  evals PromptEval[]
+
+  @@unique([name, version])
+  @@index([name, deployed_at])
+  @@map("prompt_versions")
+}
+
+model PromptEvalDataset {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  // 适用 prompt name(可空 = 通用)
+  prompt_name String?
+  description String?  @db.Text
+  // [{ input: {...}, expected_pattern: "...", weight: 1.0 }, ...]
+  samples     Json
+  created_at  DateTime @default(now()) @db.Timestamptz
+  updated_at  DateTime @updatedAt @db.Timestamptz
+
+  evals PromptEval[]
+
+  @@map("prompt_eval_datasets")
+}
+
+model PromptEval {
+  id                String  @id @default(cuid())
+  prompt_version_id String
+  dataset_id        String
+  // 'claude-sonnet-4' / 'claude-opus-4' / 'human'
+  judge_model       String
+  // 0-1 总分(平均 5 维)
+  score             Decimal @db.Decimal(5, 4)
+  // [{ sample_idx, output, persona, accuracy, helpfulness, empathy, safety, judge_note }]
+  raw_results       Json
+  total_samples     Int
+  passed_samples    Int
+
+  run_at DateTime @default(now()) @db.Timestamptz
+
+  prompt_version PromptVersion     @relation(fields: [prompt_version_id], references: [id], onDelete: Cascade)
+  dataset        PromptEvalDataset @relation(fields: [dataset_id], references: [id], onDelete: Cascade)
+
+  @@index([prompt_version_id, run_at])
+  @@map("prompt_evals")
+}
+
+// === 模块 C:人工评分工作台 ===
+
+model AnnotationQueue {
+  id          String @id @default(cuid())
+  // 批次名:'2026-W19-weekly' / 'dislike-cluster-1' / 'manual-2026-05-08'
+  batch_name  String
+  // 抽样源:'random' / 'dislike' / 'persona_fail' / 'leak_hit' / 'mixed'
+  source      String
+  // 'pending' / 'in_review' / 'closed'
+  status      String @default("pending")
+  total_items Int    @default(0)
+
+  created_at DateTime @default(now()) @db.Timestamptz
+
+  items AnnotationItem[]
+
+  @@index([status, created_at])
+  @@map("annotation_queues")
+}
+
+model AnnotationItem {
+  id          String  @id @default(cuid())
+  queue_id    String
+  // 关联 AiCallLog.call_id(不是 id,因为 call_id 唯一 + 业务可读)
+  call_id     String
+  // 评估员 admin_user_id(null = 待领取)
+  reviewer_id String?
+
+  // 5 维分数 0-1(null = 未评)
+  score_persona     Decimal? @db.Decimal(3, 2)
+  score_accuracy    Decimal? @db.Decimal(3, 2)
+  score_helpfulness Decimal? @db.Decimal(3, 2)
+  score_empathy     Decimal? @db.Decimal(3, 2)
+  score_safety      Decimal? @db.Decimal(3, 2)
+
+  // ['too_verbose', 'wrong_assumption', 'pua_smell', 'machine_tone', ...]
+  tags String[]
+  note String?  @db.Text
+
+  reviewed_at              DateTime? @db.Timestamptz
+  // 是否选入 eval dataset(评分员勾选)
+  added_to_eval            Boolean   @default(false)
+  added_to_eval_dataset_id String?
+
+  queue AnnotationQueue @relation(fields: [queue_id], references: [id], onDelete: Cascade)
+
+  @@index([queue_id, reviewer_id])
+  @@index([call_id])
+  @@map("annotation_items")
+}
+
+// === 模块 D:隐性反馈采集(用户行为埋点)===
+
+model BehaviorEvent {
+  id              String  @id @default(cuid())
+  user_id         String
+  relationship_id String?
+  // 老 K 那条 message id(前端 streaming id 或 Anthropic msg_xxx)
+  message_id      String?
+
+  // 'laoke_reply_received' / 'user_idle_30s' / 'user_left_app' /
+  // 'user_typed_after_laoke' / 'user_copied_draft' / 'user_sent_after_draft'
+  event_type String
+
+  // 老 K 那条 message 的发送时间(算 latency 用,可空)
+  reference_at DateTime? @db.Timestamptz
+
+  // 任意 metadata(消息长度 / 输入字符数 / 离开时背景时长等)
+  metadata Json?
+
+  created_at DateTime @default(now()) @db.Timestamptz
+
+  @@index([user_id, event_type, created_at])
+  @@index([message_id])
+  @@index([event_type, created_at])
+  @@map("behavior_events")
+}

@@ -9,6 +9,14 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
+interface BehaviorKpis {
+  window_days: number
+  laoke_replies: number
+  retention_30s_rate: number
+  leave_5min_rate: number
+  draft_copy_rate: number
+}
+
 interface LlmDashboard {
   window_days: number
   total_calls: number
@@ -55,6 +63,7 @@ function fmtLatency(ms: number): string {
 
 export default function LlmDashboardPage() {
   const [data, setData] = useState<LlmDashboard | null>(null)
+  const [behavior, setBehavior] = useState<BehaviorKpis | null>(null)
   const [windowDays, setWindowDays] = useState(7)
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -62,15 +71,19 @@ export default function LlmDashboardPage() {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    adminGet<LlmDashboard>('/v1/admin/llm/dashboard', { windowDays }).then((res) => {
+    Promise.all([
+      adminGet<LlmDashboard>('/v1/admin/llm/dashboard', { windowDays }),
+      adminGet<BehaviorKpis>('/v1/admin/behavior/kpis', { windowDays }),
+    ]).then(([dashRes, behaviorRes]) => {
       if (cancelled) return
       setLoading(false)
-      if (res.ok) {
-        setData(res.data)
+      if (dashRes.ok) {
+        setData(dashRes.data)
         setErrorMsg(null)
       } else {
-        setErrorMsg(res.error.message)
+        setErrorMsg(dashRes.error.message)
       }
+      if (behaviorRes.ok) setBehavior(behaviorRes.data)
     })
     return () => {
       cancelled = true
@@ -144,6 +157,40 @@ export default function LlmDashboardPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* 用户行为 KPI(模块 D 隐性反馈)*/}
+          {behavior && behavior.laoke_replies > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">用户行为(隐性反馈,spec-013 模块 D)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <BehaviorKpi
+                    label="30 秒留存率"
+                    rate={behavior.retention_30s_rate}
+                    note="收到回话后继续打字"
+                    good="high"
+                  />
+                  <BehaviorKpi
+                    label="话术采纳率"
+                    rate={behavior.draft_copy_rate}
+                    note="老 K 话术被复制"
+                    good="high"
+                  />
+                  <BehaviorKpi
+                    label="5 分钟离开率"
+                    rate={behavior.leave_5min_rate}
+                    note="收到回话后退出 App"
+                    good="low"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-3">
+                  分母:{behavior.laoke_replies} 次老 K 流式完成事件
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* leak 警告 */}
           {data.leak_hit_count > 0 && (
@@ -232,6 +279,30 @@ export default function LlmDashboardPage() {
           </p>
         </>
       )}
+    </div>
+  )
+}
+
+function BehaviorKpi({
+  label,
+  rate,
+  note,
+  good,
+}: {
+  label: string
+  rate: number
+  note: string
+  good: 'high' | 'low'
+}) {
+  // good=high 时高比例好(绿色),good=low 时低比例好
+  const isGood = good === 'high' ? rate >= 0.5 : rate <= 0.2
+  const isBad = good === 'high' ? rate < 0.3 : rate > 0.4
+  const tone = isGood ? 'text-green-600' : isBad ? 'text-amber-600' : ''
+  return (
+    <div className="rounded-md border p-3">
+      <div className={`text-2xl font-semibold ${tone}`}>{(rate * 100).toFixed(1)}%</div>
+      <div className="text-xs font-medium mt-1">{label}</div>
+      <div className="text-[10px] text-muted-foreground mt-0.5">{note}</div>
     </div>
   )
 }
