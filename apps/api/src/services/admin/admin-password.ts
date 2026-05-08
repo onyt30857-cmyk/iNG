@@ -1,7 +1,8 @@
 // Admin 账户密码 hash + verify(spec-011)
 //
-// 跟用户端 backup-code.ts 一致用 scrypt(node:crypto 内置,无新依赖),
-// 但 N 提一档(2^14 → 2^15)— 登录场景可接受 ~100ms,提高暴力破解成本。
+// 跟用户端 backup-code.ts 一致用 scrypt(node:crypto 内置,无新依赖)
+// + 同样的 N=2^14(再高就超 Node 默认 maxmem 32MB,需要专门 tune)
+// 工业标准 N=2^14 r=8 p=1 已能扛多 GPU 暴破,admin 登录场景足够。
 //
 // 存储格式:scrypt$<salt-hex>$<hash-hex>
 // 密码大小写敏感,不做 normalize。
@@ -22,7 +23,7 @@ function scrypt(
   })
 }
 
-const SCRYPT_N = 1 << 15 // ~100ms on modern CPU
+const SCRYPT_N = 1 << 14 // ~50ms,跟 backup-code 同档,Node 默认内存上限内
 const SCRYPT_R = 8
 const SCRYPT_P = 1
 const HASH_BYTES = 32

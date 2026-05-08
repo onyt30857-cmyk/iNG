@@ -18,6 +18,12 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(16, 'JWT_SECRET 至少 16 字符'),
   JWT_EXPIRES_IN: z.string().default('30d'),
 
+  // Admin 后台鉴权(spec-011)— 必须跟 JWT_SECRET 不同,防止 user/admin token 互通
+  // 启动时 config 解析阶段会校验两个值不能相等
+  ADMIN_JWT_SECRET: z.string().min(32, 'ADMIN_JWT_SECRET 至少 32 字符'),
+  ADMIN_ACCESS_TTL: z.string().default('15m'),
+  ADMIN_REFRESH_TTL: z.string().default('7d'),
+
   // AI —— 脚手架阶段不必填,后续 spec 才用
   // trim:防 Railway / .env 粘贴时混入末尾换行 / tab / BOM,
   // 之前真发生过这事(SDK 把 key 拼进 HTTP header 报 "is not a legal HTTP header value")
@@ -84,6 +90,13 @@ if (!parsed.success) {
     console.error(`  - ${issue.path.join('.')}: ${issue.message}`)
   }
   console.error('\n看一下 apps/api/.env.example 对照填好 .env 文件')
+  process.exit(1)
+}
+
+// 安全门:user JWT 跟 admin JWT 必须用不同 secret(spec-011 §7.1)
+// 否则一个泄漏就两个一起完蛋
+if (parsed.data.JWT_SECRET === parsed.data.ADMIN_JWT_SECRET) {
+  console.error('❌ JWT_SECRET 跟 ADMIN_JWT_SECRET 不能相同(spec-011 §7.1)')
   process.exit(1)
 }
 

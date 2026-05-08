@@ -23,6 +23,7 @@ import { feedbackRoutes } from './routes/v1/feedback.route.js'
 import { accountRoutes } from './routes/v1/account.route.js'
 import { quotaRoutes } from './routes/v1/quota.route.js'
 import { storageRoutes } from './routes/v1/storage.route.js'
+import { adminAuthRoutes } from './routes/v1/admin/auth.route.js'
 import { startDeletionCron } from './workers/deletion-cron.js'
 import { cleanupDevSeedIfExists } from './workers/cleanup-dev-seed-on-boot.js'
 
@@ -87,6 +88,9 @@ async function buildApp() {
   await app.register(accountRoutes)
   await app.register(quotaRoutes)
   await app.register(storageRoutes)
+
+  // Admin 后台(spec-011)
+  await app.register(adminAuthRoutes)
 
   // 404 兜底
   app.setNotFoundHandler((req, reply) => {

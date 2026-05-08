@@ -11,6 +11,10 @@ export default defineConfig({
       REDIS_URL: process.env.REDIS_URL ?? 'redis://localhost:6379',
       JWT_SECRET:
         process.env.JWT_SECRET ?? 'test-secret-must-be-at-least-16-chars',
+      // spec-011 admin 后台:必填 + 必须跟 JWT_SECRET 不同
+      ADMIN_JWT_SECRET:
+        process.env.ADMIN_JWT_SECRET ??
+        'test-admin-secret-different-from-user-jwt-32+chars',
     },
   },
 })
