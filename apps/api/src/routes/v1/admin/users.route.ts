@@ -1,7 +1,11 @@
-// Admin 用户管理路由(spec-011 §6.2 模块 1)
+// Admin 用户管理路由(spec-011 §6.2 模块 1 + spec-014 颗粒度管理)
 //
 // GET    /v1/admin/users
 // GET    /v1/admin/users/:id
+// PATCH  /v1/admin/users/:id/alias            — spec-014 admin 别名
+// GET    /v1/admin/users/:id/notes            — spec-014 备注列表
+// POST   /v1/admin/users/:id/notes            — spec-014 加备注
+// DELETE /v1/admin/users/notes/:noteId        — spec-014 删备注
 // POST   /v1/admin/users/:id/grant-subscription
 // POST   /v1/admin/users/:id/force-delete
 // GET    /v1/admin/quota/:userId
@@ -16,6 +20,10 @@ import {
   grantSubscription,
   forceDeleteUser,
   getUserQuotaForAdmin,
+  updateAdminAlias,
+  listUserNotes,
+  addUserNote,
+  deleteUserNote,
 } from '../../../services/admin/admin-user.service.js'
 
 // ============== schemas ==============
@@ -47,6 +55,19 @@ const grantSubBodySchema = z.object({
 
 const forceDeleteBodySchema = z.object({
   reason: z.string().trim().min(1, 'reason 必填(强制注销必须留痕)'),
+})
+
+// spec-014 别名 + 备注 schemas
+const aliasBodySchema = z.object({
+  alias: z.string().max(100).nullable(),
+})
+
+const noteBodySchema = z.object({
+  content: z.string().trim().min(1, '备注内容不能为空').max(2000, '单条备注最多 2000 字'),
+})
+
+const noteIdParamsSchema = z.object({
+  noteId: z.string().min(1),
 })
 
 // ============== route ==============
@@ -142,5 +163,74 @@ export async function adminUserRoutes(app: FastifyInstance): Promise<void> {
     const { userId } = userIdParamsSchema.parse(request.params)
     const quota = await getUserQuotaForAdmin(userId)
     return { ok: true, data: quota }
+  })
+
+  // ============== spec-014 用户颗粒度管理 ==============
+
+  // PATCH /v1/admin/users/:id/alias — 更新 admin 别名(用户不可见)
+  app.patch('/v1/admin/users/:id/alias', async (request) => {
+    const { id } = idParamsSchema.parse(request.params)
+    const body = aliasBodySchema.parse(request.body)
+    const result = await updateAdminAlias(id, body.alias)
+
+    void recordAdminAudit(
+      request.admin!.id,
+      {
+        action: 'update_admin_alias',
+        target_type: 'user',
+        target_id: id,
+        before: { admin_alias: result.before },
+        after: { admin_alias: result.after },
+      },
+      request,
+    )
+
+    return { ok: true, data: result }
+  })
+
+  // GET /v1/admin/users/:id/notes — 备注列表
+  app.get('/v1/admin/users/:id/notes', async (request) => {
+    const { id } = idParamsSchema.parse(request.params)
+    const notes = await listUserNotes(id)
+    return { ok: true, data: { notes } }
+  })
+
+  // POST /v1/admin/users/:id/notes — 加备注
+  app.post('/v1/admin/users/:id/notes', async (request) => {
+    const { id } = idParamsSchema.parse(request.params)
+    const body = noteBodySchema.parse(request.body)
+    const note = await addUserNote(id, request.admin!.id, body.content)
+
+    void recordAdminAudit(
+      request.admin!.id,
+      {
+        action: 'add_user_note',
+        target_type: 'user',
+        target_id: id,
+        after: { note_id: note.id, content_preview: body.content.slice(0, 80) },
+      },
+      request,
+    )
+
+    return { ok: true, data: note }
+  })
+
+  // DELETE /v1/admin/users/notes/:noteId — 删备注(只能删自己写的;ADMIN 角色都能删)
+  app.delete('/v1/admin/users/notes/:noteId', async (request) => {
+    const { noteId } = noteIdParamsSchema.parse(request.params)
+    const isSuperAdmin = request.admin!.role === 'ADMIN'
+    const result = await deleteUserNote(noteId, request.admin!.id, isSuperAdmin)
+
+    void recordAdminAudit(
+      request.admin!.id,
+      {
+        action: 'delete_user_note',
+        target_type: 'user_note',
+        target_id: noteId,
+      },
+      request,
+    )
+
+    return { ok: true, data: result }
   })
 }

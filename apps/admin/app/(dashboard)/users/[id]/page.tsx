@@ -1,10 +1,20 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, ThumbsUp, ThumbsDown, MessageSquare, AlertTriangle } from 'lucide-react'
-import { adminGet, adminPost } from '@/lib/api-client'
+import {
+  ArrowLeft,
+  ThumbsUp,
+  ThumbsDown,
+  MessageSquare,
+  AlertTriangle,
+  Pencil,
+  Plus,
+  StickyNote,
+  Trash2,
+} from 'lucide-react'
+import { adminFetch, adminGet, adminPost } from '@/lib/api-client'
 import { formatDate } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -26,10 +36,19 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 
+interface UserNote {
+  id: string
+  admin_id: string
+  content: string
+  created_at: string
+  updated_at: string
+}
+
 interface UserDetail {
   user: {
     id: string
     nickname: string | null
+    admin_alias: string | null
     avatar_url: string | null
     gender: string | null
     birth_year: number | null
@@ -41,6 +60,7 @@ interface UserDetail {
     created_at: string
     deleted_at: string | null
   }
+  notes: UserNote[]
   relationships: Array<{
     id: string
     name: string
@@ -160,6 +180,12 @@ export default function UserDetailPage() {
                 </div>
               </div>
             </div>
+            {/* spec-014:运营备注名(用户不可见,仅 admin 可见) */}
+            <AliasEditor
+              userId={u.id}
+              currentAlias={u.admin_alias}
+              onUpdated={reload}
+            />
             <Field label="ID" value={<code className="text-xs">{u.id}</code>} />
             {u.wechat_open_id_hint && <Field label="微信 openid" value={u.wechat_open_id_hint} />}
             <Field label="性别" value={u.gender ?? '—'} />
@@ -234,6 +260,9 @@ export default function UserDetailPage() {
         </Card>
       </div>
 
+      {/* spec-014:运营备注(用户不可见) */}
+      <NotesPanel userId={u.id} notes={data.notes} onChanged={reload} />
+
       {/* 右下:危险操作区 */}
       <Card>
         <CardHeader>
@@ -251,6 +280,228 @@ export default function UserDetailPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+// =============== spec-014 运营备注组件 ===============
+
+function AliasEditor({
+  userId,
+  currentAlias,
+  onUpdated,
+}: {
+  userId: string
+  currentAlias: string | null
+  onUpdated: () => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(currentAlias ?? '')
+  const [saving, setSaving] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  async function save() {
+    setSaving(true)
+    setErrorMsg(null)
+    const trimmed = value.trim()
+    const res = await adminFetch(`/v1/admin/users/${userId}/alias`, {
+      method: 'PATCH',
+      body: { alias: trimmed.length > 0 ? trimmed : null },
+    })
+    setSaving(false)
+    if (res.ok) {
+      setEditing(false)
+      onUpdated()
+    } else {
+      setErrorMsg(res.error.message)
+    }
+  }
+
+  if (!editing) {
+    return (
+      <div className="rounded-md border border-amber-200 bg-amber-50/40 dark:bg-amber-950/20 px-3 py-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="text-[11px] text-amber-800 dark:text-amber-400 font-medium">
+              运营备注名(用户不可见)
+            </div>
+            <div className="text-sm mt-0.5">
+              {currentAlias ?? <span className="text-muted-foreground italic">未填,点编辑添加</span>}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setValue(currentAlias ?? '')
+              setEditing(true)
+            }}
+            className="shrink-0 text-xs text-amber-700 dark:text-amber-500 hover:underline flex items-center gap-1"
+          >
+            <Pencil className="h-3 w-3" /> 编辑
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-md border border-amber-300 bg-amber-50/60 dark:bg-amber-950/30 p-3 space-y-2">
+      <div className="text-[11px] text-amber-800 dark:text-amber-400 font-medium">
+        运营备注名(最多 100 字)
+      </div>
+      <Input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="例:老王-创始人朋友 / 张总-投资人内测 / 客服 case#42"
+        autoFocus
+        maxLength={100}
+      />
+      {errorMsg && <p className="text-xs text-destructive">{errorMsg}</p>}
+      <div className="flex justify-end gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setEditing(false)}
+          disabled={saving}
+        >
+          取消
+        </Button>
+        <Button type="button" size="sm" onClick={save} disabled={saving}>
+          {saving ? '保存中…' : '保存'}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function NotesPanel({
+  userId,
+  notes,
+  onChanged,
+}: {
+  userId: string
+  notes: UserNote[]
+  onChanged: () => void
+}) {
+  const [adding, setAdding] = useState(false)
+  const [content, setContent] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  async function handleAdd(e: FormEvent) {
+    e.preventDefault()
+    setSubmitting(true)
+    setErrorMsg(null)
+    const res = await adminPost<UserNote>(`/v1/admin/users/${userId}/notes`, {
+      content: content.trim(),
+    })
+    setSubmitting(false)
+    if (res.ok) {
+      setContent('')
+      setAdding(false)
+      onChanged()
+    } else {
+      setErrorMsg(res.error.message)
+    }
+  }
+
+  async function handleDelete(noteId: string) {
+    if (!confirm('确定删除这条备注?')) return
+    const res = await adminFetch(`/v1/admin/users/notes/${noteId}`, { method: 'DELETE' })
+    if (res.ok) {
+      onChanged()
+    } else {
+      alert(res.error.message)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <StickyNote className="h-4 w-4" />
+            运营备注({notes.length})
+            <span className="text-[11px] font-normal text-muted-foreground">
+              用户不可见 · 客服互动记录
+            </span>
+          </CardTitle>
+          {!adding && (
+            <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
+              <Plus className="h-3.5 w-3.5" /> 加备注
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {/* 加备注表单 */}
+        {adding && (
+          <form
+            onSubmit={handleAdd}
+            className="rounded-md border border-input bg-muted/20 p-3 space-y-2"
+          >
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="例:今天客服联系过他,反馈说订阅扣费有疑问,已解释清楚 / 创始人朋友,优先处理 / 多次反馈老 K 啰嗦,改 prompt v2 后他没再吐槽"
+              rows={3}
+              maxLength={2000}
+              required
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed"
+            />
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">{content.length} / 2000</span>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setAdding(false)
+                    setContent('')
+                  }}
+                  disabled={submitting}
+                >
+                  取消
+                </Button>
+                <Button type="submit" size="sm" disabled={submitting || !content.trim()}>
+                  {submitting ? '保存中…' : '保存'}
+                </Button>
+              </div>
+            </div>
+            {errorMsg && <p className="text-xs text-destructive">{errorMsg}</p>}
+          </form>
+        )}
+
+        {/* 备注列表 */}
+        {notes.length === 0 && !adding && (
+          <p className="text-sm text-muted-foreground text-center py-4 border rounded-md">
+            还没有备注。给这个用户写点说明,以后翻到他时一眼能想起来是谁。
+          </p>
+        )}
+
+        {notes.map((n) => (
+          <div key={n.id} className="rounded-md border bg-background p-3 space-y-1.5">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>
+                {formatDate(n.created_at)} · admin {n.admin_id.slice(0, 8)}…
+                {n.updated_at !== n.created_at && (
+                  <span className="ml-2 italic">(已编辑)</span>
+                )}
+              </span>
+              <button
+                type="button"
+                onClick={() => handleDelete(n.id)}
+                className="text-destructive hover:underline flex items-center gap-1"
+              >
+                <Trash2 className="h-3 w-3" /> 删除
+              </button>
+            </div>
+            <div className="text-sm whitespace-pre-wrap leading-relaxed">{n.content}</div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   )
 }
 

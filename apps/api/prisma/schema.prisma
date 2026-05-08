@@ -48,6 +48,12 @@ model User {
   birth_year Int?
   city       String?
 
+  // === Admin 内部字段(用户不可见,只在 admin 后台展示)===
+  // spec-014 用户颗粒度管理:运营给用户起的别名 / 简称,用于列表快速识别
+  // 例:"老王-创始人朋友" / "张总-投资人内测" / "客服 case#42"
+  // 列表搜索能命中,跟 nickname 一起展示
+  admin_alias String? @db.VarChar(100)
+
   // 产品状态
   usage_stage    UsageStage @default(NEWBIE)
   total_sessions Int        @default(0)
@@ -943,6 +949,23 @@ model AnnotationItem {
 }
 
 // === 模块 D:隐性反馈采集(用户行为埋点)===
+
+// === 用户颗粒度管理(spec-014)===
+// 用户备注 — admin 内部用,**用户不可见**
+// 一个用户可以有多条备注(客服互动记录、运营标记等),按时间倒序展示
+model UserNote {
+  id       String @id @default(cuid())
+  user_id  String
+  // 写备注的 admin_user_id(可追溯责任人)
+  admin_id String
+  content  String @db.Text
+
+  created_at DateTime @default(now()) @db.Timestamptz
+  updated_at DateTime @updatedAt @db.Timestamptz
+
+  @@index([user_id, created_at])
+  @@map("user_notes")
+}
 
 model BehaviorEvent {
   id              String  @id @default(cuid())

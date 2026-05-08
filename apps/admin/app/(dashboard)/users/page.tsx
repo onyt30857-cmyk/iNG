@@ -20,6 +20,8 @@ import {
 interface UserItem {
   id: string
   nickname: string | null
+  /** spec-014:admin 内部别名,运营给用户起的简称 */
+  admin_alias: string | null
   avatar_url: string | null
   wechat_open_id_hint: string | null
   usage_stage: string
@@ -109,7 +111,7 @@ export default function UsersListPage() {
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <Input
               type="search"
-              placeholder="搜 nickname / openid / id"
+              placeholder="搜运营备注名 / 昵称 / openid / ID"
               className="w-64 pl-8"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
@@ -191,7 +193,22 @@ export default function UsersListPage() {
             {data?.items.map((u) => (
               <TableRow key={u.id}>
                 <TableCell className="font-medium">
-                  {u.nickname ?? <span className="text-muted-foreground">未填</span>}
+                  {/* spec-014:运营备注名优先显示,昵称其次 */}
+                  {u.admin_alias ? (
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <span>{u.admin_alias}</span>
+                        <span className="text-[10px] bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400 px-1.5 py-0.5 rounded">
+                          运营备注
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground font-normal">
+                        {u.nickname ?? '未填昵称'}
+                      </div>
+                    </div>
+                  ) : (
+                    u.nickname ?? <span className="text-muted-foreground">未填</span>
+                  )}
                 </TableCell>
                 <TableCell className="font-mono text-xs text-muted-foreground">
                   {u.id.slice(0, 8)}…

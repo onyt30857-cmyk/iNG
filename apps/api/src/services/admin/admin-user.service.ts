@@ -25,6 +25,8 @@ export interface UserListFilter {
 export interface UserListItem {
   id: string
   nickname: string | null
+  /** spec-014:admin 内部别名,用户不可见,列表显示用 */
+  admin_alias: string | null
   avatar_url: string | null
   wechat_open_id_hint: string | null // 脱敏:只返前 4 + 后 2(没 openid 返 null)
   usage_stage: string
@@ -62,10 +64,13 @@ export async function listUsers(filter: UserListFilter): Promise<UserListResult>
   }
   // 'all' 或 undefined → 不过滤
 
-  // 搜索:nickname / openid 模糊;id 完全匹配前缀
+  // 搜索:nickname / admin_alias / openid 模糊;id 完全匹配前缀
+  // spec-014:admin_alias(运营备注的别名)是最重要的搜索维度 — 没昵称的匿名用户
+  // 全靠这个别名找
   if (filter.search && filter.search.trim()) {
     const q = filter.search.trim()
     where.OR = [
+      { admin_alias: { contains: q, mode: 'insensitive' } },
       { nickname: { contains: q, mode: 'insensitive' } },
       { wechat_open_id: { contains: q } },
       { id: { startsWith: q } },
@@ -93,6 +98,7 @@ export async function listUsers(filter: UserListFilter): Promise<UserListResult>
       select: {
         id: true,
         nickname: true,
+        admin_alias: true,
         avatar_url: true,
         wechat_open_id: true,
         usage_stage: true,
@@ -118,6 +124,7 @@ export async function listUsers(filter: UserListFilter): Promise<UserListResult>
     items: users.map((u) => ({
       id: u.id,
       nickname: u.nickname,
+      admin_alias: u.admin_alias,
       avatar_url: u.avatar_url,
       wechat_open_id_hint: maskOpenId(u.wechat_open_id),
       usage_stage: u.usage_stage,
@@ -139,6 +146,7 @@ export interface UserDetailResult {
   user: {
     id: string
     nickname: string | null
+    admin_alias: string | null
     avatar_url: string | null
     gender: string | null
     birth_year: number | null
@@ -150,6 +158,13 @@ export interface UserDetailResult {
     created_at: Date
     deleted_at: Date | null
   }
+  notes: Array<{
+    id: string
+    admin_id: string
+    content: string
+    created_at: Date
+    updated_at: Date
+  }>
   relationships: Array<{
     id: string
     name: string
@@ -195,6 +210,7 @@ export async function getUserDetail(userId: string): Promise<UserDetailResult> {
     select: {
       id: true,
       nickname: true,
+      admin_alias: true,
       avatar_url: true,
       gender: true,
       birth_year: true,
@@ -210,7 +226,7 @@ export async function getUserDetail(userId: string): Promise<UserDetailResult> {
   if (!user) throw errors.notFound('用户不存在')
 
   // 并行查所有聚合数据
-  const [relationships, subscriptions, payments, feedbackRows, redLineHistory] =
+  const [relationships, subscriptions, payments, feedbackRows, redLineHistory, notes] =
     await Promise.all([
       prisma.relationship.findMany({
         where: { user_id: userId },
@@ -268,6 +284,18 @@ export async function getUserDetail(userId: string): Promise<UserDetailResult> {
           created_at: true,
         },
       }),
+      // spec-014:用户备注(admin 内部,用户不可见)
+      prisma.userNote.findMany({
+        where: { user_id: userId },
+        orderBy: { created_at: 'desc' },
+        select: {
+          id: true,
+          admin_id: true,
+          content: true,
+          created_at: true,
+          updated_at: true,
+        },
+      }),
     ])
 
   // feedback_summary 整理
@@ -282,6 +310,7 @@ export async function getUserDetail(userId: string): Promise<UserDetailResult> {
     user: {
       id: user.id,
       nickname: user.nickname,
+      admin_alias: user.admin_alias,
       avatar_url: user.avatar_url,
       gender: user.gender,
       birth_year: user.birth_year,
@@ -293,6 +322,7 @@ export async function getUserDetail(userId: string): Promise<UserDetailResult> {
       created_at: user.created_at,
       deleted_at: user.deleted_at,
     },
+    notes,
     relationships: relationships.map((r) => ({
       id: r.id,
       name: r.name,
@@ -404,6 +434,89 @@ export async function getUserQuotaForAdmin(userId: string) {
       heavy: usageByDay.get(day)?.heavy_count ?? 0,
     })),
   }
+}
+
+// === spec-014 用户颗粒度管理 ===
+
+/**
+ * 更新 admin 别名 — 用户不可见,只在 admin 后台展示
+ * 传 null/empty string 等于清空别名
+ */
+export async function updateAdminAlias(userId: string, alias: string | null) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, admin_alias: true },
+  })
+  if (!user) throw errors.notFound('用户不存在')
+
+  const trimmed = alias?.trim()
+  const newValue = trimmed && trimmed.length > 0 ? trimmed : null
+  if (newValue && newValue.length > 100) {
+    throw errors.validation('别名最多 100 个字符')
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { admin_alias: newValue },
+  })
+
+  return {
+    user_id: userId,
+    before: user.admin_alias,
+    after: newValue,
+  }
+}
+
+/** 列出某用户的所有备注(详情页用)*/
+export async function listUserNotes(userId: string) {
+  return prisma.userNote.findMany({
+    where: { user_id: userId },
+    orderBy: { created_at: 'desc' },
+    select: {
+      id: true,
+      admin_id: true,
+      content: true,
+      created_at: true,
+      updated_at: true,
+    },
+  })
+}
+
+/** 加备注 */
+export async function addUserNote(userId: string, adminId: string, content: string) {
+  const trimmed = content.trim()
+  if (!trimmed) throw errors.validation('备注内容不能为空')
+  if (trimmed.length > 2000) throw errors.validation('单条备注最多 2000 字')
+
+  // 确认用户存在
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } })
+  if (!user) throw errors.notFound('用户不存在')
+
+  return prisma.userNote.create({
+    data: {
+      user_id: userId,
+      admin_id: adminId,
+      content: trimmed,
+    },
+    select: {
+      id: true,
+      admin_id: true,
+      content: true,
+      created_at: true,
+      updated_at: true,
+    },
+  })
+}
+
+/** 删除单条备注(只允许写备注的 admin 删自己的;ADMIN 角色除外) */
+export async function deleteUserNote(noteId: string, adminId: string, isSuperAdmin: boolean) {
+  const note = await prisma.userNote.findUnique({ where: { id: noteId } })
+  if (!note) throw errors.notFound('备注不存在')
+  if (!isSuperAdmin && note.admin_id !== adminId) {
+    throw errors.permissionDenied('只能删自己写的备注')
+  }
+  await prisma.userNote.delete({ where: { id: noteId } })
+  return { id: noteId, deleted: true }
 }
 
 /**
