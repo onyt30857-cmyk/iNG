@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Search } from 'lucide-react'
-import { adminGet } from '@/lib/api-client'
+import { Search, Trash2 } from 'lucide-react'
+import { adminFetch, adminGet } from '@/lib/api-client'
 import { formatDate } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -90,6 +90,17 @@ export default function UsersListPage() {
   const [status, setStatus] = useState('all')
   const [subscribed, setSubscribed] = useState('all')
 
+  // 空账户清理(spec-018)
+  const [cleanupOpen, setCleanupOpen] = useState(false)
+  const [cleanupDays, setCleanupDays] = useState(7)
+  const [cleanupPreview, setCleanupPreview] = useState<{
+    candidates: number
+    sample_ids: string[]
+    cutoff_at: string
+  } | null>(null)
+  const [cleanupRunning, setCleanupRunning] = useState(false)
+  const [cleanupResult, setCleanupResult] = useState<string | null>(null)
+
   useEffect(() => {
     let cancelled = false
     setLoading(true)
@@ -113,6 +124,64 @@ export default function UsersListPage() {
       cancelled = true
     }
   }, [page, search, status, subscribed])
+
+  // 清理空账户(spec-018):先 dry-run 看候选,再二次确认才真删
+  async function openCleanupAndPreview() {
+    setCleanupOpen(true)
+    setCleanupPreview(null)
+    setCleanupResult(null)
+    setCleanupRunning(true)
+    const res = await adminFetch<{
+      candidates: number
+      deleted: number
+      cutoff_at: string
+      dry_run: boolean
+      sample_ids: string[]
+    }>('/v1/admin/users/cleanup-empty', {
+      method: 'POST',
+      body: { days_old: cleanupDays, confirm: false },
+    })
+    setCleanupRunning(false)
+    if (res.ok) {
+      setCleanupPreview({
+        candidates: res.data.candidates,
+        sample_ids: res.data.sample_ids,
+        cutoff_at: res.data.cutoff_at,
+      })
+    } else {
+      setCleanupResult(`查询失败:${res.error.message}`)
+    }
+  }
+
+  async function confirmCleanup() {
+    if (!cleanupPreview || cleanupPreview.candidates === 0) return
+    setCleanupRunning(true)
+    const res = await adminFetch<{ deleted: number }>(
+      '/v1/admin/users/cleanup-empty',
+      {
+        method: 'POST',
+        body: { days_old: cleanupDays, confirm: true },
+      },
+    )
+    setCleanupRunning(false)
+    if (res.ok) {
+      setCleanupResult(`已清理 ${res.data.deleted} 个空账户(可在审计日志找到记录)`)
+      setCleanupPreview(null)
+      // 强刷列表:bump page 触发 useEffect 重跑
+      setPage((p) => p)
+      // 更可靠:直接重新调
+      const reload = await adminGet<UserListResponse>('/v1/admin/users', {
+        page,
+        pageSize: PAGE_SIZE,
+        search: search || undefined,
+        status,
+        subscribed,
+      })
+      if (reload.ok) setData(reload.data)
+    } else {
+      setCleanupResult(`清理失败:${res.error.message}`)
+    }
+  }
 
   function handleSearchSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -178,6 +247,16 @@ export default function UsersListPage() {
             </option>
           ))}
         </select>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-auto gap-1 text-amber-700 hover:text-amber-800 border-amber-200"
+          onClick={openCleanupAndPreview}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          清理空账户
+        </Button>
       </div>
 
       {/* 错误 */}
@@ -330,6 +409,89 @@ export default function UsersListPage() {
             >
               下一页
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* 清理空账户 modal(spec-018)*/}
+      {cleanupOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setCleanupOpen(false)}
+        >
+          <div
+            className="w-full max-w-md bg-background rounded-lg shadow-lg p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Trash2 className="h-4 w-4 text-amber-700" />
+              清理空账户
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              清"注册超过 N 天 + 一条消息也没发 + 没走完 onboarding"的账户。已 onboard 的用户哪怕没消息也保留(他们至少表达了意愿)。
+            </p>
+
+            <div className="flex items-center gap-2">
+              <label className="text-sm">注册超过</label>
+              <Input
+                type="number"
+                min={1}
+                max={90}
+                className="w-20"
+                value={cleanupDays}
+                onChange={(e) => setCleanupDays(Number(e.target.value) || 7)}
+                disabled={cleanupRunning || !!cleanupPreview}
+              />
+              <span className="text-sm">天</span>
+              {!cleanupPreview && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={openCleanupAndPreview}
+                  disabled={cleanupRunning}
+                  className="ml-auto"
+                >
+                  {cleanupRunning ? '查询中…' : '预览候选'}
+                </Button>
+              )}
+            </div>
+
+            {cleanupPreview && (
+              <div className="rounded-md border bg-amber-50/50 dark:bg-amber-950/20 p-3 text-sm space-y-1">
+                <p>
+                  共 <strong className="text-amber-800 dark:text-amber-300">{cleanupPreview.candidates}</strong> 个候选(注册早于 {new Date(cleanupPreview.cutoff_at).toLocaleString('zh-CN')})
+                </p>
+                {cleanupPreview.sample_ids.length > 0 && (
+                  <p className="text-xs text-muted-foreground font-mono">
+                    sample: {cleanupPreview.sample_ids.slice(0, 3).join(', ')}
+                  </p>
+                )}
+                {cleanupPreview.candidates === 0 && (
+                  <p className="text-xs">没有要清理的,直接关掉就行</p>
+                )}
+              </div>
+            )}
+
+            {cleanupResult && (
+              <div className="rounded-md border border-green-300 bg-green-50/50 dark:bg-green-950/20 p-3 text-sm">
+                {cleanupResult}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setCleanupOpen(false)}>
+                关闭
+              </Button>
+              {cleanupPreview && cleanupPreview.candidates > 0 && !cleanupResult && (
+                <Button
+                  variant="destructive"
+                  onClick={confirmCleanup}
+                  disabled={cleanupRunning}
+                >
+                  {cleanupRunning ? '清理中…' : `确认清理 ${cleanupPreview.candidates} 个`}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       )}

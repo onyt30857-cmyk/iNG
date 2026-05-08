@@ -24,6 +24,7 @@ import {
   listUserNotes,
   addUserNote,
   deleteUserNote,
+  cleanupEmptyUsers,
 } from '../../../services/admin/admin-user.service.js'
 import {
   listUserTags,
@@ -177,6 +178,37 @@ export async function adminUserRoutes(app: FastifyInstance): Promise<void> {
     const { userId } = userIdParamsSchema.parse(request.params)
     const quota = await getUserQuotaForAdmin(userId)
     return { ok: true, data: quota }
+  })
+
+  // POST /v1/admin/users/cleanup-empty — 批量清理空账户(spec-018)
+  // body: { days_old?: number, confirm?: boolean }
+  // confirm=false(默认)= dry-run 只返候选数;confirm=true 才真删
+  app.post('/v1/admin/users/cleanup-empty', async (request) => {
+    const body = z
+      .object({
+        days_old: z.number().int().min(1).max(90).optional(),
+        confirm: z.boolean().optional(),
+      })
+      .parse(request.body ?? {})
+
+    const result = await cleanupEmptyUsers(body)
+
+    if (!result.dry_run) {
+      await recordAdminAudit(
+        request.admin!.id,
+        {
+          action: 'cleanup_empty_users',
+          target_type: 'user_batch',
+          target_id: 'cleanup',
+          before: { candidates: result.candidates },
+          after: { deleted: result.deleted, sample_ids: result.sample_ids },
+          reason: `cutoff_at=${result.cutoff_at.toISOString()} days_old=${body.days_old ?? 7}`,
+        },
+        request,
+      )
+    }
+
+    return { ok: true, data: result }
   })
 
   // ============== spec-014 用户颗粒度管理 ==============

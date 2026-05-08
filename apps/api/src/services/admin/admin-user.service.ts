@@ -579,6 +579,85 @@ export async function deleteUserNote(noteId: string, adminId: string, isSuperAdm
  * 注意:本函数只做"标记 deleted_at + 创建 deletion log",真删数据靠 deletion-cron worker
  * 跑(已经在跑,周期 1 小时)。如果要立刻真删,后续 admin 后台模块 7 加"立即执行" API。
  */
+/**
+ * spec-018:批量清理"空账户"
+ * 定义:created_at ≥ N 天前 + 没有任何 message + 未注销
+ * 行为:软删除(deleted_at = now)+ 不写 deletion log(避免污染真实用户的注销流)
+ * 限制:dry_run 默认 true,Sam 必须显式 confirm: true 才真的删
+ */
+export interface CleanupEmptyUsersInput {
+  /** 多少天前注册的算"空账户候选"。默认 7,最少 1,最多 90 */
+  days_old?: number
+  /** false = dry-run 仅返候选数量;true = 真删 */
+  confirm?: boolean
+}
+
+export interface CleanupEmptyUsersResult {
+  candidates: number
+  deleted: number
+  cutoff_at: Date
+  dry_run: boolean
+  sample_ids: string[]
+}
+
+export async function cleanupEmptyUsers(
+  input: CleanupEmptyUsersInput,
+): Promise<CleanupEmptyUsersResult> {
+  const days = Math.max(1, Math.min(90, input.days_old ?? 7))
+  const cutoff = new Date(Date.now() - days * 86400_000)
+
+  // 找候选:created_at ≤ cutoff + 未删除 + 没 message
+  // 用 raw SQL 一次性算更高效;但 Prisma 用 NOT exists 也行
+  const candidates = await prisma.user.findMany({
+    where: {
+      created_at: { lte: cutoff },
+      deleted_at: null,
+      sessions: { none: { messages: { some: {} } } },
+      // 同时要求"没有任何 onboarding"——已 onboard 的可能只是没发消息,留着
+      onboarding_completed_at: null,
+    },
+    select: { id: true },
+    take: 1000, // 安全上限
+  })
+
+  const sampleIds = candidates.slice(0, 5).map((c) => c.id)
+
+  if (!input.confirm) {
+    return {
+      candidates: candidates.length,
+      deleted: 0,
+      cutoff_at: cutoff,
+      dry_run: true,
+      sample_ids: sampleIds,
+    }
+  }
+
+  if (candidates.length === 0) {
+    return {
+      candidates: 0,
+      deleted: 0,
+      cutoff_at: cutoff,
+      dry_run: false,
+      sample_ids: [],
+    }
+  }
+
+  const ids = candidates.map((c) => c.id)
+  const now = new Date()
+  const result = await prisma.user.updateMany({
+    where: { id: { in: ids }, deleted_at: null },
+    data: { deleted_at: now },
+  })
+
+  return {
+    candidates: candidates.length,
+    deleted: result.count,
+    cutoff_at: cutoff,
+    dry_run: false,
+    sample_ids: sampleIds,
+  }
+}
+
 export async function forceDeleteUser(userId: string, reason: string) {
   const user = await prisma.user.findUnique({ where: { id: userId } })
   if (!user) throw errors.notFound('用户不存在')
