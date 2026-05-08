@@ -41,14 +41,68 @@ interface RequestOptions {
   token?: string
   /** 多关系隔离 - CLAUDE.md §5.1 Layer 1 */
   relationship_id?: string
+  /** 内部用:标记本次请求是 401 后的 silent reauth 重试,避免无限循环 */
+  _isReauthRetry?: boolean
+}
+
+/**
+ * Silent token refresh — 全局单飞(同一时间多个 401 共享一次 refresh)
+ * 成功 → 写新 token 进 store,返 true
+ * 失败 → 返 false,上层走原 401 路径
+ */
+let refreshInflight: Promise<boolean> | null = null
+async function tryRefresh(): Promise<boolean> {
+  if (refreshInflight) return refreshInflight
+  refreshInflight = (async () => {
+    try {
+      // 动态 import 绕过循环依赖(stores/user 已经 import client)
+      const { useUserStore } = await import('../stores/user')
+      const userStore = useUserStore()
+      const rt = userStore.refreshToken
+      if (!rt) return false
+
+      // 直接用 uni.request,不走 request() 防递归
+      const res: { token?: string; refresh_token?: string } = await new Promise((resolve) => {
+        uni.request({
+          url: `${BASE_URL}/auth/refresh`,
+          method: 'POST',
+          header: { 'Content-Type': 'application/json' },
+          data: { refresh_token: rt },
+          success: (r) => {
+            const body = r.data as { ok?: boolean; data?: { token: string; refresh_token: string } }
+            if (body?.ok && body.data) {
+              resolve({ token: body.data.token, refresh_token: body.data.refresh_token })
+            } else {
+              resolve({})
+            }
+          },
+          fail: () => resolve({}),
+        })
+      })
+
+      if (res.token && res.refresh_token) {
+        userStore.updateTokens({ token: res.token, refresh_token: res.refresh_token })
+        return true
+      }
+      return false
+    } finally {
+      // 一次 refresh 不论成败,允许下次新 refresh
+      setTimeout(() => { refreshInflight = null }, 0)
+    }
+  })()
+  return refreshInflight
 }
 
 /**
  * 统一调 API。失败时按 api-design.md 规范返回 FailResponse,
  * 网络错误也包成 FailResponse,业务代码不用 try-catch。
+ *
+ * AUTH_EXPIRED 自动 silent reauth(2026-05-08):
+ *   401 AUTH_EXPIRED → 用 refresh_token 换新 access → 重发原请求
+ *   refresh 失败或非 EXPIRED → 不重试,返回原 fail
  */
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<ApiResponse<T>> {
-  const { method = 'GET', data, token, relationship_id } = options
+  const { method = 'GET', data, token, relationship_id, _isReauthRetry } = options
 
   const header: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -56,17 +110,13 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   if (token) header['Authorization'] = `Bearer ${token}`
   if (relationship_id) header['X-Relationship-Id'] = relationship_id
 
-  return new Promise((resolve) => {
+  const res = await new Promise<ApiResponse<T>>((resolve) => {
     uni.request({
       url: `${BASE_URL}${path}`,
-      // uni-app 类型定义没列 PATCH,但 H5/小程序运行时都接受;cast 绕过类型限制
       method: method as 'GET' | 'POST' | 'PUT' | 'DELETE',
       data,
       header,
-      success: (res) => {
-        // 后端返回的就是 ApiResponse 格式
-        resolve(res.data as ApiResponse<T>)
-      },
+      success: (r) => resolve(r.data as ApiResponse<T>),
       fail: (err) => {
         resolve({
           ok: false,
@@ -79,6 +129,23 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       },
     })
   })
+
+  // 401 access token 过期 → silent reauth + 重试一次
+  if (
+    !res.ok &&
+    res.error.code === 'AUTH_EXPIRED' &&
+    !_isReauthRetry &&
+    token  // 只有携带 token 的请求才尝试 refresh(无 token 不算过期)
+  ) {
+    const refreshed = await tryRefresh()
+    if (refreshed) {
+      const { useUserStore } = await import('../stores/user')
+      const newToken = useUserStore().token ?? undefined
+      return request<T>(path, { ...options, token: newToken, _isReauthRetry: true })
+    }
+  }
+
+  return res
 }
 
 // 快捷方法
