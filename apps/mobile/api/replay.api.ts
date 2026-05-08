@@ -88,8 +88,6 @@ async function streamHTTPCommon(
   // (本来这里写死 https://api.lianai.com/v1,生产模式 DNS 解析失败 → Failed to fetch)
   const url = `${BASE_URL}${endpoint}`
 
-  // eslint-disable-next-line no-console
-  console.log('[stream] fetch start', url)
   let response: Response
   try {
     response = await fetch(url, {
@@ -101,20 +99,10 @@ async function streamHTTPCommon(
       body: JSON.stringify(body),
     })
   } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error('[stream] fetch threw', e)
     throw new Error(
       `网络层失败: ${e instanceof Error ? e.message : String(e)}`,
     )
   }
-
-  // eslint-disable-next-line no-console
-  console.log('[stream] response', {
-    status: response.status,
-    ok: response.ok,
-    hasBody: !!response.body,
-    contentType: response.headers.get('content-type'),
-  })
 
   if (!response.ok) {
     const text = await response.text().catch(() => '<no body>')
@@ -140,8 +128,6 @@ async function streamHTTPCommon(
     tail = (tail + chunk).slice(-200)
   }
 
-  // eslint-disable-next-line no-console
-  console.log('[stream] done', { chunks: chunkCount, totalChars: totalLen })
 
   if (tail.includes('[STREAM_ERROR]')) {
     throw new Error(tail.split('[STREAM_ERROR]').pop()?.trim() ?? 'stream error')
