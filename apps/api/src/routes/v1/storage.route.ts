@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { requireAuth } from '../../middleware/auth.js'
 import { putAvatar } from '../../services/storage/storage.service.js'
 import { config } from '../../config/index.js'
-import { getSupabaseClient, isSupabaseConfigured } from '../../lib/supabase.js'
+import { getSupabaseClient, isSupabaseConfigured, lastInitError } from '../../lib/supabase.js'
 
 const avatarBodySchema = z.object({
   // 上限 1MB(base64 + dataURL prefix 约 1.4M),防止恶意上传
@@ -49,7 +49,16 @@ export async function storageRoutes(app: FastifyInstance): Promise<void> {
     // 真做一次上传测试,暴露完整 supabase 错误细节
     if (isSupabaseConfigured()) {
       try {
-        const sb = getSupabaseClient()!
+        const sb = getSupabaseClient()
+        if (!sb) {
+          // client 创建失败,看 lastInitError 的真错
+          status.upload_test = {
+            ok: false,
+            client_is_null: true,
+            init_error: lastInitError ?? '(no error captured)',
+          }
+          return { ok: true, data: status }
+        }
         const testPath = `_diagnostic/${Date.now()}.txt`
         const buf = Buffer.from('lianai diagnostic ping', 'utf-8')
 
