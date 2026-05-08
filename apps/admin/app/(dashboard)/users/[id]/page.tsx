@@ -90,6 +90,10 @@ interface UserDetail {
     deleted_at: string | null
     created_at: string
     last_message_at: string | null
+    /** spec-016 聚合指标 */
+    message_count: number
+    dislike_count: number
+    persona_fail_count: number
   }>
   subscriptions: Array<{
     id: string
@@ -231,17 +235,56 @@ export default function UserDetailPage() {
               <KpiBlock icon={<MessageSquare className="h-4 w-4" />} label="💬" value={data.feedback_summary.comments} />
             </div>
 
-            {/* 关系 */}
-            <ListSection
-              title="关系档案"
-              empty="还没有关系档案"
-              items={data.relationships.map((r) => ({
-                key: r.id,
-                primary: r.name,
-                secondary: `${r.stage}${r.archived ? ' · 归档' : ''}${r.deleted_at ? ' · 已删' : ''}`,
-                trailing: formatDate(r.last_message_at ?? r.created_at),
-              }))}
-            />
+            {/* 关系档案(spec-016 加聚合标记 + 看对话跳转) */}
+            <div>
+              <h3 className="text-sm font-medium mb-2">
+                关系档案({data.relationships.length})
+              </h3>
+              {data.relationships.length === 0 ? (
+                <p className="text-xs text-muted-foreground border rounded-md px-3 py-2">
+                  还没有关系档案
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {data.relationships.slice(0, 8).map((r) => (
+                    <div key={r.id} className="border rounded-md px-3 py-2.5 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-sm">{r.name}</span>
+                          <Badge variant="muted">{r.stage}</Badge>
+                          {r.archived && <Badge variant="muted">归档</Badge>}
+                          {r.deleted_at && <Badge variant="destructive">已删</Badge>}
+                        </div>
+                        <Button asChild variant="outline" size="sm">
+                          <Link href={`/conversations/${r.id}`}>看对话 →</Link>
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                        <span>{r.message_count} 条消息</span>
+                        {r.last_message_at && (
+                          <span>· 最后 {formatDate(r.last_message_at)}</span>
+                        )}
+                        {r.dislike_count > 0 && (
+                          <span className="inline-flex items-center gap-0.5 text-red-600">
+                            <ThumbsDown className="h-3 w-3" /> {r.dislike_count} 次吐槽
+                          </span>
+                        )}
+                        {r.persona_fail_count > 0 && (
+                          <span className="inline-flex items-center gap-0.5 text-amber-600">
+                            🤖 出格 {r.persona_fail_count} 次
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {data.relationships.length > 8 && (
+                    <p className="text-xs text-muted-foreground text-center">
+                      还有 {data.relationships.length - 8} 段关系…
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* 订阅 */}
             <ListSection

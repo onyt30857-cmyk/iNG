@@ -202,6 +202,10 @@ export interface UserDetailResult {
     deleted_at: Date | null
     created_at: Date
     last_message_at: Date | null
+    /** spec-016:关系级聚合指标(给关系卡片标记 chip 用)*/
+    message_count: number
+    dislike_count: number
+    persona_fail_count: number
   }>
   subscriptions: Array<{
     id: string
@@ -257,20 +261,12 @@ export async function getUserDetail(userId: string): Promise<UserDetailResult> {
   // 并行查所有聚合数据
   const [relationships, subscriptions, payments, feedbackRows, redLineHistory, notes, tags] =
     await Promise.all([
-      prisma.relationship.findMany({
-        where: { user_id: userId },
-        orderBy: { updated_at: 'desc' },
-        take: 50,
-        select: {
-          id: true,
-          name: true,
-          stage: true,
-          archived: true,
-          deleted_at: true,
-          created_at: true,
-          updated_at: true,
-        },
-      }),
+      // spec-016:用 listUserRelationshipsWithStats 一次拉所有关系 + 聚合指标
+      // (动态 import 防循环依赖)
+      (async () => {
+        const { listUserRelationshipsWithStats } = await import('./admin-conversation.service.js')
+        return listUserRelationshipsWithStats(userId)
+      })(),
       prisma.subscription.findMany({
         where: { user_id: userId },
         orderBy: { started_at: 'desc' },
@@ -373,7 +369,10 @@ export async function getUserDetail(userId: string): Promise<UserDetailResult> {
       archived: r.archived,
       deleted_at: r.deleted_at,
       created_at: r.created_at,
-      last_message_at: r.updated_at,
+      last_message_at: r.last_message_at,
+      message_count: r.message_count,
+      dislike_count: r.dislike_count,
+      persona_fail_count: r.persona_fail_count,
     })),
     subscriptions,
     payments: payments.map((p) => ({
