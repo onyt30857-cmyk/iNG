@@ -31,47 +31,47 @@ datasource db {
 // ============================================================
 
 model User {
-  id              String    @id @default(cuid())
+  id String @id @default(cuid())
 
   // 微信登录信息(spec-002 微信扫码,改 optional 让匿名账户也能存在)
-  wechat_open_id  String?   @unique
-  wechat_union_id String?   @unique
+  wechat_open_id  String? @unique
+  wechat_union_id String? @unique
 
   // 匿名账户备份码 hash(bcrypt) — 用户在新设备输 backup_code 凭这个恢复账户
   // 不存明文,不可追溯到原码
-  backup_code_hash String?  @db.Text
-  
+  backup_code_hash String? @db.Text
+
   // 用户填写信息
-  nickname        String?
-  avatar_url      String?
-  gender          Gender?
-  birth_year      Int?
-  city            String?
-  
+  nickname   String?
+  avatar_url String?
+  gender     Gender?
+  birth_year Int?
+  city       String?
+
   // 产品状态
-  usage_stage     UsageStage @default(NEWBIE)
-  total_sessions  Int        @default(0)
-  
+  usage_stage    UsageStage @default(NEWBIE)
+  total_sessions Int        @default(0)
+
   // 用户语气指纹(JSON 存储)
   // 详见 user-language-fingerprint 表
-  
+
   // 时间
-  created_at      DateTime  @default(now()) @db.Timestamptz
-  updated_at      DateTime  @updatedAt @db.Timestamptz
-  deleted_at      DateTime? @db.Timestamptz
-  
+  created_at DateTime  @default(now()) @db.Timestamptz
+  updated_at DateTime  @updatedAt @db.Timestamptz
+  deleted_at DateTime? @db.Timestamptz
+
   // 关系
-  relationships         Relationship[]
-  sessions              Session[]
-  language_fingerprint  UserLanguageFingerprint?
-  patterns              UserPattern[]
-  growth_reports        GrowthReport[]
-  subscriptions         Subscription[]
-  payments              Payment[]
-  data_deletions        DataDeletionLog[]
-  
-  @@map("users")
+  relationships        Relationship[]
+  sessions             Session[]
+  language_fingerprint UserLanguageFingerprint?
+  patterns             UserPattern[]
+  growth_reports       GrowthReport[]
+  subscriptions        Subscription[]
+  payments             Payment[]
+  data_deletions       DataDeletionLog[]
+
   @@index([deleted_at])
+  @@map("users")
 }
 
 enum Gender {
@@ -82,68 +82,68 @@ enum Gender {
 
 // 使用阶段:决定 AI 介入程度
 enum UsageStage {
-  NEWBIE       // 新手:前 30 天/30 次
-  FAMILIAR     // 熟悉:30-90 天/30-90 次
-  ADVANCED     // 进阶:90 天+
+  NEWBIE // 新手:前 30 天/30 次
+  FAMILIAR // 熟悉:30-90 天/30-90 次
+  ADVANCED // 进阶:90 天+
 }
 
 // 用户语气指纹(独立表方便累积更新)
 model UserLanguageFingerprint {
-  id                String  @id @default(cuid())
-  user_id           String  @unique
-  
+  id      String @id @default(cuid())
+  user_id String @unique
+
   // 用户的字词偏好(JSON 数组)
   // 例: ["哈哈", "嗯", "好的", "哎呀"]
   preferred_phrases String[]
-  
+
   // 标点习惯
-  uses_emoji        Boolean @default(false)
-  uses_period       Boolean @default(true)  // 是否爱用句号
-  message_length    String  @default("medium") // short / medium / long
-  
+  uses_emoji     Boolean @default(false)
+  uses_period    Boolean @default(true) // 是否爱用句号
+  message_length String  @default("medium") // short / medium / long
+
   // 语气强度 0-100
-  formality         Int     @default(50)    // 越高越正式
-  emotionality      Int     @default(50)    // 越高越情绪化
-  
+  formality    Int @default(50) // 越高越正式
+  emotionality Int @default(50) // 越高越情绪化
+
   // 累积样本数
-  sample_count      Int     @default(0)
-  
+  sample_count Int @default(0)
+
   // 实际样本(用于 few-shot)
   // 存最近 30 条用户的真实输出
-  recent_samples    Json    @default("[]")
-  
-  updated_at        DateTime @updatedAt @db.Timestamptz
-  
+  recent_samples Json @default("[]")
+
+  updated_at DateTime @updatedAt @db.Timestamptz
+
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  
+
   @@map("user_language_fingerprints")
 }
 
 // 用户行为模式(由 Pattern Detector 异步生成)
 model UserPattern {
-  id              String   @id @default(cuid())
-  user_id         String
-  
-  pattern_type    String   // 例: "灾难化思维" / "安全行为" / "羞耻陈述"
-  description     String   // 具体描述
-  
+  id      String @id @default(cuid())
+  user_id String
+
+  pattern_type String // 例: "灾难化思维" / "安全行为" / "羞耻陈述"
+  description  String // 具体描述
+
   // 出处:这个模式从哪几个 session 提取的
   source_sessions String[] // session_id 数组
-  
-  occurrences     Int      @default(1)
-  first_seen_at   DateTime @db.Timestamptz
-  last_seen_at    DateTime @db.Timestamptz
-  
+
+  occurrences   Int      @default(1)
+  first_seen_at DateTime @db.Timestamptz
+  last_seen_at  DateTime @db.Timestamptz
+
   // 用户是否已经看到这条模式(在月度报告中)
-  surfaced        Boolean  @default(false)
-  
-  created_at      DateTime @default(now()) @db.Timestamptz
-  deleted_at      DateTime? @db.Timestamptz
-  
+  surfaced Boolean @default(false)
+
+  created_at DateTime  @default(now()) @db.Timestamptz
+  deleted_at DateTime? @db.Timestamptz
+
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  
-  @@map("user_patterns")
+
   @@index([user_id, deleted_at])
+  @@map("user_patterns")
 }
 
 // ============================================================
@@ -151,119 +151,119 @@ model UserPattern {
 // ============================================================
 
 model Relationship {
-  id              String   @id @default(cuid())
-  user_id         String
-  
+  id      String @id @default(cuid())
+  user_id String
+
   // 用户给这段关系起的名字
-  name            String   // 例: "小雨"
-  
+  name String // 例: "小雨"
+
   // 头像(渐变色 hash 或上传 URL)
-  avatar_seed     String?
-  avatar_url      String?
-  
+  avatar_seed String?
+  avatar_url  String?
+
   // 关系阶段(用户填,产品识别)
-  stage           RelationshipStage @default(INIT)
-  
+  stage RelationshipStage @default(INIT)
+
   // 用户填写的基础事实(JSON)
   // 例: { how_met: "朋友介绍", first_met_at: "2024-03", key_facts: ["喜欢爵士乐"] }
-  basic_facts     Json     @default("{}")
-  
+  basic_facts Json @default("{}")
+
   // 用户提醒老 K 的注意事项(JSON 数组)
-  user_reminders  Json     @default("[]")
-  
+  user_reminders Json @default("[]")
+
   // 是否归档
-  archived        Boolean  @default(false)
-  
+  archived Boolean @default(false)
+
   // 时间
-  created_at      DateTime @default(now()) @db.Timestamptz
-  updated_at      DateTime @updatedAt @db.Timestamptz
-  deleted_at      DateTime? @db.Timestamptz
-  
+  created_at DateTime  @default(now()) @db.Timestamptz
+  updated_at DateTime  @updatedAt @db.Timestamptz
+  deleted_at DateTime? @db.Timestamptz
+
   // 关系
-  user            User                       @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  sessions        Session[]
-  observations    RelationshipObservation[]
-  assertions      ProfileAssertion[]
-  
-  @@map("relationships")
+  user         User                      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  sessions     Session[]
+  observations RelationshipObservation[]
+  assertions   ProfileAssertion[]
+
   @@index([user_id, archived, deleted_at])
+  @@map("relationships")
 }
 
 enum RelationshipStage {
-  INIT          // 初识
-  FLIRTING      // 暧昧
-  COMMITTED     // 在一起
-  CONFLICT      // 冲突中
-  RECOVERY      // 挽回中
-  ENDED         // 已结束
+  INIT // 初识
+  FLIRTING // 暧昧
+  COMMITTED // 在一起
+  CONFLICT // 冲突中
+  RECOVERY // 挽回中
+  ENDED // 已结束
 }
 
 // 关系观察:每条带 source 追溯
 // 这是数据壁垒的核心
 model RelationshipObservation {
-  id                  String   @id @default(cuid())
-  relationship_id     String   // ★ 强制约束
-  
-  observation_text    String   @db.Text
-  
+  id              String @id @default(cuid())
+  relationship_id String // ★ 强制约束
+
+  observation_text String @db.Text
+
   // 出处
-  source_session_id   String?
-  source_message_ids  String[] // message_id 数组
-  
+  source_session_id  String?
+  source_message_ids String[] // message_id 数组
+
   // 类型:对方的事实 / 用户的反思 / 关系动态等
-  observation_type    String
-  
+  observation_type String
+
   // 置信度 0-1 (Profile Updater 提取时的置信度)
-  confidence          Float    @default(0.5)
-  
+  confidence Float @default(0.5)
+
   // 是否被用户标记"这条不准"
-  user_disputed       Boolean  @default(false)
-  user_dispute_note   String?
-  
+  user_disputed     Boolean @default(false)
+  user_dispute_note String?
+
   // 是否提升到 profile_assertions
-  promoted            Boolean  @default(false)
-  
+  promoted Boolean @default(false)
+
   // 向量化(M2 启用)
   // embedding         Unsupported("vector(1536)")?
-  
-  created_at          DateTime @default(now()) @db.Timestamptz
-  deleted_at          DateTime? @db.Timestamptz
-  
+
+  created_at DateTime  @default(now()) @db.Timestamptz
+  deleted_at DateTime? @db.Timestamptz
+
   relationship Relationship @relation(fields: [relationship_id], references: [id], onDelete: Cascade)
-  
-  @@map("relationship_observations")
+
   @@index([relationship_id, deleted_at])
   @@index([source_session_id])
+  @@map("relationship_observations")
 }
 
 // 高频核心断言:从多次 observation 凝练出来
 // Prompt 组装时优先注入这一层
 model ProfileAssertion {
-  id                String   @id @default(cuid())
-  relationship_id   String   // ★ 强制约束
-  
-  assertion_text    String   @db.Text  // 例: "她不喜欢被催"
-  
+  id              String @id @default(cuid())
+  relationship_id String // ★ 强制约束
+
+  assertion_text String @db.Text // 例: "她不喜欢被催"
+
   // 这个断言基于哪几个 observation
   source_observation_ids String[]
-  
+
   // 置信度(由多个 observation 累积)
-  confidence        Float
-  
+  confidence Float
+
   // 用户是否标记不准
-  user_disputed     Boolean  @default(false)
-  
+  user_disputed Boolean @default(false)
+
   // 优先级(决定 prompt 中的顺序)
-  priority          Int      @default(50)
-  
-  created_at        DateTime @default(now()) @db.Timestamptz
-  updated_at        DateTime @updatedAt @db.Timestamptz
-  deleted_at        DateTime? @db.Timestamptz
-  
+  priority Int @default(50)
+
+  created_at DateTime  @default(now()) @db.Timestamptz
+  updated_at DateTime  @updatedAt @db.Timestamptz
+  deleted_at DateTime? @db.Timestamptz
+
   relationship Relationship @relation(fields: [relationship_id], references: [id], onDelete: Cascade)
-  
-  @@map("profile_assertions")
+
   @@index([relationship_id, deleted_at, priority])
+  @@map("profile_assertions")
 }
 
 // ============================================================
@@ -271,46 +271,46 @@ model ProfileAssertion {
 // ============================================================
 
 model Session {
-  id                String   @id @default(cuid())
-  user_id           String
-  relationship_id   String   // ★ 强制约束
-  
+  id              String @id @default(cuid())
+  user_id         String
+  relationship_id String // ★ 强制约束
+
   // 状态机当前状态
-  state             SessionState @default(ENTRY)
-  
+  state SessionState @default(ENTRY)
+
   // 场景识别结果(JSON)
   // 例: { primary: "FLIRT_008", secondary: ["FLIRT_005"], confidence: 0.85 }
-  scenario          Json?
-  
+  scenario Json?
+
   // 用户在 ENTRY 阶段填的简单描述
-  entry_note        String?
-  
+  entry_note String?
+
   // 状态机的 context(完整快照)
   // 用 XState 的 state.context 序列化
-  state_context     Json     @default("{}")
-  
+  state_context Json @default("{}")
+
   // 是否触发危机干预
-  crisis_triggered  Boolean  @default(false)
-  
+  crisis_triggered Boolean @default(false)
+
   // 是否触发红线(不进入用户成长档案)
   red_line_triggered Boolean @default(false)
-  
+
   // 时间
-  started_at        DateTime @default(now()) @db.Timestamptz
-  closed_at         DateTime? @db.Timestamptz
-  updated_at        DateTime @updatedAt @db.Timestamptz
-  deleted_at        DateTime? @db.Timestamptz
-  
+  started_at DateTime  @default(now()) @db.Timestamptz
+  closed_at  DateTime? @db.Timestamptz
+  updated_at DateTime  @updatedAt @db.Timestamptz
+  deleted_at DateTime? @db.Timestamptz
+
   // 关系
-  user              User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  relationship      Relationship      @relation(fields: [relationship_id], references: [id], onDelete: Cascade)
+  user              User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  relationship      Relationship     @relation(fields: [relationship_id], references: [id], onDelete: Cascade)
   messages          Message[]
   reflections       UserReflection[]
   generated_replies GeneratedReply[]
-  
-  @@map("sessions")
+
   @@index([user_id, closed_at])
   @@index([relationship_id, closed_at])
+  @@map("sessions")
 }
 
 enum SessionState {
@@ -325,103 +325,103 @@ enum SessionState {
 
 // 消息(对话内容)
 model Message {
-  id              String   @id @default(cuid())
+  id              String @id @default(cuid())
   session_id      String
-  relationship_id String   // ★ 冗余存储,方便审计和过滤
-  
+  relationship_id String // ★ 冗余存储,方便审计和过滤
+
   // 角色
-  role            MessageRole
-  
+  role MessageRole
+
   // 内容(用户消息可能是文本或截图)
-  content         String?  @db.Text
-  
+  content String? @db.Text
+
   // 截图相关(role = USER_SCREENSHOT 时使用)
-  screenshot_url  String?
-  ocr_result      Json?    // OCR 识别后的结构化数据
-  
+  screenshot_url String?
+  ocr_result     Json? // OCR 识别后的结构化数据
+
   // AI 调用相关(role = LAOKE 时使用)
-  model           String?  // "claude-sonnet-4" / "gemini-2.5-flash"
-  prompt_tokens   Int?
+  model             String? // "claude-sonnet-4" / "gemini-2.5-flash"
+  prompt_tokens     Int?
   completion_tokens Int?
-  cost_usd        Float?
-  
+  cost_usd          Float?
+
   // 是否是流式输出(还在生成中?)
-  is_streaming    Boolean  @default(false)
-  
+  is_streaming Boolean @default(false)
+
   // 时间
-  created_at      DateTime @default(now()) @db.Timestamptz
-  deleted_at      DateTime? @db.Timestamptz
-  
+  created_at DateTime  @default(now()) @db.Timestamptz
+  deleted_at DateTime? @db.Timestamptz
+
   session Session @relation(fields: [session_id], references: [id], onDelete: Cascade)
-  
-  @@map("messages")
+
   @@index([session_id, created_at])
   @@index([relationship_id])
+  @@map("messages")
 }
 
 enum MessageRole {
-  USER             // 用户文字输入
-  USER_SCREENSHOT  // 用户上传截图
-  LAOKE            // 老 K 输出
-  SYSTEM           // 系统消息(状态切换提示等)
+  USER // 用户文字输入
+  USER_SCREENSHOT // 用户上传截图
+  LAOKE // 老 K 输出
+  SYSTEM // 系统消息(状态切换提示等)
 }
 
 // 用户在 REFLECTING 阶段的回答
 model UserReflection {
-  id              String   @id @default(cuid())
-  session_id      String
-  
-  question        String   // 老 K 问的问题
-  question_index  Int      // 第几个问题(1-3)
-  
-  user_answer     String   @db.Text
-  
+  id         String @id @default(cuid())
+  session_id String
+
+  question       String // 老 K 问的问题
+  question_index Int // 第几个问题(1-3)
+
+  user_answer String @db.Text
+
   // 是否被老 K 追问过
-  follow_up       Boolean  @default(false)
-  
-  created_at      DateTime @default(now()) @db.Timestamptz
-  
+  follow_up Boolean @default(false)
+
+  created_at DateTime @default(now()) @db.Timestamptz
+
   session Session @relation(fields: [session_id], references: [id], onDelete: Cascade)
-  
-  @@map("user_reflections")
+
   @@index([session_id])
+  @@map("user_reflections")
 }
 
 // 生成的话术卡片(DRAFTING 状态输出)
 model GeneratedReply {
-  id              String   @id @default(cuid())
-  session_id      String
-  
+  id         String @id @default(cuid())
+  session_id String
+
   // 第几张卡片(0/1/2)
-  card_index      Int
-  
+  card_index Int
+
   // 卡片方向标签(例: "轻巧化解" / "换话题" / "温柔回应")
   direction_label String
-  
+
   // 话术内容
-  reply_text      String   @db.Text
-  
+  reply_text String @db.Text
+
   // 三个解释
-  what_it_does    String   // 做了什么
-  good_for        String   // 适合什么
-  trade_off       String   // 代价是什么
-  
+  what_it_does String // 做了什么
+  good_for     String // 适合什么
+  trade_off    String // 代价是什么
+
   // 用户是否选了这张卡
-  user_selected   Boolean  @default(false)
-  
+  user_selected Boolean @default(false)
+
   // 用户是否调过(自然语言追问打磨)
-  user_refined    Boolean  @default(false)
-  refined_text    String?  @db.Text
-  
+  user_refined Boolean @default(false)
+  refined_text String? @db.Text
+
   // 用户是否复制了
-  user_copied     Boolean  @default(false)
-  
-  created_at      DateTime @default(now()) @db.Timestamptz
-  
+  user_copied Boolean @default(false)
+
+  created_at DateTime @default(now()) @db.Timestamptz
+
   session Session @relation(fields: [session_id], references: [id], onDelete: Cascade)
-  
-  @@map("generated_replies")
+
   @@index([session_id])
+  @@map("generated_replies")
 }
 
 // ============================================================
@@ -429,38 +429,38 @@ model GeneratedReply {
 // ============================================================
 
 model GrowthReport {
-  id              String   @id @default(cuid())
-  user_id         String
-  
+  id      String @id @default(cuid())
+  user_id String
+
   // 报告类型和时间范围
-  report_type     ReportType
-  period_start    DateTime @db.Date
-  period_end      DateTime @db.Date
-  
+  report_type  ReportType
+  period_start DateTime   @db.Date
+  period_end   DateTime   @db.Date
+
   // 数据统计
-  total_sessions  Int
+  total_sessions      Int
   total_relationships Int
-  
+
   // AI 生成的内容
   // 例: { "三件事": [...], "关键瞬间": [...], "下个月建议": "..." }
-  content         Json
-  
+  content Json
+
   // 用户是否查看过
-  read_at         DateTime? @db.Timestamptz
-  
-  created_at      DateTime @default(now()) @db.Timestamptz
-  deleted_at      DateTime? @db.Timestamptz
-  
+  read_at DateTime? @db.Timestamptz
+
+  created_at DateTime  @default(now()) @db.Timestamptz
+  deleted_at DateTime? @db.Timestamptz
+
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  
-  @@map("growth_reports")
+
   @@index([user_id, period_end])
+  @@map("growth_reports")
 }
 
 enum ReportType {
   MONTHLY
-  QUARTERLY  // M2
-  YEARLY     // M3
+  QUARTERLY // M2
+  YEARLY // M3
 }
 
 // ============================================================
@@ -468,62 +468,62 @@ enum ReportType {
 // ============================================================
 
 model Subscription {
-  id                String   @id @default(cuid())
-  user_id           String
-  
-  plan              SubscriptionPlan
-  status            SubscriptionStatus
-  
+  id      String @id @default(cuid())
+  user_id String
+
+  plan   SubscriptionPlan
+  status SubscriptionStatus
+
   // 起止时间
-  started_at        DateTime @db.Timestamptz
-  expires_at        DateTime @db.Timestamptz
-  
+  started_at DateTime @db.Timestamptz
+  expires_at DateTime @db.Timestamptz
+
   // 平台和支付信息
-  platform          PaymentPlatform
-  apple_transaction_id   String? @unique
+  platform                      PaymentPlatform
+  apple_transaction_id          String?         @unique
   apple_original_transaction_id String?
-  wechat_transaction_id  String? @unique
-  
+  wechat_transaction_id         String?         @unique
+
   // 自动续费
-  auto_renew        Boolean  @default(true)
-  
+  auto_renew Boolean @default(true)
+
   // 取消信息
-  canceled_at       DateTime? @db.Timestamptz
-  cancel_reason     String?
-  
-  created_at        DateTime @default(now()) @db.Timestamptz
-  updated_at        DateTime @updatedAt @db.Timestamptz
-  
+  canceled_at   DateTime? @db.Timestamptz
+  cancel_reason String?
+
+  created_at DateTime @default(now()) @db.Timestamptz
+  updated_at DateTime @updatedAt @db.Timestamptz
+
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  
-  @@map("subscriptions")
+
   @@index([user_id, status])
+  @@map("subscriptions")
 }
 
 enum SubscriptionPlan {
-  SINGLE   // 单次 ¥6.6
-  MONTHLY  // 月付 ¥39
-  YEARLY   // 年付 ¥299
+  SINGLE // 单次 ¥6.6
+  MONTHLY // 月付 ¥39
+  YEARLY // 年付 ¥299
 }
 
 // 付费墙 v0 — 每日免费额度跟踪
 // CLAUDE.md §11 不变式 #5:付费墙温和,免费层至少能完整体验。
 // 用 (user_id, day) 唯一,每天一行,各 counter 累加。
 model DailyUsage {
-  id              String   @id @default(cuid())
-  user_id         String
-  day             String   // "YYYY-MM-DD"
+  id      String @id @default(cuid())
+  user_id String
+  day     String // "YYYY-MM-DD"
 
-  turn_count      Int      @default(0) // conversation-turn 调用次数
-  ocr_count       Int      @default(0) // OCR 截图分析次数
-  heavy_count     Int      @default(0) // extract / generate-insights / summarize 等重操作
+  turn_count  Int @default(0) // conversation-turn 调用次数
+  ocr_count   Int @default(0) // OCR 截图分析次数
+  heavy_count Int @default(0) // extract / generate-insights / summarize 等重操作
 
-  created_at      DateTime @default(now()) @db.Timestamptz
-  updated_at      DateTime @updatedAt @db.Timestamptz
+  created_at DateTime @default(now()) @db.Timestamptz
+  updated_at DateTime @updatedAt @db.Timestamptz
 
   @@unique([user_id, day])
-  @@map("daily_usage")
   @@index([user_id])
+  @@map("daily_usage")
 }
 
 enum SubscriptionStatus {
@@ -541,36 +541,36 @@ enum PaymentPlatform {
 
 // 单笔支付记录
 model Payment {
-  id                String   @id @default(cuid())
-  user_id           String
-  subscription_id   String?
-  
-  amount            Decimal  @db.Decimal(10, 2) // 金额(元)
-  currency          String   @default("CNY")
-  
-  platform          PaymentPlatform
-  
+  id              String  @id @default(cuid())
+  user_id         String
+  subscription_id String?
+
+  amount   Decimal @db.Decimal(10, 2) // 金额(元)
+  currency String  @default("CNY")
+
+  platform PaymentPlatform
+
   // 平台 transaction id
   platform_transaction_id String? @unique
-  
-  status            PaymentStatus
-  
+
+  status PaymentStatus
+
   // 退款相关
-  refunded_at       DateTime? @db.Timestamptz
-  refund_amount     Decimal?  @db.Decimal(10, 2)
-  refund_reason     String?
-  
+  refunded_at   DateTime? @db.Timestamptz
+  refund_amount Decimal?  @db.Decimal(10, 2)
+  refund_reason String?
+
   // 原始 webhook 数据(用于审计)
-  raw_data          Json?
-  
-  created_at        DateTime @default(now()) @db.Timestamptz
-  updated_at        DateTime @updatedAt @db.Timestamptz
-  
+  raw_data Json?
+
+  created_at DateTime @default(now()) @db.Timestamptz
+  updated_at DateTime @updatedAt @db.Timestamptz
+
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  
-  @@map("payments")
+
   @@index([user_id])
   @@index([platform_transaction_id])
+  @@map("payments")
 }
 
 enum PaymentStatus {
@@ -586,35 +586,35 @@ enum PaymentStatus {
 // ============================================================
 
 model DataDeletionLog {
-  id                String   @id @default(cuid())
-  user_id           String
-  
-  type              DeletionType
-  target_id         String?  // relationship_id / session_id / observation_id
-  
+  id      String @id @default(cuid())
+  user_id String
+
+  type      DeletionType
+  target_id String? // relationship_id / session_id / observation_id
+
   // 30 天反悔窗口
-  requested_at      DateTime @default(now()) @db.Timestamptz
-  execute_at        DateTime @db.Timestamptz
-  executed          Boolean  @default(false)
-  executed_at       DateTime? @db.Timestamptz
-  
+  requested_at DateTime  @default(now()) @db.Timestamptz
+  execute_at   DateTime  @db.Timestamptz
+  executed     Boolean   @default(false)
+  executed_at  DateTime? @db.Timestamptz
+
   // 用户撤销(在 execute_at 前)
-  canceled_at       DateTime? @db.Timestamptz
-  cancel_reason     String?
-  
-  created_at        DateTime @default(now()) @db.Timestamptz
-  
+  canceled_at   DateTime? @db.Timestamptz
+  cancel_reason String?
+
+  created_at DateTime @default(now()) @db.Timestamptz
+
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  
-  @@map("data_deletion_logs")
+
   @@index([execute_at, executed])
+  @@map("data_deletion_logs")
 }
 
 enum DeletionType {
-  ACCOUNT_DELETE       // 注销账号
-  RELATIONSHIP_DELETE  // 删除整段关系
-  SESSION_DELETE       // 删除单次复盘
-  OBSERVATION_DELETE   // 删除单条观察
+  ACCOUNT_DELETE // 注销账号
+  RELATIONSHIP_DELETE // 删除整段关系
+  SESSION_DELETE // 删除单次复盘
+  OBSERVATION_DELETE // 删除单条观察
 }
 
 // ============================================================
@@ -622,28 +622,28 @@ enum DeletionType {
 // ============================================================
 
 model ModerationLog {
-  id              String   @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // 触发的来源
-  source_type     String   // "user_input" / "ai_output"
-  source_id       String?  // message_id 等
-  user_id         String?
-  
+  source_type String // "user_input" / "ai_output"
+  source_id   String? // message_id 等
+  user_id     String?
+
   // 内容
-  content         String   @db.Text
-  
+  content String @db.Text
+
   // 审核结果
-  service         String   // "aliyun_content_security" / "internal_red_line"
-  passed          Boolean
-  category        String?  // "porn" / "politics" / "violence" / "self_harm" 等
-  confidence      Float?
-  raw_response    Json?
-  
-  created_at      DateTime @default(now()) @db.Timestamptz
-  
-  @@map("moderation_logs")
+  service      String // "aliyun_content_security" / "internal_red_line"
+  passed       Boolean
+  category     String? // "porn" / "politics" / "violence" / "self_harm" 等
+  confidence   Float?
+  raw_response Json?
+
+  created_at DateTime @default(now()) @db.Timestamptz
+
   @@index([user_id, created_at])
   @@index([passed, category])
+  @@map("moderation_logs")
 }
 
 // ============================================================
@@ -651,29 +651,171 @@ model ModerationLog {
 // ============================================================
 
 model PromptFeedback {
-  id              String   @id @default(cuid())
+  id              String  @id @default(cuid())
   user_id         String
   // spec-006 之后 session 退到后端复盘,日常对话流不再有 session,改 optional
   session_id      String?
   // spec-009:反馈来自哪段关系的对话流
   relationship_id String?
-  message_id      String   // 老 K 的某条输出(前端 message id,如 k-stream-xxx)
+  message_id      String // 老 K 的某条输出(前端 message id,如 k-stream-xxx)
 
   // 老 K 那条回复内容快照(前端 message 可能本地变更,后端存原文用于 prompt 迭代)
-  bubble_text     String?  @db.Text
+  bubble_text String? @db.Text
 
   // 反馈类型:'like' / 'dislike' / 'comment'(spec-009 新)
   // legacy:'not_like_laoke' / 'wrong_judgment' / 'off_tone'
-  feedback_type   String
-  feedback_note   String?  @db.Text
+  feedback_type String
+  feedback_note String? @db.Text
 
   // 当时的 prompt(用于回溯优化)
   prompt_snapshot Json?
 
-  created_at      DateTime @default(now()) @db.Timestamptz
+  created_at DateTime @default(now()) @db.Timestamptz
 
-  @@map("prompt_feedback")
   @@index([feedback_type])
   @@index([user_id, created_at])
   @@index([relationship_id, feedback_type])
+  @@map("prompt_feedback")
+}
+
+// ============================================================
+// Admin 后台(spec-011)
+// admin 体系跟用户端鉴权完全隔离 — 独立表/独立 JWT secret/独立 lifetime
+// ============================================================
+
+// admin 账户(M1 只 seed Sam 一条 ADMIN,M2 招人后开 RBAC)
+model AdminUser {
+  id String @id @default(cuid())
+
+  email         String  @unique
+  // argon2id hash,不存明文
+  password_hash String  @db.Text
+  // M2 强制开 TOTP 二验,M1 留 null
+  totp_secret   String? @db.Text
+
+  role   AdminRole @default(ADMIN)
+  active Boolean   @default(true)
+
+  last_login_at DateTime? @db.Timestamptz
+  created_at    DateTime  @default(now()) @db.Timestamptz
+  updated_at    DateTime  @updatedAt @db.Timestamptz
+
+  audit_logs AdminAuditLog[]
+
+  @@map("admin_users")
+}
+
+enum AdminRole {
+  ADMIN // 全权(Sam)
+  SUPPORT // 客服:用户/订阅/删号
+  MODERATOR // 审核:红线 + 受限用户视图
+  PM // 产品:反馈 + 数据 + 受限 prompt
+  ENGINEER // 工程:LLMOps + prompt + 运维
+  ANALYST // 分析师:数据(脱敏)
+}
+
+// admin 操作审计 — 所有写操作 + 敏感读操作必须留痕
+// (spec-011 §7.3 不变式守护)
+model AdminAuditLog {
+  id            String    @id @default(cuid())
+  admin_user_id String
+  admin_user    AdminUser @relation(fields: [admin_user_id], references: [id])
+
+  // "view_user_detail" / "approve_refund" / "execute_deletion" / "reveal_prompt" 等
+  action      String
+  // "user" / "subscription" / "moderation_log" / "ai_call_log" 等
+  target_type String
+  target_id   String
+
+  // 修改类操作的 before/after diff(读类操作为 null)
+  before Json?
+  after  Json?
+  // critical 操作必填(force_delete / approve_refund 等)
+  reason String? @db.Text
+  ip     String?
+
+  created_at DateTime @default(now()) @db.Timestamptz
+
+  @@index([admin_user_id, created_at])
+  @@index([target_type, target_id])
+  @@index([action, created_at])
+  @@map("admin_audit_logs")
+}
+
+// AI 调用日志(spec-011 §4.2 LLMOps 基础)
+// Pino transport 异步落库,不阻塞主链路
+// 写量估 ~10w/天,按 created_at + scene 索引
+model AiCallLog {
+  id      String @id @default(cuid())
+  // client.ts 生成,跟 Pino log 的 logId 对齐(便于双向追溯)
+  call_id String @unique
+
+  // 业务追溯字段(都允许 null,因为有些调用没绑定具体业务对象)
+  user_id         String?
+  relationship_id String?
+  session_id      String?
+  message_id      String?
+
+  // "parsing" / "conversation_turn" / "ocr" / "intent_classifier" / "long_term_memory"
+  scene String
+  // "claude-sonnet-4-20250514" / "claude-haiku-4-5-20251001" / "gemini-2.5-flash"
+  model String
+
+  input_tokens  Int
+  output_tokens Int
+  // 单次成本可能很小(~0.001 USD),用 6 位小数
+  cost_usd      Decimal @db.Decimal(10, 6)
+  duration_ms   Int
+
+  // persona-check 是否通过(老 K 出格扫描)
+  persona_passed Boolean
+  // auditPromptContext 命中的跨关系泄漏([] = 干净 / [...] = 命中)
+  leaks          Json?
+  // 调用失败时的错误消息;成功时 null
+  error          String? @db.Text
+
+  created_at DateTime @default(now()) @db.Timestamptz
+
+  @@index([scene, created_at])
+  @@index([user_id, created_at])
+  @@index([persona_passed])
+  @@index([created_at])
+  @@map("ai_call_logs")
+}
+
+// 退款工单(spec-011 §4.5 + §6.2 路由)
+// 用户提申请 → admin 审批 → 调平台 API 执行 → 关联 Payment.status
+model RefundTicket {
+  id         String @id @default(cuid())
+  user_id    String
+  payment_id String
+
+  amount      Decimal @db.Decimal(10, 2)
+  currency    String  @default("CNY")
+  user_reason String  @db.Text
+
+  status        RefundStatus @default(PENDING)
+  // 审批人(AdminUser.id),状态从 APPROVED 起填
+  reviewed_by   String?
+  reviewed_at   DateTime?    @db.Timestamptz
+  reviewer_note String?      @db.Text
+
+  // 平台 API 执行结果(IAP / WechatPay)
+  platform_executed Boolean @default(false)
+  platform_response Json?
+
+  created_at DateTime @default(now()) @db.Timestamptz
+  updated_at DateTime @updatedAt @db.Timestamptz
+
+  @@index([status, created_at])
+  @@index([user_id])
+  @@map("refund_tickets")
+}
+
+enum RefundStatus {
+  PENDING // 用户已提申请,待审批
+  APPROVED // admin 审批通过,待执行平台 API
+  EXECUTING // 调平台 API 中
+  DONE // 平台 API 成功,Payment 状态已 sync
+  REJECTED // admin 拒绝
 }

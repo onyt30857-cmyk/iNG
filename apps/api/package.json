@@ -17,6 +17,7 @@
     "prisma:studio": "prisma studio",
     "prompt-eval": "tsx --env-file=.env scripts/prompt-eval.ts",
     "seed-dev": "tsx --env-file=.env scripts/seed-dev.ts",
+    "seed-admin": "tsx --env-file=.env scripts/seed-admin.ts",
     "dump-feedback": "tsx --env-file=.env scripts/dump-feedback.ts",
     "analyze-feedback": "tsx --env-file=.env scripts/analyze-feedback.ts"
   },
