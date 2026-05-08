@@ -261,7 +261,7 @@ export default function UserDetailPage() {
       </div>
 
       {/* spec-014:运营备注(用户不可见) */}
-      <NotesPanel userId={u.id} notes={data.notes} onChanged={reload} />
+      <NotesPanel userId={u.id} notes={data.notes ?? []} onChanged={reload} />
 
       {/* 右下:危险操作区 */}
       <Card>
