@@ -31,6 +31,13 @@ const envSchema = z.object({
     (v) => (typeof v === 'string' ? v.trim() : v),
     z.string().min(1).optional(),
   ),
+  // Anthropic Admin API key(sk-ant-admin-...)— 跟普通 API key 不同,
+  // 用于 GET /v1/organizations/cost_report 监控账户花费(spec-billing)
+  // 留空 → admin 余额面板显示"未配置";配置上 → 自动计算估算余额
+  ANTHROPIC_ADMIN_API_KEY: z.preprocess(
+    (v) => (typeof v === 'string' ? v.trim() : v),
+    z.string().min(1).optional(),
+  ),
   CLAUDE_MODEL_ID: z.string().default('claude-sonnet-4-20250514'),
   GEMINI_API_KEY: z.preprocess(
     (v) => (typeof v === 'string' ? v.trim() : v),

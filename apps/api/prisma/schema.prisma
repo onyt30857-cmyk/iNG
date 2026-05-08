@@ -965,6 +965,15 @@ model SystemConfig {
   // 上线后改 false 启用 limits;订阅用户始终 bypass(独立逻辑)
   quota_bypass_enabled Boolean @default(true)
 
+  // Anthropic 账户余额基准(spec-billing v1):
+  // Anthropic 不提供"剩余余额"API,只有 cost_report 累计花费。
+  // 所以让 admin 手动填"某时点的余额快照",运行时算 baseline - 自此累计花费 = 估算余额。
+  // baseline_at 为 null = 还没初始化过,前端提示"先去填基准"
+  anthropic_credit_baseline_usd Decimal?  @db.Decimal(10, 2)
+  anthropic_credit_baseline_at  DateTime? @db.Timestamptz
+  anthropic_credit_updated_by   String?
+  anthropic_credit_updated_at   DateTime? @db.Timestamptz
+
   updated_by String?
   updated_at DateTime @updatedAt @db.Timestamptz
 

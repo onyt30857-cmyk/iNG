@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Users, MessageSquareWarning, LayoutDashboard, LogOut, Activity, FileCode2, ClipboardCheck, Settings } from 'lucide-react'
+import { Users, MessageSquareWarning, LayoutDashboard, LogOut, Activity, FileCode2, ClipboardCheck, Settings, Wallet } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { auth } from '@/lib/auth'
@@ -22,6 +22,7 @@ const NAV: NavItem[] = [
   { href: '/prompts', label: 'Prompt 工程', icon: FileCode2 },
   { href: '/annotations', label: '人工评分', icon: ClipboardCheck },
   { href: '/settings/quota', label: '系统配置', icon: Settings },
+  { href: '/settings/billing', label: 'Claude 余额', icon: Wallet },
   // M2 阶段加:红线 / 数据分析 / 隐私 / 运维
 ]
 
