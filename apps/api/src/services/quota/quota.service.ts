@@ -18,6 +18,11 @@ export const FREE_DAILY_LIMITS = {
   heavy: 3,
 } as const
 
+// 2026-05-08:M1 内测期临时全量 bypass quota(Sam 决策"先把额度限制取消")。
+// 真接付费墙时(M2 spec-011 模块 1.6 临时提额 + 真订阅流程上线)改回 false。
+// 改这一行即可恢复 hard limit,不需要重新跑 migration / 改 schema。
+const BYPASS_FREE_QUOTA = true
+
 export type QuotaKind = keyof typeof FREE_DAILY_LIMITS
 
 export interface QuotaCheckResult {
@@ -54,6 +59,17 @@ export async function checkAndIncrementQuota(
   userId: string,
   kind: QuotaKind,
 ): Promise<QuotaCheckResult> {
+  // M1 内测期全量 bypass(见文件顶部 BYPASS_FREE_QUOTA 注释)
+  if (BYPASS_FREE_QUOTA) {
+    return {
+      allowed: true,
+      used: 0,
+      limit: -1,
+      remaining: -1,
+      reason: 'subscribed',
+    }
+  }
+
   // 订阅 bypass
   if (await hasActiveSubscription(userId)) {
     return {
