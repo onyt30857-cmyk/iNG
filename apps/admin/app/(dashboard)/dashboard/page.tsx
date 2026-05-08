@@ -1,7 +1,7 @@
 'use client'
 
 // 总览页 — 产品晨报
-// 登录后第一眼看到:今天产品健康度 + 需要立刻处理的事
+// 登录后第一眼看到:最近 7 天产品健康度 + 需要立刻处理的事
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -60,11 +60,12 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setProfile(auth.getProfile())
+    // 窗口 7 天(M1 小流量,1 天空数据率太高)
     Promise.all([
       adminGet<UserListResp>('/v1/admin/users', { page: 1, pageSize: 1 }),
-      adminGet<LlmDashboard>('/v1/admin/llm/dashboard', { windowDays: 1 }),
-      adminGet<FeedbackDashboard>('/v1/admin/feedback', { windowDays: 1 }),
-      adminGet<BehaviorKpis>('/v1/admin/behavior/kpis', { windowDays: 1 }),
+      adminGet<LlmDashboard>('/v1/admin/llm/dashboard', { windowDays: 7 }),
+      adminGet<FeedbackDashboard>('/v1/admin/feedback', { windowDays: 7 }),
+      adminGet<BehaviorKpis>('/v1/admin/behavior/kpis', { windowDays: 7 }),
     ]).then(([usersRes, llmRes, feedbackRes, behaviorRes]) => {
       setData({
         users_total: usersRes.ok ? usersRes.data.total : null,
@@ -143,7 +144,7 @@ export default function DashboardPage() {
       icon: <ThumbsDown className="h-4 w-4" />,
       text: (
         <>
-          今天有 <strong>{data.feedback_today.by_type.dislike} 条用户吐槽</strong> — 看看翻车现场
+          最近 7 天有 <strong>{data.feedback_today.by_type.dislike} 条用户吐槽</strong> — 看看翻车现场
         </>
       ),
       href: '/feedback/dislikes',
@@ -158,7 +159,7 @@ export default function DashboardPage() {
           {greeting}{profile?.email ? `,${profile.email.split('@')[0]}` : ''}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          今天产品健康度一眼看 — 数字是过去 24 小时的
+          产品健康度一眼看 — 数字是过去 7 天的
         </p>
       </div>
 
@@ -199,7 +200,7 @@ export default function DashboardPage() {
 
       {/* 核心 KPI */}
       <div>
-        <h2 className="text-base font-semibold mb-3">今天的关键数字</h2>
+        <h2 className="text-base font-semibold mb-3">关键数字(过去 7 天)</h2>
         <div className="grid gap-4 md:grid-cols-4">
           <KpiTile
             href="/users"
@@ -212,7 +213,7 @@ export default function DashboardPage() {
           <KpiTile
             href="/llm"
             icon={<Activity className="h-5 w-5" />}
-            label="今天对话次数"
+            label="7 天对话次数"
             value={
               loading
                 ? '…'
@@ -226,7 +227,7 @@ export default function DashboardPage() {
           <KpiTile
             href="/llm"
             icon={<Wallet className="h-5 w-5" />}
-            label="今天烧了"
+            label="7 天总花费"
             value={
               loading
                 ? '…'
@@ -241,7 +242,7 @@ export default function DashboardPage() {
           <KpiTile
             href="/feedback"
             icon={<ThumbsDown className="h-5 w-5" />}
-            label="今天用户吐槽"
+            label="7 天用户吐槽"
             value={
               loading
                 ? '…'
@@ -334,7 +335,7 @@ export default function DashboardPage() {
             <Card className="hover:bg-muted/30 transition-colors cursor-pointer">
               <CardContent className="p-4 flex items-center justify-between">
                 <div>
-                  <div className="font-medium text-sm">看今天用户吐槽</div>
+                  <div className="font-medium text-sm">看最近 7 天用户吐槽</div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     每条都能点进去看完整对话上下文
                   </div>
