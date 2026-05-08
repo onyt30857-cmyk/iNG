@@ -9,7 +9,7 @@ export type FeedbackType = 'like' | 'dislike' | 'comment'
 // (避免 dev seed 数据漏给真用户的同类风险)
 function authToken(): string | undefined {
   const store = useUserStore()
-  return store.token
+  return store.token ?? undefined
 }
 
 export interface SubmitFeedbackBody {

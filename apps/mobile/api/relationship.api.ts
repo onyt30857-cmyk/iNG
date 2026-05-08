@@ -14,7 +14,7 @@ import { useUserStore } from '../stores/user'
 // App.vue 已在 mount 时 await ensureSession(),理论上 store.token 永远应有值
 function authToken(): string | undefined {
   const store = useUserStore()
-  return store.token
+  return store.token ?? undefined
 }
 
 export const listRelationshipsApi = (params?: { archived?: boolean }) => {
