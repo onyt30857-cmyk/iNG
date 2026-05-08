@@ -293,18 +293,6 @@ const greeting = (() => {
   color: $color-primary;
 }
 
-// === Mock banner ===
-.mock-banner {
-  margin: 0 8rpx 24rpx;
-  padding: 16rpx 24rpx;
-  background-color: $color-accent-subtle;
-  border-radius: 16rpx;
-  border-left: 6rpx solid $color-accent;
-}
-.mock-banner-text {
-  font-size: 24rpx;
-  color: $color-text-secondary;
-}
 
 // === 引导 ===
 .hint {

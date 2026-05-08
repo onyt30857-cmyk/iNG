@@ -4,16 +4,11 @@
 
 import { onMounted, ref, computed } from 'vue'
 import { useRelationshipStore } from '../../stores/relationship'
-import { useRelationshipSignalsStore } from '../../stores/relationship-signals'
-import { useAppDialog } from '../../composables/useAppDialog'
 import RelationshipCard from '../../components/RelationshipCard.vue'
 import CrossRelationshipBriefing from '../../components/CrossRelationshipBriefing.vue'
 
 const store = useRelationshipStore()
-const signalsStore = useRelationshipSignalsStore()
-const dialog = useAppDialog()
 const showArchived = ref(false)
-const seedingDemo = ref(false)
 
 const archivedCount = computed(() => store.archivedItems.length)
 
@@ -29,21 +24,6 @@ function goDetail(id: string) {
 }
 function toggleArchived() {
   showArchived.value = !showArchived.value
-}
-async function seedDemo() {
-  // eslint-disable-next-line no-console
-  console.log('[seedDemo] click triggered, items:', store.items.length)
-  if (seedingDemo.value) return
-  seedingDemo.value = true
-  try {
-    const ids = store.items.map((r) => r.id)
-    await signalsStore.seedDemoSignals(ids)
-    await dialog.alert('已注入演示信号', { body: '看下面 Briefing 卡的 headline 是否变化。' })
-  } catch (e) {
-    await dialog.alert('注入失败', { body: e instanceof Error ? e.message : String(e) })
-  } finally {
-    seedingDemo.value = false
-  }
 }
 // 返回:有上一页就 back,没有(直接深链进来)就跳主页
 function goBack() {
@@ -69,17 +49,6 @@ function goBack() {
         <text class="nav-action-text">新建</text>
       </view>
     </view>
-
-    <!-- 注入演示信号按钮(独立一块,避免被 banner 嵌套吃事件) -->
-    <button
-      v-if="store.usingMock"
-      class="seed-btn"
-      hover-class="seed-btn-hover"
-      @click="seedDemo"
-      @tap="seedDemo"
-    >
-      {{ seedingDemo ? '注入中…' : '一键注入演示信号(看完整 19.x 链路)' }}
-    </button>
 
     <view class="body">
       <!-- ready 态 -->
@@ -206,34 +175,6 @@ function goBack() {
 .nav-action-text {
   font-size: 28rpx;
   color: $color-primary;
-}
-
-.mock-banner {
-  margin: 16rpx 40rpx 12rpx;
-  padding: 16rpx 24rpx;
-  background-color: $color-accent-subtle;
-  border-radius: 16rpx;
-  border-left: 6rpx solid $color-accent;
-}
-.mock-banner-text {
-  font-size: 24rpx;
-  color: $color-text-secondary;
-}
-
-.seed-btn {
-  margin: 0 40rpx 24rpx;
-  padding: 18rpx 0;
-  background-color: $color-primary;
-  color: $color-background;
-  font-size: 26rpx;
-  font-weight: $weight-medium;
-  border-radius: 16rpx;
-  border: none;
-  &::after { border: none; }
-}
-.seed-btn-hover {
-  background-color: $color-primary-deep;
-  opacity: 0.9;
 }
 
 .body {

@@ -2,13 +2,14 @@
 
 import { apiPost, request } from './client'
 import { useUserStore } from '../stores/user'
-import { DEV_TOKEN } from '../utils/dev-token'
 
 export type FeedbackType = 'like' | 'dislike' | 'comment'
 
+// 跟 relationship.api.ts 一致:只用真 store.token,不再 fallback DEV_TOKEN
+// (避免 dev seed 数据漏给真用户的同类风险)
 function authToken(): string | undefined {
   const store = useUserStore()
-  return store.token ?? DEV_TOKEN
+  return store.token
 }
 
 export interface SubmitFeedbackBody {
