@@ -3,16 +3,58 @@
 // POST /v1/conversations/:relationshipId/stream-turn
 // body: { user_text, history }
 // response: chunked text(老 K 流式输出)
+//
+// 2026-05-09:补落库逻辑 — 之前所有对话只在前端 localStorage,
+// admin 看不到任何聊天记录。从这次起,USER + LAOKE 消息都写到 messages 表,
+// admin 对话查阅器(spec-016)就能看到。
+// 历史对话无法找回(本来就没存)。
 
 import type { FastifyInstance, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { requireAuth } from '../../middleware/auth.js'
 import { conversationTurnSchema } from '../../schemas/conversation.schema.js'
 import { runConversationTurnForRelationship } from '../../services/replay/conversation-turn.service.js'
+import { prisma } from '../../lib/prisma.js'
+import { config } from '../../config/index.js'
+import { estimateCostUsd } from '../../ai/call-log.js'
+import { logger } from '../../lib/logger.js'
 
 const paramsSchema = z.object({
   relationshipId: z.string().min(1),
 })
+
+/**
+ * 找该用户在该关系下当前 active 的 Session;没有就建一个。
+ * 单关系 = 单 thread,所有对话都挂这一条 session 的 messages。
+ *
+ * 选取规则:取最新未删除的 session(可能是 ENTRY 状态的占位 session,够用了)。
+ * 不存在 → 建新的 session(state = ENTRY)。
+ */
+async function getOrCreateThreadSessionId(
+  userId: string,
+  relationshipId: string,
+): Promise<string> {
+  const existing = await prisma.session.findFirst({
+    where: {
+      user_id: userId,
+      relationship_id: relationshipId,
+      deleted_at: null,
+    },
+    orderBy: { started_at: 'desc' },
+    select: { id: true },
+  })
+  if (existing) return existing.id
+
+  const created = await prisma.session.create({
+    data: {
+      user_id: userId,
+      relationship_id: relationshipId,
+      state: 'ENTRY',
+    },
+    select: { id: true },
+  })
+  return created.id
+}
 
 export async function conversationRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', requireAuth)
@@ -24,10 +66,37 @@ export async function conversationRoutes(app: FastifyInstance): Promise<void> {
       const { relationshipId } = paramsSchema.parse(request.params)
       const body = conversationTurnSchema.parse(request.body)
 
+      // 1) 获取/创建持久化 session(承载所有 messages)
+      // 失败不阻断流式,只是 admin 看不到这条;但记 warn 让我们能发现
+      let sessionId: string | null = null
+      try {
+        sessionId = await getOrCreateThreadSessionId(userId, relationshipId)
+      } catch (e) {
+        logger.warn({ err: e, userId, relationshipId }, 'thread session 创建失败,跳过持久化')
+      }
+
+      // 2) 用户消息先落库(stream 之前)
+      // 按 USER_SCREENSHOT vs USER:body 是 conversation-turn schema,纯文本场景
+      if (sessionId) {
+        try {
+          await prisma.message.create({
+            data: {
+              session_id: sessionId,
+              relationship_id: relationshipId,
+              role: 'USER',
+              content: body.user_text,
+            },
+          })
+        } catch (e) {
+          logger.warn({ err: e, sessionId }, '用户消息持久化失败,继续 stream')
+        }
+      }
+
       setupStreamReply(request, reply)
 
+      let result: import('../../ai/orchestrators/conversation-turn.orchestrator.js').ConversationTurnOutput | null = null
       try {
-        await runConversationTurnForRelationship(
+        result = await runConversationTurnForRelationship(
           userId,
           relationshipId,
           body,
@@ -42,6 +111,32 @@ export async function conversationRoutes(app: FastifyInstance): Promise<void> {
         }
       }
       reply.raw.end()
+
+      // 3) 老 K 消息后落库(包含 model / tokens / cost,给 admin 监控用)
+      // 流式已结束 → 用户已看到回复;落库失败不影响用户体验,只 warn
+      if (sessionId && result && result.text) {
+        try {
+          const model = config.CLAUDE_MODEL_ID
+          await prisma.message.create({
+            data: {
+              session_id: sessionId,
+              relationship_id: relationshipId,
+              role: 'LAOKE',
+              content: result.text,
+              model,
+              prompt_tokens: result.usage.input_tokens,
+              completion_tokens: result.usage.output_tokens,
+              cost_usd: estimateCostUsd(
+                model,
+                result.usage.input_tokens,
+                result.usage.output_tokens,
+              ),
+            },
+          })
+        } catch (e) {
+          logger.warn({ err: e, sessionId }, '老 K 消息持久化失败')
+        }
+      }
     },
   )
 }
