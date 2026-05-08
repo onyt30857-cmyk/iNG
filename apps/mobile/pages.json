@@ -29,7 +29,7 @@
       "path": "pages/relationship/detail",
       "style": {
         "navigationBarTitleText": "",
-        "navigationBarBackgroundColor": "#F4F6FA",
+        "navigationBarBackgroundColor": "#EDEDED",
         "navigationBarTextStyle": "black"
       }
     },
@@ -37,7 +37,7 @@
       "path": "pages/relationship/edit",
       "style": {
         "navigationBarTitleText": "新建关系",
-        "navigationBarBackgroundColor": "#F4F6FA",
+        "navigationBarBackgroundColor": "#EDEDED",
         "navigationBarTextStyle": "black"
       }
     },
@@ -63,7 +63,7 @@
   "globalStyle": {
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "练爱",
-    "navigationBarBackgroundColor": "#F4F6FA",
-    "backgroundColor": "#F4F6FA"
+    "navigationBarBackgroundColor": "#EDEDED",
+    "backgroundColor": "#EDEDED"
   }
 }

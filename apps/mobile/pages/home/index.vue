@@ -165,7 +165,8 @@ const greeting = (() => {
   width: 12rpx;
   height: 12rpx;
   border-radius: 50%;
-  background-color: $color-accent;
+  // 双色系:"老 K 在听"状态点用 $color-laoke 紫(从 $color-accent 茶棕改),跟头像呼应
+  background-color: $color-laoke;
   margin-right: 12rpx;
   animation: pulse 2s ease-in-out infinite;
 }

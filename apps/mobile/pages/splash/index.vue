@@ -20,18 +20,21 @@ onMounted(() => {
     <view class="illustration">
       <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" class="brand-svg">
         <defs>
+          <!-- splash 是老 K 出场首屏,用 $color-laoke 紫降饱和系(跟 LaokeBubble 头像呼应) -->
           <radialGradient id="brand-glow" cx="50%" cy="50%">
-            <stop offset="0%" stop-color="#7C5CFF" stop-opacity="0.35" />
-            <stop offset="60%" stop-color="#7C5CFF" stop-opacity="0.1" />
-            <stop offset="100%" stop-color="#7C5CFF" stop-opacity="0" />
+            <stop offset="0%" stop-color="#9B82FF" stop-opacity="0.35" />
+            <stop offset="60%" stop-color="#9B82FF" stop-opacity="0.1" />
+            <stop offset="100%" stop-color="#9B82FF" stop-opacity="0" />
           </radialGradient>
           <radialGradient id="brand-halo" cx="50%" cy="50%">
+            <!-- 茶棕外晕保留(老 K 兄长温度 DNA) -->
             <stop offset="0%" stop-color="#A87C5F" stop-opacity="0.16" />
             <stop offset="100%" stop-color="#A87C5F" stop-opacity="0" />
           </radialGradient>
           <linearGradient id="brand-disc" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#8E72FF" />
-            <stop offset="100%" stop-color="#5B3FE0" />
+            <!-- 中心圆盘:老 K 紫降饱和渐变(从 #8E72FF/#5B3FE0 改 #9B82FF/#7C5CFF) -->
+            <stop offset="0%" stop-color="#9B82FF" />
+            <stop offset="100%" stop-color="#7C5CFF" />
           </linearGradient>
         </defs>
         <!-- 外层茶棕暖晕(老 K 温度色 DNA 保留) -->
