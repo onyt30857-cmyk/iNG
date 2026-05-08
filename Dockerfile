@@ -11,7 +11,7 @@
 # - 其他 env 在 Railway Dashboard 手填(JWT_SECRET, ANTHROPIC_API_KEY, SUPABASE_*)
 
 # === Stage 1: deps ===
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 WORKDIR /app
 
 # 启 corepack 用 pnpm
@@ -25,7 +25,7 @@ COPY apps/api/package.json apps/api/
 RUN pnpm install --frozen-lockfile --filter @lianai/api...
 
 # === Stage 2: builder ===
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 RUN corepack enable
@@ -46,7 +46,7 @@ RUN pnpm prisma generate
 RUN pnpm build
 
 # === Stage 3: runner(production image)===
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
 # 装 runtime 必需:openssl(prisma)+ tini(优雅 PID 1 信号处理)
