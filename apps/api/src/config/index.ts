@@ -79,6 +79,10 @@ const envSchema = z.object({
 
   // CORS
   CORS_ORIGIN: z.string().default('*'),
+
+  // 诊断端点 secret(spec-011 衍生)— prod 必填,dev 留空时 /v1/probe 公开
+  // 给 Claude 远程自主排查"产品挂了什么"用,无敏感数据,只暴露 ping 状态 + 错误类型
+  DEBUG_PROBE_SECRET: z.string().optional(),
 })
 
 // 解析,失败立刻退出 —— 配置错误不能带病上线
