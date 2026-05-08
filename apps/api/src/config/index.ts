@@ -41,8 +41,7 @@ const envSchema = z.object({
 
   // Supabase Storage —— 头像 / 截图 OSS,空则 fallback 到 base64 data URL(M1 dev 行为)
   // preprocess 把空字符串当 undefined(Railway Variables UI 没法真删 key,只能留空)
-  // trim 处理跟 ANTHROPIC_API_KEY 同样的坑:Railway 粘贴时混入末尾空白,
-  // .url() 校验 fail / Authorization header 拼接 fail。preprocess 在校验前 trim + 空字符串 → undefined。
+  // SUPABASE_URL: trim + 空 → undefined
   SUPABASE_URL: z.preprocess(
     (v) => {
       if (typeof v !== 'string') return v
@@ -51,11 +50,15 @@ const envSchema = z.object({
     },
     z.string().url().optional(),
   ),
+  // SUPABASE_SERVICE_KEY: 不仅 trim,还 strip 中间所有 whitespace。
+  // JWT 是 base64url(合法字符 [A-Za-z0-9_-.]),任何 whitespace 都是 Supabase Dashboard
+  // wrap 显示时复制粘贴混入的(诊断 endpoint 抓到 "Headers.set ... invalid header value"
+  // 错误,key 中间有 \n + 空格)。HTTP header 不允许换行,导致整个客户端炸。
   SUPABASE_SERVICE_KEY: z.preprocess(
     (v) => {
       if (typeof v !== 'string') return v
-      const trimmed = v.trim()
-      return trimmed === '' ? undefined : trimmed
+      const cleaned = v.replace(/\s/g, '') // 删所有 whitespace(\n \t 空格)
+      return cleaned === '' ? undefined : cleaned
     },
     z.string().optional(),
   ),
