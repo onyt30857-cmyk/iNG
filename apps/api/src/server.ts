@@ -25,6 +25,7 @@ import { quotaRoutes } from './routes/v1/quota.route.js'
 import { storageRoutes } from './routes/v1/storage.route.js'
 import { adminAuthRoutes } from './routes/v1/admin/auth.route.js'
 import { adminUserRoutes } from './routes/v1/admin/users.route.js'
+import { adminFeedbackRoutes } from './routes/v1/admin/feedback.route.js'
 import { probeRoutes } from './routes/v1/probe.route.js'
 import { startDeletionCron } from './workers/deletion-cron.js'
 import { cleanupDevSeedIfExists } from './workers/cleanup-dev-seed-on-boot.js'
@@ -94,6 +95,7 @@ async function buildApp() {
   // Admin 后台(spec-011)
   await app.register(adminAuthRoutes)
   await app.register(adminUserRoutes)
+  await app.register(adminFeedbackRoutes)
 
   // 远程诊断端点(给 Claude 自主排查用,prod 必须带 DEBUG_PROBE_SECRET)
   await app.register(probeRoutes)
