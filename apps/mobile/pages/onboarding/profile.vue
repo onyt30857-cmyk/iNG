@@ -244,25 +244,27 @@ function scrollToBottom() {
 .messages {
   flex: 1;
   padding: $space-3 $space-4;
-  display: flex;
-  flex-direction: column;
-  gap: $space-3;
+  /* uni-app scroll-view 在 H5 编译后包了一层 wrapper,flex 不一定能穿透。
+     用 block 流 + auto margin 控制对齐,避免依赖 flex/align-self */
 }
 
 .bubble {
+  display: block;
+  width: fit-content;
   max-width: 78%;
   background: $color-surface;
   color: $color-text-primary;
-  padding: $space-3 $space-3;
+  padding: $space-2 $space-3;
   border-radius: $radius-bubble-tail $radius-xl $radius-xl $radius-xl;
   font-size: $font-body;
   line-height: 1.55;
   box-shadow: $shadow-sm;
-  align-self: flex-start;
+  margin: 0 auto 0 0; /* 左对齐 */
+  margin-bottom: $space-3;
   animation: bubbleIn .35s ease both;
 }
 .bubble.user {
-  align-self: flex-end;
+  margin: 0 0 $space-3 auto; /* 右对齐 */
   background: $color-primary;
   color: #fff;
   border-radius: $radius-xl $radius-bubble-tail $radius-xl $radius-xl;
@@ -273,7 +275,8 @@ function scrollToBottom() {
 .bubble-typing {
   display: flex;
   gap: 8rpx;
-  padding: $space-3 $space-3;
+  padding: $space-3;
+  width: auto;
 }
 .bubble-typing .dot {
   width: 12rpx;
@@ -293,15 +296,18 @@ function scrollToBottom() {
   to { opacity: 1; transform: none; }
 }
 
-/* 头像卡片(嵌入对话流的特殊气泡)*/
+/* 头像卡片(嵌入对话流的特殊气泡)
+   注意:avatar-card 内含 grid,必须有明确宽度才能让 grid-template-columns 1fr 工作。
+   不能用 fit-content 让它塌缩 */
 .avatar-card {
-  align-self: flex-start;
-  max-width: 88%;
+  width: 88%;
   background: $color-surface;
   padding: $space-3;
   border-radius: $radius-bubble-tail $radius-xl $radius-xl $radius-xl;
   box-shadow: $shadow-sm;
+  margin: 0 auto $space-3 0;
   animation: bubbleIn .35s ease both;
+  box-sizing: border-box;
 }
 .avatar-grid {
   display: grid;

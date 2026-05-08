@@ -108,21 +108,20 @@ function start() {
 .messages {
   flex: 1;
   padding: $space-4;
-  display: flex;
-  flex-direction: column;
-  gap: $space-3;
 }
 
 .bubble {
+  display: block;
+  width: fit-content;
   max-width: 78%;
+  margin: 0 auto $space-3 0;
   background: $color-surface;
   color: $color-text-primary;
-  padding: $space-3 $space-3;
+  padding: $space-2 $space-3;
   border-radius: $radius-bubble-tail $radius-xl $radius-xl $radius-xl;
   font-size: $font-body;
   line-height: 1.55;
   box-shadow: $shadow-sm;
-  align-self: flex-start;
   white-space: pre-line;
 }
 .bubble.fade-in {
