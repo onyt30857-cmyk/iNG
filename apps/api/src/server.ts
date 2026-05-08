@@ -34,6 +34,7 @@ import { behaviorRoutes } from './routes/v1/behavior.route.js'
 import { probeRoutes } from './routes/v1/probe.route.js'
 import { startDeletionCron } from './workers/deletion-cron.js'
 import { cleanupDevSeedIfExists } from './workers/cleanup-dev-seed-on-boot.js'
+import { startUserTagCron } from './services/admin/admin-tag.service.js'
 
 async function buildApp() {
   // 把 logger 配置交给 Fastify 内部创建 —— 直接传 Pino 实例和 Fastify 4 的类型签名不兼容
@@ -136,6 +137,8 @@ async function main() {
     )
     // 启动数据真删 cron(CLAUDE.md §11 不变式 #2)
     startDeletionCron()
+    // spec-014:用户系统标签 cron(每 24h 重算,启动 30s 后跑首次)
+    startUserTagCron()
     // 一次性清理 dev seed 数据(2026-05-08,Sam 反馈"新用户看到默认 3 关系")
     // 第一次启动后 dev-user-1 已删,后续启动 noop。不阻塞启动。
     cleanupDevSeedIfExists().catch(() => { /* 已在内部 log,这里 swallow */ })

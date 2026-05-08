@@ -38,6 +38,8 @@ export interface UserListItem {
     plan: SubscriptionPlan
     expires_at: Date
   } | null
+  /** spec-014:用户标签 — 系统自动 + 手动,用于风险高亮和快速识别 */
+  tags: Array<{ tag: string; source: string }>
 }
 
 export interface UserListResult {
@@ -120,6 +122,23 @@ export async function listUsers(filter: UserListFilter): Promise<UserListResult>
     }),
   ])
 
+  // 一次性拿这页所有用户的 tags(避免 N+1)
+  const userIds = users.map((u) => u.id)
+  const tagsRows =
+    userIds.length > 0
+      ? await prisma.userTag.findMany({
+          where: { user_id: { in: userIds } },
+          select: { user_id: true, tag: true, source: true },
+          orderBy: { source: 'asc' }, // system 在前 manual 在后
+        })
+      : []
+  const tagsByUser = new Map<string, Array<{ tag: string; source: string }>>()
+  for (const r of tagsRows) {
+    const arr = tagsByUser.get(r.user_id) ?? []
+    arr.push({ tag: r.tag, source: r.source })
+    tagsByUser.set(r.user_id, arr)
+  }
+
   return {
     items: users.map((u) => ({
       id: u.id,
@@ -135,6 +154,7 @@ export async function listUsers(filter: UserListFilter): Promise<UserListResult>
       active_subscription: u.subscriptions[0]
         ? { plan: u.subscriptions[0].plan, expires_at: u.subscriptions[0].expires_at }
         : null,
+      tags: tagsByUser.get(u.id) ?? [],
     })),
     total,
     page: filter.page,
@@ -164,6 +184,15 @@ export interface UserDetailResult {
     content: string
     created_at: Date
     updated_at: Date
+  }>
+  tags: Array<{
+    id: string
+    tag: string
+    source: string
+    reason: string | null
+    added_by: string
+    created_at: Date
+    expires_at: Date | null
   }>
   relationships: Array<{
     id: string
@@ -226,7 +255,7 @@ export async function getUserDetail(userId: string): Promise<UserDetailResult> {
   if (!user) throw errors.notFound('用户不存在')
 
   // 并行查所有聚合数据
-  const [relationships, subscriptions, payments, feedbackRows, redLineHistory, notes] =
+  const [relationships, subscriptions, payments, feedbackRows, redLineHistory, notes, tags] =
     await Promise.all([
       prisma.relationship.findMany({
         where: { user_id: userId },
@@ -296,6 +325,20 @@ export async function getUserDetail(userId: string): Promise<UserDetailResult> {
           updated_at: true,
         },
       }),
+      // spec-014:用户标签
+      prisma.userTag.findMany({
+        where: { user_id: userId },
+        orderBy: [{ source: 'asc' }, { tag: 'asc' }],
+        select: {
+          id: true,
+          tag: true,
+          source: true,
+          reason: true,
+          added_by: true,
+          created_at: true,
+          expires_at: true,
+        },
+      }),
     ])
 
   // feedback_summary 整理
@@ -343,6 +386,7 @@ export async function getUserDetail(userId: string): Promise<UserDetailResult> {
     })),
     feedback_summary: feedbackSummary,
     red_line_history: redLineHistory,
+    tags,
   }
 }
 

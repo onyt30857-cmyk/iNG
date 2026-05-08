@@ -951,6 +951,32 @@ model AnnotationItem {
 // === 模块 D:隐性反馈采集(用户行为埋点)===
 
 // === 用户颗粒度管理(spec-014)===
+// 用户标签 — admin 内部用,用户不可见
+// 自动标签:每天凌晨 cron 重新计算(sleeping / high_activity / red_line_hit 等)
+// 手动标签:运营自己打(种子用户 / 创始人朋友 / 已邀请测试群 等)
+model UserTag {
+  id         String    @id @default(cuid())
+  user_id    String
+  // 'system' = cron 自动打;'manual' = 运营手动打
+  source     String
+  // 标签名:系统标签限定 7 个(newbie / sleeping / high_activity / high_feedback
+  // / red_line_hit / paying / high_cost);手动标签任意字符串(中文 OK)
+  tag        String
+  // 自动标签:cron 下次跑会重算;手动标签 null = 永久
+  expires_at DateTime? @db.Timestamptz
+  // 系统标签自动打时的依据(冗余存,debug 用):"近 7 天 0 次对话" 等
+  reason     String?   @db.Text
+  // 手动标签:打标签的 admin_user_id;自动标签 'system'
+  added_by   String
+
+  created_at DateTime @default(now()) @db.Timestamptz
+
+  @@unique([user_id, tag])
+  @@index([tag])
+  @@index([user_id])
+  @@map("user_tags")
+}
+
 // 用户备注 — admin 内部用,**用户不可见**
 // 一个用户可以有多条备注(客服互动记录、运营标记等),按时间倒序展示
 model UserNote {

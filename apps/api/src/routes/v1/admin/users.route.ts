@@ -25,6 +25,12 @@ import {
   addUserNote,
   deleteUserNote,
 } from '../../../services/admin/admin-user.service.js'
+import {
+  listUserTags,
+  addManualTag,
+  removeTag,
+  recomputeSystemTagsForUser,
+} from '../../../services/admin/admin-tag.service.js'
 
 // ============== schemas ==============
 
@@ -68,6 +74,14 @@ const noteBodySchema = z.object({
 
 const noteIdParamsSchema = z.object({
   noteId: z.string().min(1),
+})
+
+const tagBodySchema = z.object({
+  tag: z.string().trim().min(1).max(50),
+})
+
+const tagIdParamsSchema = z.object({
+  tagId: z.string().min(1),
 })
 
 // ============== route ==============
@@ -231,6 +245,62 @@ export async function adminUserRoutes(app: FastifyInstance): Promise<void> {
       request,
     )
 
+    return { ok: true, data: result }
+  })
+
+  // ============== spec-014 第二砖:用户标签 ==============
+
+  // GET /v1/admin/users/:id/tags — 列出用户所有标签
+  app.get('/v1/admin/users/:id/tags', async (request) => {
+    const { id } = idParamsSchema.parse(request.params)
+    const tags = await listUserTags(id)
+    return { ok: true, data: { tags } }
+  })
+
+  // POST /v1/admin/users/:id/tags — 加手动标签
+  app.post('/v1/admin/users/:id/tags', async (request) => {
+    const { id } = idParamsSchema.parse(request.params)
+    const body = tagBodySchema.parse(request.body)
+    const tag = await addManualTag(id, request.admin!.id, body.tag)
+
+    void recordAdminAudit(
+      request.admin!.id,
+      {
+        action: 'add_user_tag',
+        target_type: 'user',
+        target_id: id,
+        after: { tag: tag.tag },
+      },
+      request,
+    )
+
+    return { ok: true, data: tag }
+  })
+
+  // DELETE /v1/admin/users/tags/:tagId — 删标签
+  app.delete('/v1/admin/users/tags/:tagId', async (request) => {
+    const { tagId } = tagIdParamsSchema.parse(request.params)
+    const isSuperAdmin = request.admin!.role === 'ADMIN'
+    const result = await removeTag(tagId, request.admin!.id, isSuperAdmin)
+
+    void recordAdminAudit(
+      request.admin!.id,
+      {
+        action: 'remove_user_tag',
+        target_type: 'user_tag',
+        target_id: tagId,
+      },
+      request,
+    )
+
+    return { ok: true, data: result }
+  })
+
+  // POST /v1/admin/users/:id/recompute-tags — 立刻重算单用户系统标签(给运营手动触发用,
+  // cron 每天凌晨自动跑一次)
+  app.post('/v1/admin/users/:id/recompute-tags', async (request) => {
+    const { id } = idParamsSchema.parse(request.params)
+    const result = await recomputeSystemTagsForUser(id)
     return { ok: true, data: result }
   })
 }

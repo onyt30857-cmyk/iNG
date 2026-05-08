@@ -30,6 +30,33 @@ interface UserItem {
   relationship_count: number
   session_count: number
   active_subscription: { plan: string; expires_at: string } | null
+  tags: Array<{ tag: string; source: string }>
+}
+
+// 系统标签 → 中文显示名 + 风险等级(用于行高亮)
+const TAG_META: Record<string, { label: string; level: 'info' | 'warn' | 'danger' | 'success' }> = {
+  newbie: { label: '新手', level: 'info' },
+  sleeping: { label: '沉睡', level: 'warn' },
+  high_activity: { label: '高活', level: 'success' },
+  high_feedback: { label: '高反馈', level: 'success' },
+  red_line_hit: { label: '红线触发', level: 'danger' },
+  paying: { label: '付费', level: 'success' },
+  high_cost: { label: '高成本', level: 'warn' },
+}
+
+function tagDisplay(tag: string, source: string): { label: string; level: 'info' | 'warn' | 'danger' | 'success' | 'manual' } {
+  if (source === 'manual') return { label: tag, level: 'manual' }
+  return TAG_META[tag] ?? { label: tag, level: 'info' }
+}
+
+function rowHighlightClass(tags: Array<{ tag: string; source: string }>): string {
+  for (const t of tags) {
+    if (t.source !== 'system') continue
+    const meta = TAG_META[t.tag]
+    if (meta?.level === 'danger') return 'bg-red-50/30 dark:bg-red-950/20 hover:bg-red-50/50'
+    if (meta?.level === 'warn') return 'bg-amber-50/30 dark:bg-amber-950/20 hover:bg-amber-50/50'
+  }
+  return ''
 }
 
 interface UserListResponse {
@@ -172,26 +199,27 @@ export default function UsersListPage() {
               <TableHead className="text-right">复盘</TableHead>
               <TableHead>订阅</TableHead>
               <TableHead>状态</TableHead>
+              <TableHead>标签</TableHead>
               <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading && !data && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                   加载中…
                 </TableCell>
               </TableRow>
             )}
             {data && data.items.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                   没找到匹配的用户
                 </TableCell>
               </TableRow>
             )}
             {data?.items.map((u) => (
-              <TableRow key={u.id}>
+              <TableRow key={u.id} className={rowHighlightClass(u.tags)}>
                 <TableCell className="font-medium">
                   {/* spec-014:运营备注名优先显示,昵称其次 */}
                   {u.admin_alias ? (
@@ -234,6 +262,39 @@ export default function UsersListPage() {
                   ) : (
                     <Badge variant="muted">{u.usage_stage}</Badge>
                   )}
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-1 max-w-[200px]">
+                    {u.tags.length === 0 && (
+                      <span className="text-[11px] text-muted-foreground">—</span>
+                    )}
+                    {u.tags.slice(0, 4).map((t) => {
+                      const meta = tagDisplay(t.tag, t.source)
+                      const cls =
+                        meta.level === 'danger'
+                          ? 'bg-red-100 dark:bg-red-950/40 text-red-800 dark:text-red-400 border-red-300'
+                          : meta.level === 'warn'
+                          ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400 border-amber-300'
+                          : meta.level === 'success'
+                          ? 'bg-green-100 dark:bg-green-950/40 text-green-800 dark:text-green-400 border-green-300'
+                          : meta.level === 'manual'
+                          ? 'bg-purple-100 dark:bg-purple-950/40 text-purple-800 dark:text-purple-400 border-purple-300'
+                          : 'bg-blue-100 dark:bg-blue-950/40 text-blue-800 dark:text-blue-400 border-blue-300'
+                      return (
+                        <span
+                          key={t.tag}
+                          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${cls}`}
+                        >
+                          {meta.label}
+                        </span>
+                      )
+                    })}
+                    {u.tags.length > 4 && (
+                      <span className="text-[10px] text-muted-foreground">
+                        +{u.tags.length - 4}
+                      </span>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="text-right">
                   <Button asChild variant="ghost" size="sm">

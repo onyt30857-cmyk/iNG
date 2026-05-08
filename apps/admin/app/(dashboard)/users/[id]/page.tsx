@@ -44,6 +44,26 @@ interface UserNote {
   updated_at: string
 }
 
+interface UserTag {
+  id: string
+  tag: string
+  source: string
+  reason: string | null
+  added_by: string
+  created_at: string
+  expires_at: string | null
+}
+
+const TAG_META: Record<string, { label: string; level: 'info' | 'warn' | 'danger' | 'success' }> = {
+  newbie: { label: '新手', level: 'info' },
+  sleeping: { label: '沉睡', level: 'warn' },
+  high_activity: { label: '高活', level: 'success' },
+  high_feedback: { label: '高反馈', level: 'success' },
+  red_line_hit: { label: '红线触发', level: 'danger' },
+  paying: { label: '付费', level: 'success' },
+  high_cost: { label: '高成本', level: 'warn' },
+}
+
 interface UserDetail {
   user: {
     id: string
@@ -61,6 +81,7 @@ interface UserDetail {
     deleted_at: string | null
   }
   notes: UserNote[]
+  tags: UserTag[]
   relationships: Array<{
     id: string
     name: string
@@ -260,6 +281,9 @@ export default function UserDetailPage() {
         </Card>
       </div>
 
+      {/* spec-014:用户标签(系统自动 + 手动) */}
+      <TagsPanel userId={u.id} tags={data.tags ?? []} onChanged={reload} />
+
       {/* spec-014:运营备注(用户不可见) */}
       <NotesPanel userId={u.id} notes={data.notes ?? []} onChanged={reload} />
 
@@ -371,6 +395,191 @@ function AliasEditor({
         </Button>
       </div>
     </div>
+  )
+}
+
+// =============== spec-014 第二砖:标签 Panel ===============
+
+function TagsPanel({
+  userId,
+  tags,
+  onChanged,
+}: {
+  userId: string
+  tags: UserTag[]
+  onChanged: () => void
+}) {
+  const [adding, setAdding] = useState(false)
+  const [tagText, setTagText] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [recomputing, setRecomputing] = useState(false)
+
+  async function handleAdd(e: FormEvent) {
+    e.preventDefault()
+    setSubmitting(true)
+    setErrorMsg(null)
+    const res = await adminPost(`/v1/admin/users/${userId}/tags`, {
+      tag: tagText.trim(),
+    })
+    setSubmitting(false)
+    if (res.ok) {
+      setTagText('')
+      setAdding(false)
+      onChanged()
+    } else {
+      setErrorMsg(res.error.message)
+    }
+  }
+
+  async function handleRemove(tagId: string) {
+    if (!confirm('确定删除这个标签?')) return
+    const res = await adminFetch(`/v1/admin/users/tags/${tagId}`, { method: 'DELETE' })
+    if (res.ok) onChanged()
+    else alert(res.error.message)
+  }
+
+  async function handleRecompute() {
+    setRecomputing(true)
+    const res = await adminPost(`/v1/admin/users/${userId}/recompute-tags`)
+    setRecomputing(false)
+    if (res.ok) onChanged()
+    else alert(res.error.message)
+  }
+
+  const systemTags = tags.filter((t) => t.source === 'system')
+  const manualTags = tags.filter((t) => t.source === 'manual')
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <CardTitle className="text-base">
+            标签
+            <span className="text-[11px] font-normal text-muted-foreground ml-2">
+              系统自动({systemTags.length})· 手动({manualTags.length})· 用户不可见
+            </span>
+          </CardTitle>
+          <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRecompute}
+              disabled={recomputing}
+              title="立刻重算系统标签(系统每天凌晨自动跑一次)"
+            >
+              {recomputing ? '重算中…' : '重算系统标签'}
+            </Button>
+            {!adding && (
+              <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
+                <Plus className="h-3.5 w-3.5" /> 加手动标签
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* 系统标签区 */}
+        <div>
+          <div className="text-xs font-medium text-muted-foreground mb-2">系统自动标签</div>
+          {systemTags.length === 0 ? (
+            <p className="text-xs text-muted-foreground italic">
+              还没自动标签 — 等明天凌晨 cron 重算,或上面"重算"立刻跑一次
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {systemTags.map((t) => {
+                const meta = TAG_META[t.tag] ?? { label: t.tag, level: 'info' as const }
+                const cls =
+                  meta.level === 'danger'
+                    ? 'bg-red-100 dark:bg-red-950/40 text-red-800 dark:text-red-400 border-red-300'
+                    : meta.level === 'warn'
+                    ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400 border-amber-300'
+                    : meta.level === 'success'
+                    ? 'bg-green-100 dark:bg-green-950/40 text-green-800 dark:text-green-400 border-green-300'
+                    : 'bg-blue-100 dark:bg-blue-950/40 text-blue-800 dark:text-blue-400 border-blue-300'
+                return (
+                  <span
+                    key={t.id}
+                    className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs ${cls}`}
+                    title={t.reason ?? ''}
+                  >
+                    {meta.label}
+                    {t.reason && (
+                      <span className="text-[10px] opacity-70 ml-1">· {t.reason}</span>
+                    )}
+                  </span>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* 手动标签区 */}
+        <div>
+          <div className="text-xs font-medium text-muted-foreground mb-2">手动标签(运营加的)</div>
+
+          {adding && (
+            <form
+              onSubmit={handleAdd}
+              className="rounded-md border border-input bg-muted/20 p-3 mb-3 space-y-2"
+            >
+              <Input
+                value={tagText}
+                onChange={(e) => setTagText(e.target.value)}
+                placeholder="例:种子用户 / 创始人朋友 / 已邀请测试群 / 客服 case#42"
+                autoFocus
+                maxLength={50}
+              />
+              {errorMsg && <p className="text-xs text-destructive">{errorMsg}</p>}
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setAdding(false)
+                    setTagText('')
+                    setErrorMsg(null)
+                  }}
+                  disabled={submitting}
+                >
+                  取消
+                </Button>
+                <Button type="submit" size="sm" disabled={submitting || !tagText.trim()}>
+                  {submitting ? '加中…' : '加上'}
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {manualTags.length === 0 && !adding ? (
+            <p className="text-xs text-muted-foreground italic">
+              还没手动标签。给重要用户打几个"种子用户"/"已联系"之类的标签,后续好筛
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {manualTags.map((t) => (
+                <span
+                  key={t.id}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-purple-300 bg-purple-100 dark:bg-purple-950/40 text-purple-800 dark:text-purple-400 px-3 py-1 text-xs"
+                >
+                  {t.tag}
+                  <button
+                    type="button"
+                    onClick={() => handleRemove(t.id)}
+                    className="hover:text-destructive"
+                    title="删除这个标签"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
