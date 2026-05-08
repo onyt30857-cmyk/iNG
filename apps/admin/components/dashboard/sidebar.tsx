@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Users, MessageSquareWarning, LayoutDashboard, LogOut } from 'lucide-react'
+import { Users, MessageSquareWarning, LayoutDashboard, LogOut, Activity } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { auth } from '@/lib/auth'
@@ -18,7 +18,8 @@ const NAV: NavItem[] = [
   { href: '/dashboard', label: '总览', icon: LayoutDashboard },
   { href: '/users', label: '用户', icon: Users },
   { href: '/feedback', label: '反馈', icon: MessageSquareWarning },
-  // M2 阶段加:LLM 监控 / 红线 / 数据分析 / 隐私 / 运维
+  { href: '/llm', label: 'AI 监控', icon: Activity },
+  // M2 阶段加:红线 / 数据分析 / 隐私 / 运维
 ]
 
 export function Sidebar() {

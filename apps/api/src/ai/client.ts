@@ -12,6 +12,7 @@
 // - Gemini OCR(spec-004)
 
 import Anthropic from '@anthropic-ai/sdk'
+import { recordAiCallLog, estimateCostUsd } from './call-log.js'
 import { config } from '../config/index.js'
 import { logger } from '../lib/logger.js'
 import { AppError, ErrorCodes } from '../lib/error.js'
@@ -194,6 +195,21 @@ export async function callClaude(
     'Claude 调用完成',
   )
 
+  // spec-013 LLMOps:fire-and-forget 落 AiCallLog(永不抛,不阻塞)
+  void recordAiCallLog({
+    call_id: response.id,
+    user_id: ctx.user_id,
+    relationship_id: ctx.relationship_id,
+    session_id: ctx.session_id,
+    scene: ctx.scene,
+    model,
+    input_tokens: response.usage.input_tokens,
+    output_tokens: response.usage.output_tokens,
+    cost_usd: estimateCostUsd(model, response.usage.input_tokens, response.usage.output_tokens),
+    duration_ms,
+    persona_passed: persona_check.passed,
+  })
+
   return {
     text,
     usage: {
@@ -250,6 +266,7 @@ export async function callClaudeStream(
   let fullText = ''
   let inputTokens = 0
   let outputTokens = 0
+  let messageId = ''
 
   try {
     const stream = client.messages.stream({
@@ -269,6 +286,7 @@ export async function callClaudeStream(
         handlers.onChunk(chunk)
       } else if (event.type === 'message_start') {
         inputTokens = event.message.usage.input_tokens
+        messageId = event.message.id
       } else if (event.type === 'message_delta') {
         outputTokens = event.usage.output_tokens
       }
@@ -313,6 +331,21 @@ export async function callClaudeStream(
     },
     'Claude Stream 调用完成',
   )
+
+  // spec-013 LLMOps:fire-and-forget 落 AiCallLog
+  void recordAiCallLog({
+    call_id: messageId || `stream-fallback-${Date.now()}`,
+    user_id: ctx.user_id,
+    relationship_id: ctx.relationship_id,
+    session_id: ctx.session_id,
+    scene: ctx.scene,
+    model,
+    input_tokens: inputTokens,
+    output_tokens: outputTokens,
+    cost_usd: estimateCostUsd(model, inputTokens, outputTokens),
+    duration_ms,
+    persona_passed: persona_check.passed,
+  })
 
   return {
     text: fullText,
@@ -446,6 +479,22 @@ export async function callClaudeVision(
     },
     'Claude Vision 调用完成',
   )
+
+  // spec-013 LLMOps:fire-and-forget 落 AiCallLog
+  // Vision 没经 persona check(image input,业务方自审),persona_passed 直接 true
+  void recordAiCallLog({
+    call_id: response.id,
+    user_id: ctx.user_id,
+    relationship_id: ctx.relationship_id,
+    session_id: ctx.session_id,
+    scene: ctx.scene,
+    model,
+    input_tokens: response.usage.input_tokens,
+    output_tokens: response.usage.output_tokens,
+    cost_usd: estimateCostUsd(model, response.usage.input_tokens, response.usage.output_tokens),
+    duration_ms,
+    persona_passed: true,
+  })
 
   return {
     text,
