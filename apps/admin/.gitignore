@@ -1,0 +1,26 @@
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# 依赖
+node_modules/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# 调试
+*.log
+
+# TypeScript 增量编译产物
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
