@@ -241,47 +241,52 @@ const greeting = (() => {
   flex-direction: column;
   align-items: center;
 }
+// 空态视觉:克制(微信式),不堆视觉重量。Sam 反馈"按钮太大没审美"后调整
 .empty-icon {
-  width: 160rpx;
-  height: 160rpx;
+  width: 96rpx;            // 160 → 96(更克制)
+  height: 96rpx;
   border-radius: 50%;
   background-color: $color-surface;
-  border: 2rpx dashed $color-border;
+  border: 1rpx dashed $color-text-disabled;  // 2rpx → 1rpx,虚线更细
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 48rpx;
+  margin-bottom: 32rpx;     // 48 → 32
 }
 .empty-icon-text {
-  font-size: 64rpx;
-  color: $color-text-disabled;
+  font-size: 40rpx;         // 64 → 40
+  color: $color-text-tertiary;
+  font-weight: $weight-light;
+  line-height: 1;
 }
 .empty-title {
-  font-size: 34rpx;
+  font-size: 32rpx;         // 34 → 32
   font-weight: $weight-medium;
   color: $color-text-primary;
-  margin-bottom: 16rpx;
+  margin-bottom: 12rpx;
 }
 .empty-hint {
-  font-size: 28rpx;
+  font-size: 26rpx;         // 28 → 26
   color: $color-text-tertiary;
   line-height: 1.6;
   text-align: center;
-  margin-bottom: 48rpx;
+  margin-bottom: 40rpx;     // 48 → 40
 }
 .empty-cta {
+  // 微信式胶囊按钮,克制有审美 — padding 紧凑 / 圆角拉满 / 字号小
   background-color: $color-primary;
   border: none;
-  border-radius: 16rpx;
-  padding: 24rpx 48rpx;
+  border-radius: 9999rpx;   // 胶囊型(从 16rpx)
+  padding: 16rpx 40rpx;     // 24×48 → 16×40,垂直紧凑
 
   &::after { border: none; }
   &:active { background-color: $color-primary-deep; }
 }
 .empty-cta-text {
-  font-size: 30rpx;
-  color: $color-background;
-  font-weight: $weight-medium;
+  font-size: 26rpx;         // 30 → 26,降字重视觉重量
+  color: $color-surface;
+  font-weight: $weight-regular; // medium → regular
+  letter-spacing: 1rpx;
 }
 
 // === 新建按钮(列表底部) ===
