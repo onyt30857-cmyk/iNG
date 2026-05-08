@@ -13,6 +13,21 @@ onLaunch(async () => {
   } else {
     console.log('[App] launch, restored user_id=', userStore.userId)
   }
+
+  // spec-018 全局 onboarding 守卫:未走完 onboarding 强制跳 welcome
+  // 必须在 App 级,因为 uni-app H5 的 hash URL 可能直接跳到任意页(如 #/pages/home/index)
+  // 绕过 splash 的检查。这里是最后一道防线。
+  // 例外:已经在 onboarding 流程内(welcome / profile)不跳,避免 reLaunch 自己。
+  if (!userStore.isOnboarded()) {
+    const pages = getCurrentPages()
+    const currentRoute = pages[pages.length - 1]?.route ?? ''
+    const inOnboarding = currentRoute.startsWith('pages/onboarding/')
+    const inSplash = currentRoute === 'pages/splash/index'
+    if (!inOnboarding && !inSplash) {
+      console.log('[App] onboarding 未完成,强制跳 welcome (from:', currentRoute, ')')
+      uni.reLaunch({ url: '/pages/onboarding/welcome' })
+    }
+  }
 })
 
 onShow(() => {
