@@ -436,7 +436,7 @@ export async function grantSubscription(
 }
 
 /**
- * Admin 视角查 user quota — 7 天每日趋势 + 当前订阅状态
+ * Admin 视角查 user quota — 7 天每日趋势 + 当前订阅状态 + 当前全局 limits/bypass
  * 不像 services/user 强制 user_id 隔离 — admin 路径显式查任意 user
  */
 export async function getUserQuotaForAdmin(userId: string) {
@@ -456,21 +456,32 @@ export async function getUserQuotaForAdmin(userId: string) {
     )
   }
 
-  const usages = await prisma.dailyUsage.findMany({
-    where: { user_id: userId, day: { in: days } },
-    select: { day: true, turn_count: true, ocr_count: true, heavy_count: true },
-  })
+  const [usages, activeSub, config] = await Promise.all([
+    prisma.dailyUsage.findMany({
+      where: { user_id: userId, day: { in: days } },
+      select: { day: true, turn_count: true, ocr_count: true, heavy_count: true },
+    }),
+    prisma.subscription.findFirst({
+      where: { user_id: userId, status: 'ACTIVE', expires_at: { gt: new Date() } },
+      select: { plan: true, expires_at: true },
+    }),
+    // 全局 quota 配置(spec-015)— 给详情页展示"当前 limits"
+    (async () => {
+      const { loadSystemConfig } = await import('../system-config.service.js')
+      return loadSystemConfig()
+    })(),
+  ])
   const usageByDay = new Map(usages.map((u) => [u.day, u]))
-
-  // 当前订阅状态
-  const activeSub = await prisma.subscription.findFirst({
-    where: { user_id: userId, status: 'ACTIVE', expires_at: { gt: new Date() } },
-    select: { plan: true, expires_at: true },
-  })
 
   return {
     has_active_subscription: !!activeSub,
     active_subscription: activeSub,
+    bypass_enabled: config.quota_bypass_enabled,
+    limits: {
+      turn: config.quota_turn,
+      ocr: config.quota_ocr,
+      heavy: config.quota_heavy,
+    },
     days: days.map((day) => ({
       day,
       turn: usageByDay.get(day)?.turn_count ?? 0,

@@ -281,6 +281,9 @@ export default function UserDetailPage() {
         </Card>
       </div>
 
+      {/* spec-015:配额使用情况 */}
+      <QuotaUsagePanel userId={u.id} />
+
       {/* spec-014:用户标签(系统自动 + 手动) */}
       <TagsPanel userId={u.id} tags={data.tags ?? []} onChanged={reload} />
 
@@ -393,6 +396,158 @@ function AliasEditor({
         <Button type="button" size="sm" onClick={save} disabled={saving}>
           {saving ? '保存中…' : '保存'}
         </Button>
+      </div>
+    </div>
+  )
+}
+
+// =============== spec-015:配额使用 Panel ===============
+
+interface QuotaStatus {
+  has_active_subscription: boolean
+  active_subscription: { plan: string; expires_at: string } | null
+  bypass_enabled: boolean
+  limits: { turn: number; ocr: number; heavy: number }
+  days: Array<{ day: string; turn: number; ocr: number; heavy: number }>
+}
+
+function QuotaUsagePanel({ userId }: { userId: string }) {
+  const [data, setData] = useState<QuotaStatus | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    adminGet<QuotaStatus>(`/v1/admin/quota/${userId}`).then((res) => {
+      if (cancelled) return
+      setLoading(false)
+      if (res.ok) setData(res.data)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [userId])
+
+  if (loading || !data) {
+    return (
+      <Card>
+        <CardContent className="p-5 text-sm text-muted-foreground">配额数据加载中…</CardContent>
+      </Card>
+    )
+  }
+
+  // 7 天里今天是 days[0]
+  const today = data.days[0]
+  const isUnlimited = data.bypass_enabled || data.has_active_subscription
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base">
+            今日配额使用
+            <span className="text-[11px] font-normal text-muted-foreground ml-2">
+              {data.bypass_enabled
+                ? '全局 bypass 中(所有用户不限)'
+                : data.has_active_subscription
+                ? `订阅用户(${data.active_subscription?.plan} · 不限)`
+                : '免费用户'}
+            </span>
+          </CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {/* 今日 3 条 */}
+        <div className="space-y-3">
+          <QuotaBar
+            label="💬 对话(turn)"
+            used={today?.turn ?? 0}
+            limit={data.limits.turn}
+            unlimited={isUnlimited}
+          />
+          <QuotaBar
+            label="📷 截图复盘(ocr)"
+            used={today?.ocr ?? 0}
+            limit={data.limits.ocr}
+            unlimited={isUnlimited}
+          />
+          <QuotaBar
+            label="⚙️ 重操作(heavy)"
+            used={today?.heavy ?? 0}
+            limit={data.limits.heavy}
+            unlimited={isUnlimited}
+          />
+        </div>
+
+        {/* 7 天迷你柱状 */}
+        <div>
+          <div className="text-xs text-muted-foreground mb-2">最近 7 天对话用量</div>
+          <div className="flex items-end gap-1 h-12">
+            {[...data.days].reverse().map((d) => {
+              const max = Math.max(...data.days.map((x) => x.turn), 1)
+              const h = (d.turn / max) * 100
+              return (
+                <div
+                  key={d.day}
+                  className="flex-1 flex flex-col items-center justify-end"
+                  title={`${d.day}: ${d.turn} 次对话`}
+                >
+                  <div
+                    className="w-full bg-primary/60 rounded-sm min-h-[2px]"
+                    style={{ height: `${h}%` }}
+                  />
+                  <div className="text-[9px] text-muted-foreground mt-1">
+                    {d.day.slice(5).replace('-', '/')}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {data.bypass_enabled && (
+          <div className="text-[11px] text-muted-foreground rounded-md bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 px-3 py-2">
+            ⚠️ 全局 bypass 开启中,所有用户都不限。M1 上线前去
+            <Link href="/settings/quota" className="text-primary underline mx-1">
+              系统配置
+            </Link>
+            关掉。
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function QuotaBar({
+  label,
+  used,
+  limit,
+  unlimited,
+}: {
+  label: string
+  used: number
+  limit: number
+  unlimited: boolean
+}) {
+  const pct = unlimited ? 0 : Math.min(100, (used / Math.max(1, limit)) * 100)
+  const danger = pct >= 90
+  const warn = pct >= 70 && pct < 90
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between text-sm">
+        <span>{label}</span>
+        <span className="font-mono text-xs">
+          {unlimited ? `${used} 次(不限)` : `${used} / ${limit}`}
+        </span>
+      </div>
+      <div className="h-2 bg-secondary rounded-full overflow-hidden">
+        <div
+          className={`h-full transition-all ${
+            danger ? 'bg-red-500' : warn ? 'bg-amber-500' : 'bg-primary'
+          }`}
+          style={{ width: `${unlimited ? 0 : pct}%` }}
+        />
       </div>
     </div>
   )

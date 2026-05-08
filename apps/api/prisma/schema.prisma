@@ -950,6 +950,27 @@ model AnnotationItem {
 
 // === 模块 D:隐性反馈采集(用户行为埋点)===
 
+// === 系统配置(spec-015)===
+// 单行设计 — id 固定 'global',只有一行
+// 改这里 = 立刻生效(后端 5 分钟缓存)
+model SystemConfig {
+  id String @id @default("global")
+
+  // 免费额度(每天每用户)
+  quota_turn  Int @default(20)
+  quota_ocr   Int @default(5)
+  quota_heavy Int @default(3)
+
+  // 全局 bypass:true = 所有用户不限(M1 内测期默认开)
+  // 上线后改 false 启用 limits;订阅用户始终 bypass(独立逻辑)
+  quota_bypass_enabled Boolean @default(true)
+
+  updated_by String?
+  updated_at DateTime @updatedAt @db.Timestamptz
+
+  @@map("system_config")
+}
+
 // === 用户颗粒度管理(spec-014)===
 // 用户标签 — admin 内部用,用户不可见
 // 自动标签:每天凌晨 cron 重新计算(sleeping / high_activity / red_line_hit 等)

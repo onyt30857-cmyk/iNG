@@ -10,20 +10,13 @@
 // - heavy_count:extract-profile / generate-insights / summarize / red-line LLM check 等
 
 import { prisma } from '../../lib/prisma.js'
+import { loadSystemConfig } from '../system-config.service.js'
 
-// 默认免费层(M1 hardcode,M2 接配置)
-export const FREE_DAILY_LIMITS = {
-  turn: 20,
-  ocr: 5,
-  heavy: 3,
-} as const
+// 2026-05-09(spec-015):限制 + bypass 都从 system_config 表读(5 分钟缓存)
+// 之前的 hardcode FREE_DAILY_LIMITS / BYPASS_FREE_QUOTA 已迁移到 DB,运营在
+// /admin/settings/quota 页改后立刻生效。
 
-// 2026-05-08:M1 内测期临时全量 bypass quota(Sam 决策"先把额度限制取消")。
-// 真接付费墙时(M2 spec-011 模块 1.6 临时提额 + 真订阅流程上线)改回 false。
-// 改这一行即可恢复 hard limit,不需要重新跑 migration / 改 schema。
-const BYPASS_FREE_QUOTA = true
-
-export type QuotaKind = keyof typeof FREE_DAILY_LIMITS
+export type QuotaKind = 'turn' | 'ocr' | 'heavy'
 
 export interface QuotaCheckResult {
   allowed: boolean
@@ -59,8 +52,11 @@ export async function checkAndIncrementQuota(
   userId: string,
   kind: QuotaKind,
 ): Promise<QuotaCheckResult> {
-  // M1 内测期全量 bypass(见文件顶部 BYPASS_FREE_QUOTA 注释)
-  if (BYPASS_FREE_QUOTA) {
+  // 从 DB 读全局配置(5 分钟缓存)
+  const config = await loadSystemConfig()
+
+  // 全局 bypass(运营在 /admin/settings/quota 切换)
+  if (config.quota_bypass_enabled) {
     return {
       allowed: true,
       used: 0,
@@ -82,7 +78,8 @@ export async function checkAndIncrementQuota(
   }
 
   const day = todayStr()
-  const limit = FREE_DAILY_LIMITS[kind]
+  const limit =
+    kind === 'turn' ? config.quota_turn : kind === 'ocr' ? config.quota_ocr : config.quota_heavy
   const counterField =
     kind === 'turn' ? 'turn_count' : kind === 'ocr' ? 'ocr_count' : 'heavy_count'
 
@@ -129,14 +126,16 @@ export async function checkAndIncrementQuota(
 }
 
 /** 只查 quota 不累加(给前端显示用) */
-export async function getQuotaStatus(
-  userId: string,
-): Promise<{
+export async function getQuotaStatus(userId: string): Promise<{
   subscribed: boolean
+  bypass: boolean
   today: { turn: number; ocr: number; heavy: number }
-  limits: typeof FREE_DAILY_LIMITS
+  limits: { turn: number; ocr: number; heavy: number }
 }> {
-  const subscribed = await hasActiveSubscription(userId)
+  const [config, subscribed] = await Promise.all([
+    loadSystemConfig(),
+    hasActiveSubscription(userId),
+  ])
   const day = todayStr()
   const usage = await prisma.dailyUsage.findUnique({
     where: { user_id_day: { user_id: userId, day } },
@@ -144,11 +143,16 @@ export async function getQuotaStatus(
 
   return {
     subscribed,
+    bypass: config.quota_bypass_enabled,
     today: {
       turn: usage?.turn_count ?? 0,
       ocr: usage?.ocr_count ?? 0,
       heavy: usage?.heavy_count ?? 0,
     },
-    limits: FREE_DAILY_LIMITS,
+    limits: {
+      turn: config.quota_turn,
+      ocr: config.quota_ocr,
+      heavy: config.quota_heavy,
+    },
   }
 }
