@@ -6,7 +6,7 @@
 //   ③ 用户选 / 跳过 → PATCH /users/me → 进 /pages/home
 // 任一步失败 toast,不阻断 — 最坏情况用户再点一次
 
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed } from 'vue'
 import { updateProfile } from '../../api/user.api'
 import { useUserStore } from '../../stores/user'
 import { PRESET_AVATARS } from '../../utils/preset-avatars'
@@ -29,9 +29,6 @@ const selectedAvatar = ref<string | null>(null)
 // 老 K 还在打字?(纯视觉提示)
 const laokeTyping = ref(true)
 
-// 滚动锚
-const scrollIntoView = ref('anchor-bottom')
-
 function handleNicknameInput(e: { detail: { value: string } }) {
   const v = e.detail.value
   // 限制 12 字硬截断,避免输入超长后才提示
@@ -47,11 +44,9 @@ async function submitNickname() {
   // 进入下一阶段
   laokeTyping.value = true
   phase.value = 'choosing_avatar'
-  await nextTick()
   // 600ms 后老 K 应一句
   setTimeout(() => {
     laokeTyping.value = false
-    scrollToBottom()
   }, 600)
 }
 
@@ -62,7 +57,6 @@ function selectAvatar(url: string) {
 async function finish(skipAvatar: boolean) {
   if (phase.value === 'submitting') return
   phase.value = 'submitting'
-  scrollToBottom()
 
   const patch: { nickname: string; avatar_url?: string | null } = {
     nickname: nickname.value.trim(),
@@ -94,13 +88,6 @@ async function finish(skipAvatar: boolean) {
   }, 1000)
 }
 
-function scrollToBottom() {
-  // 让 scroll-view 滚到底
-  scrollIntoView.value = ''
-  nextTick(() => {
-    scrollIntoView.value = 'anchor-bottom'
-  })
-}
 </script>
 
 <template>
@@ -114,8 +101,9 @@ function scrollToBottom() {
       </view>
     </view>
 
-    <!-- 对话流(scroll-view 让长内容可滚动)-->
-    <scroll-view scroll-y class="messages" :scroll-into-view="scrollIntoView" :scroll-with-animation="true">
+    <!-- 对话流(view + overflow:auto 替代 scroll-view,
+         避免 uni-app H5 的 scroll-view wrapper 让子元素 fit-content 失效)-->
+    <view class="messages">
       <view class="bubble">嗨,我是老 K。先告诉我,怎么叫你?</view>
 
       <!-- 用户已提交昵称(进入第二阶段)-->
@@ -166,7 +154,7 @@ function scrollToBottom() {
 
       <!-- 滚动锚 -->
       <view id="anchor-bottom" class="anchor" />
-    </scroll-view>
+    </view>
 
     <!-- 底部输入框(只在 naming 阶段开放)-->
     <view class="footer-input">
@@ -244,8 +232,10 @@ function scrollToBottom() {
 .messages {
   flex: 1;
   padding: $space-3 $space-4;
-  /* uni-app scroll-view 在 H5 编译后包了一层 wrapper,flex 不一定能穿透。
-     用 block 流 + auto margin 控制对齐,避免依赖 flex/align-self */
+  overflow-y: auto;
+  box-sizing: border-box;
+  /* 用 view + overflow:auto 替代 scroll-view,uni-app H5 上 view 也能滚动。
+     bubble 用 width:fit-content + auto margin 控制左右对齐 */
 }
 
 .bubble {
