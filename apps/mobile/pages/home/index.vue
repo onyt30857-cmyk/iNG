@@ -27,22 +27,57 @@ function openRelationshipSpace(relationshipId: string) {
   uni.navigateTo({ url: `/pages/relationship/conversation?id=${relationshipId}` })
 }
 
-// 滑动删除关系(Sam 2026-05-08 反馈:右滑触发删除流程)
-// 跟现有删除逻辑一致 — confirm modal + store.softDelete
+// 滑动删除关系 — iOS Mail 式 reveal 模式(2026-05-08 polish)
+// 右滑 > 阈值 → 卡片向右停在 80px,左侧露出红色"删除"按钮 → 点删除按钮 confirm + softDelete
+// 同一时刻只允许一个 row 处于 open 状态(activeSwipeId);滑动其他卡片自动关闭旧的
+const SWIPE_THRESHOLD = 40   // 松手时 offset 超过这值才 snap 到 open(80px)
+const SWIPE_MAX = 80          // 完全 open 的位移
+const activeSwipeId = ref<string | null>(null) // 当前 open 的 row(只能一个)
+const swipeOffset = ref(0)   // 当前正在拖动 row 的 transform x
 const swipeStartX = ref(0)
-const swipeStartId = ref('')
+const swipeStartOffset = ref(0)
+const swipeDraggingId = ref<string | null>(null)
 
-function onSwipeStart(e: TouchEvent, id: string) {
-  swipeStartX.value = e.touches[0]?.clientX ?? 0
-  swipeStartId.value = id
+function rowOffset(id: string): number {
+  if (swipeDraggingId.value === id) return swipeOffset.value
+  if (activeSwipeId.value === id) return SWIPE_MAX
+  return 0
 }
 
-async function onSwipeEnd(e: TouchEvent, id: string, name: string) {
-  if (swipeStartId.value !== id) return
-  const dx = (e.changedTouches[0]?.clientX ?? 0) - swipeStartX.value
-  swipeStartId.value = ''
-  // 右滑 > 80px 触发删除流程(避免误触,要求明显滑动)
-  if (dx <= 80) return
+function onSwipeStart(e: TouchEvent, id: string) {
+  // 滑别的 row → 关掉之前 open 的
+  if (activeSwipeId.value && activeSwipeId.value !== id) {
+    activeSwipeId.value = null
+  }
+  swipeStartX.value = e.touches[0]?.clientX ?? 0
+  swipeDraggingId.value = id
+  // 如果当前 row 已 open,以 80px 为基准
+  swipeStartOffset.value = activeSwipeId.value === id ? SWIPE_MAX : 0
+  swipeOffset.value = swipeStartOffset.value
+}
+
+function onSwipeMove(e: TouchEvent, id: string) {
+  if (swipeDraggingId.value !== id) return
+  const dx = (e.touches[0]?.clientX ?? 0) - swipeStartX.value
+  const next = swipeStartOffset.value + dx
+  swipeOffset.value = Math.max(0, Math.min(SWIPE_MAX, next))
+}
+
+function onSwipeEnd(_e: TouchEvent, id: string) {
+  if (swipeDraggingId.value !== id) return
+  const final = swipeOffset.value
+  swipeDraggingId.value = null
+  // 松手:超过阈值 → 完全 open(snap 80);否则收起(snap 0)
+  if (final > SWIPE_THRESHOLD) {
+    activeSwipeId.value = id
+    swipeOffset.value = SWIPE_MAX
+  } else {
+    activeSwipeId.value = null
+    swipeOffset.value = 0
+  }
+}
+
+async function confirmDelete(id: string, name: string) {
   const res = await uni.showModal({
     title: '删除这段关系?',
     content: `删除"${name}"后,聊天记录、关系档案都会一起没了,而且找不回来。`,
@@ -53,9 +88,18 @@ async function onSwipeEnd(e: TouchEvent, id: string, name: string) {
   if (res.confirm) {
     const ok = await store.softDelete(id)
     if (ok) {
+      activeSwipeId.value = null
       uni.showToast({ title: '已删除', icon: 'none', duration: 1500 })
     }
+  } else {
+    // 取消 → 收起 swipe
+    activeSwipeId.value = null
   }
+}
+
+// 点列表外面任意位置 → 关闭打开的 swipe(类似 iOS 行为)
+function closeAllSwipe() {
+  if (activeSwipeId.value) activeSwipeId.value = null
 }
 
 function closeEntry() {
@@ -120,19 +164,24 @@ const greeting = (() => {
       <text class="hint-text">点一段关系,看看她最近</text>
     </view>
 
-    <!-- 关系列表(主入口)— 包 swipe wrapper 支持右滑删除 -->
+    <!-- 关系列表(主入口)— iOS Mail 式 swipe-to-delete reveal -->
     <view v-if="store.items.length > 0" class="rel-list">
-      <view
-        v-for="r in store.items"
-        :key="r.id"
-        class="rel-swipe-wrap"
-        @touchstart="(e) => onSwipeStart(e, r.id)"
-        @touchend="(e) => onSwipeEnd(e, r.id, r.name)"
-      >
-        <RelationshipCard
-          :relationship="r"
-          @tap="openRelationshipSpace(r.id)"
-        />
+      <view v-for="r in store.items" :key="r.id" class="rel-row">
+        <!-- 红色删除按钮(底层,被卡片挡住,卡片右滑后露出) -->
+        <view class="swipe-delete-bg" @tap.stop="confirmDelete(r.id, r.name)">
+          <text class="swipe-delete-text">删除</text>
+        </view>
+        <!-- 卡片(顶层,跟手指右滑) -->
+        <view
+          class="rel-card-layer"
+          :style="{ transform: `translateX(${rowOffset(r.id)}px)` }"
+          @touchstart="(e) => onSwipeStart(e, r.id)"
+          @touchmove="(e) => onSwipeMove(e, r.id)"
+          @touchend="(e) => onSwipeEnd(e, r.id)"
+          @tap="rowOffset(r.id) === 0 ? openRelationshipSpace(r.id) : closeAllSwipe()"
+        >
+          <RelationshipCard :relationship="r" />
+        </view>
       </view>
     </view>
 
@@ -269,6 +318,38 @@ const greeting = (() => {
 // === 关系列表 ===
 .rel-list {
   padding: 0 8rpx;
+}
+
+// iOS Mail 式 swipe-to-delete reveal
+.rel-row {
+  position: relative;
+  overflow: hidden;          // 卡片右滑时,出 list 的部分被切掉
+  margin-bottom: 16rpx;
+}
+.swipe-delete-bg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 80px;
+  background-color: $color-danger;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+.swipe-delete-text {
+  color: $color-surface;
+  font-size: 26rpx;
+  font-weight: $weight-medium;
+  letter-spacing: 2rpx;
+}
+.rel-card-layer {
+  position: relative;
+  z-index: 2;
+  background-color: $color-background; // 必须不透明,否则 delete-bg 会透出来
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1); // iOS-like ease-out
+  will-change: transform;
 }
 
 // === 空态 ===
