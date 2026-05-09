@@ -12,6 +12,7 @@ import { FeedbackTrendChart } from '@/components/dashboard/feedback-trend-chart'
 import { FeedbackAnomalyBanner } from '@/components/dashboard/feedback-anomaly-banner'
 import { FeedbackVersionComparison } from '@/components/dashboard/feedback-version-comparison'
 import { FeedbackSceneBreakdown } from '@/components/dashboard/feedback-scene-breakdown'
+import { FeedbackClusters } from '@/components/dashboard/feedback-clusters'
 
 interface FeedbackDashboard {
   window_days: number
@@ -181,6 +182,9 @@ export default function FeedbackDashboardPage() {
 
       {/* 30 天 dislike 率趋势曲线(spec-021 P0-1)*/}
       <FeedbackTrendChart />
+
+      {/* 一周吐槽自动归类(spec-021 P0-2)*/}
+      <FeedbackClusters />
 
       {/* Scene 分粒度 + Prompt 版本对比(spec-021 P1-4 + P0-3)*/}
       <div className="grid gap-4 lg:grid-cols-2">

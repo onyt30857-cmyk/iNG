@@ -17,6 +17,10 @@ import {
   getSceneFeedbackBreakdown,
   exportDislikesCsv,
 } from '../../../services/admin/admin-feedback.service.js'
+import {
+  getLatestClusters,
+  runFeedbackClustering,
+} from '../../../services/admin/feedback-clustering.service.js'
 
 const dashboardQuerySchema = z.object({
   windowDays: z.coerce.number().int().min(1).max(90).default(7),
@@ -51,6 +55,28 @@ export async function adminFeedbackRoutes(app: FastifyInstance): Promise<void> {
   app.get('/v1/admin/feedback/trend', async (request) => {
     const q = trendQuerySchema.parse(request.query)
     const result = await getFeedbackTrend(q.windowDays)
+    return { ok: true, data: result }
+  })
+
+  // GET /v1/admin/feedback/clusters — 最新聚类结果(spec-021 P0-2)
+  app.get('/v1/admin/feedback/clusters', async () => {
+    const result = await getLatestClusters()
+    return { ok: true, data: result }
+  })
+
+  // POST /v1/admin/feedback/clusters/recompute — 手动触发聚类(运营立即想看)
+  app.post('/v1/admin/feedback/clusters/recompute', async (request) => {
+    const result = await runFeedbackClustering(7)
+    void recordAdminAudit(
+      request.admin!.id,
+      {
+        action: 'recompute_feedback_clusters',
+        target_type: 'feedback_cluster',
+        target_id: result.computed_for_date,
+        reason: `themes=${result.themes_count} feedbacks=${result.feedbacks_analyzed}`,
+      },
+      request,
+    )
     return { ok: true, data: result }
   })
 

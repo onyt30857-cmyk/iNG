@@ -36,6 +36,7 @@ import { adminConversationRoutes } from './routes/v1/admin/conversation.route.js
 import { behaviorRoutes } from './routes/v1/behavior.route.js'
 import { probeRoutes } from './routes/v1/probe.route.js'
 import { startDeletionCron } from './workers/deletion-cron.js'
+import { startFeedbackClusteringCron } from './workers/feedback-clustering-cron.js'
 import { cleanupDevSeedIfExists } from './workers/cleanup-dev-seed-on-boot.js'
 import { startUserTagCron } from './services/admin/admin-tag.service.js'
 
@@ -145,6 +146,8 @@ async function main() {
     startDeletionCron()
     // spec-014:用户系统标签 cron(每 24h 重算,启动 30s 后跑首次)
     startUserTagCron()
+    // spec-021 P0-2:反馈聚类 cron(每 24h 跑 LLM 聚类,启动 5 分钟后跑首次)
+    startFeedbackClusteringCron()
     // 一次性清理 dev seed 数据(2026-05-08,Sam 反馈"新用户看到默认 3 关系")
     // 第一次启动后 dev-user-1 已删,后续启动 noop。不阻塞启动。
     cleanupDevSeedIfExists().catch(() => { /* 已在内部 log,这里 swallow */ })

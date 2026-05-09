@@ -667,6 +667,32 @@ model ModerationLog {
 // Prompt 评估反馈(用于持续优化)
 // ============================================================
 
+// 吐槽自动聚类(spec-021 P0-2)
+// 每天 cron 用 Haiku 把过去 7 天 dislike+comment 分组
+// 让运营 5 分钟看完一周吐槽,不用读 50 条
+model FeedbackCluster {
+  id String @id @default(cuid())
+
+  // 聚类生成日期(YYYY-MM-DD,UTC+8)
+  computed_for_date String
+
+  // 主题描述(LLM 生成,中文,如"觉得老白说话太长")
+  theme String @db.Text
+  // 该主题下的反馈条数
+  count Int
+  // 该主题的代表性反馈样本(最多 5 条 PromptFeedback.id)
+  sample_feedback_ids String[]
+
+  // 这次聚类用了多少天的数据
+  window_days Int @default(7)
+
+  created_at DateTime @default(now()) @db.Timestamptz
+
+  @@unique([computed_for_date, theme])
+  @@index([computed_for_date])
+  @@map("feedback_clusters")
+}
+
 model PromptFeedback {
   id              String  @id @default(cuid())
   user_id         String
