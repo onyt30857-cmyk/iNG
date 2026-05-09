@@ -79,6 +79,9 @@ export default function PromptVersionsPage() {
         <p className="text-sm text-muted-foreground mt-1">{versions.length} 个版本</p>
       </div>
 
+      {/* spec-025 P0-2:当前 deployed 版本快照预览(不点编辑就能看)*/}
+      <DeployedSnapshot versions={versions} viewContent={viewContent} />
+
       {errorMsg && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {errorMsg}
@@ -142,7 +145,7 @@ export default function PromptVersionsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 部署 dialog */}
+      {/* placeholder for deploy dialog */}
       <DeployDialog
         versionId={deployingId}
         onClose={() => setDeployingId(null)}
@@ -231,5 +234,71 @@ function DeployDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ============== spec-025 P0-2: 当前 deployed 版本快照预览 ==============
+function DeployedSnapshot({
+  versions,
+  viewContent,
+}: {
+  versions: VersionItem[]
+  viewContent: (id: string) => Promise<void>
+}) {
+  const deployed = versions.find((v) => v.deployed_at && !v.rolled_back_at)
+  const [expanded, setExpanded] = useState(false)
+  const [content, setContent] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  async function loadContent() {
+    if (!deployed) return
+    if (content) {
+      setExpanded((v) => !v)
+      return
+    }
+    setLoading(true)
+    const res = await adminGet<VersionFull>(`/v1/admin/prompts/versions/${deployed.id}`)
+    setLoading(false)
+    if (res.ok) {
+      setContent(res.data.content)
+      setExpanded(true)
+    }
+    void viewContent // unused but keep prop interface stable
+  }
+
+  if (!deployed) {
+    return (
+      <Card className="border-amber-300 bg-amber-50/50 dark:bg-amber-950/20">
+        <CardContent className="p-4 text-sm">
+          ⚠️ 当前没有 deployed 的版本。所有 AI 调用会用代码里 hardcode 的默认 prompt。
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card className="border-emerald-300 bg-emerald-50/30 dark:bg-emerald-950/10">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <div className="text-sm font-medium">
+              ✓ 当前线上 v{deployed.version}
+              {deployed.rollout_pct < 100 && ` · 灰度 ${deployed.rollout_pct}%`}
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              {deployed.notes ?? '无说明'} · 部署于 {deployed.deployed_at && new Date(deployed.deployed_at).toLocaleDateString('zh-CN')}
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={loadContent} disabled={loading}>
+            {loading ? '加载中…' : expanded ? '收起预览' : '展开看完整 prompt'}
+          </Button>
+        </div>
+        {expanded && content && (
+          <pre className="overflow-auto max-h-[400px] text-xs whitespace-pre-wrap font-mono bg-background border rounded p-3">
+            {content}
+          </pre>
+        )}
+      </CardContent>
+    </Card>
   )
 }

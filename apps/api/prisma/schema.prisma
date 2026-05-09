@@ -667,6 +667,44 @@ model ModerationLog {
 // Prompt 评估反馈(用于持续优化)
 // ============================================================
 
+// 老白人格档案(spec-025)
+// 单行表,id='laoke',admin 可编辑(改 prompt 不会自动同步,但运营心里要知道老白是谁)
+// 结构化存放 persona-laoke.md 的核心规则,让运营不用看 markdown 也能查
+model LaokePersona {
+  id String @id @default("laoke")
+
+  // 身份
+  identity_summary String @db.Text // "32 岁,男,自己年轻时也不擅追女生,摔过几次..."
+  age              Int    @default(32)
+  role             String @default("兄长型 AI") // 兄长 / 不是咨询师 / 不是导师 / 不是客服
+
+  // 说话风格(数组存,前端列表展示 + 编辑)
+  // 例:["我跟你说真的", "你想多了", "你心里其实知道答案"]
+  signature_phrases String[] // 常说的话
+  // 例:["我理解你的感受", "建议从以下几个方面", "宝宝/家人们"]
+  forbidden_phrases String[] // 绝不说的话
+
+  // 判断风格(自由文本 markdown)
+  judgment_style String @db.Text // "敢断:'她不是在退,是有事'..."
+
+  // 能识别什么(列表)
+  recognizes String[] // ["安全行为(过度排练)", "羞耻陈述('我不配')", "灾难化思维"]
+
+  // 话术硬约束(自由文本 markdown)
+  formatting_rules String @db.Text // "单句≤15字 / 绝对不超过25字 / 给2句话也行,每句≤15字..."
+
+  // 改 prompt 时的硬规则提醒
+  // 用 markdown 写,管理员看到这个就知道改 prompt 不能怎么改
+  do_not_change_warnings String? @db.Text
+
+  // 元数据
+  updated_by String?  // admin id
+  updated_at DateTime @updatedAt @db.Timestamptz
+  created_at DateTime @default(now()) @db.Timestamptz
+
+  @@map("laoke_persona")
+}
+
 // 产品迭代记录(spec-022)
 // 用途:Sam / 运营回顾"我们做了什么",防止"做过什么忘了"
 // 不替代 admin_audit_logs(运营操作审计) / PromptVersion / git log,

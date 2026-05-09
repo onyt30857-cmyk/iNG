@@ -18,6 +18,8 @@ import {
   X,
   AlertCircle,
   History,
+  Sparkles,
+  ShieldAlert,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -36,7 +38,9 @@ const NAV: NavItem[] = [
   { href: '/relationships', label: '关系', icon: Heart },
   { href: '/feedback', label: '反馈', icon: MessageSquareWarning },
   { href: '/llm', label: 'AI 监控', icon: Activity },
+  { href: '/laoke', label: '老白档案', icon: Sparkles },
   { href: '/prompts', label: 'Prompt 工程', icon: FileCode2 },
+  { href: '/moderation-logs', label: '红线触发', icon: ShieldAlert },
   { href: '/annotations', label: '人工评分', icon: ClipboardCheck },
   { href: '/errors', label: '错误码字典', icon: AlertCircle },
   { href: '/changelog', label: '迭代记录', icon: History },

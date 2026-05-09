@@ -35,6 +35,7 @@ import { adminSettingsRoutes } from './routes/v1/admin/settings.route.js'
 import { adminConversationRoutes } from './routes/v1/admin/conversation.route.js'
 import { adminChangelogRoutes } from './routes/v1/admin/changelog.route.js'
 import { adminOverviewRoutes } from './routes/v1/admin/overview.route.js'
+import { adminLaokeRoutes } from './routes/v1/admin/laoke.route.js'
 import { behaviorRoutes } from './routes/v1/behavior.route.js'
 import { probeRoutes } from './routes/v1/probe.route.js'
 import { startDeletionCron } from './workers/deletion-cron.js'
@@ -117,6 +118,7 @@ async function buildApp() {
   await app.register(adminConversationRoutes)
   await app.register(adminChangelogRoutes)
   await app.register(adminOverviewRoutes)
+  await app.register(adminLaokeRoutes)
   await app.register(behaviorRoutes)
 
   // 远程诊断端点(给 Claude 自主排查用,prod 必须带 DEBUG_PROBE_SECRET)
