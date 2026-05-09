@@ -229,35 +229,126 @@ export default function PromptsListPage() {
           </Card>
         )}
 
-        <div className="grid gap-3">
-          {items.map((p) => (
-            <Card key={p.name}>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center justify-between">
-                  <span className="font-mono">{p.name}</span>
-                  <span className="flex items-center gap-2 text-xs">
-                    {p.deployed_version !== null ? (
-                      <Badge variant="default">线上 v{p.deployed_version}</Badge>
-                    ) : (
-                      <Badge variant="muted">未上线</Badge>
-                    )}
-                    {p.latest_version !== p.deployed_version && (
-                      <Badge variant="secondary">最新 v{p.latest_version}(待上线)</Badge>
-                    )}
-                  </span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>共 {p.total_versions} 个版本</span>
-                <Button asChild variant="outline" size="sm">
-                  <Link href={`/prompts/${encodeURIComponent(p.name)}`}>看历史 →</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <PromptsList items={items} />
       </section>
     </div>
+  )
+}
+
+// === 运营 vs 工程师分组(spec-027 P1-3)===
+const PROMPT_META: Record<string, { label: string; desc: string; userFriendly: boolean }> = {
+  parsing: { label: '看截图复盘', desc: '老白怎么看用户上传的聊天截图', userFriendly: true },
+  drafting: { label: '话术生成', desc: '老白给用户写"该说啥"', userFriendly: true },
+  reflecting: { label: '反思引导', desc: '老白引导用户复盘', userFriendly: false },
+  diagnosing: { label: '关系诊断', desc: '老白判断关系阶段 / 状态', userFriendly: false },
+  planning: { label: '方案规划', desc: '老白给"做什么/为什么/退路"', userFriendly: false },
+}
+
+interface PromptListItem {
+  name: string
+  deployed_version: number | null
+  latest_version: number
+  total_versions: number
+}
+
+function PromptsList({ items }: { items: PromptListItem[] }) {
+  const operatorItems = items.filter((p) => PROMPT_META[p.name]?.userFriendly)
+  const engineerItems = items.filter((p) => PROMPT_META[p.name]?.userFriendly === false)
+  const otherItems = items.filter((p) => !PROMPT_META[p.name])
+  const [showEngineer, setShowEngineer] = useState(false)
+
+  return (
+    <div className="space-y-5">
+      {/* 运营友好组 */}
+      <div>
+        <h3 className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-2 flex items-center gap-2">
+          👥 运营可改 — 老白说话风格 / 截图理解 / 话术
+        </h3>
+        <div className="grid gap-3">
+          {operatorItems.map((p) => (
+            <PromptCard key={p.name} item={p} />
+          ))}
+          {operatorItems.length === 0 && (
+            <p className="text-xs text-muted-foreground italic">暂无</p>
+          )}
+        </div>
+      </div>
+
+      {/* 工程师专区(默认折叠)*/}
+      {engineerItems.length > 0 && (
+        <div>
+          <button
+            onClick={() => setShowEngineer((v) => !v)}
+            className="text-sm font-semibold text-amber-700 dark:text-amber-400 mb-2 flex items-center gap-2 hover:underline"
+          >
+            <span>{showEngineer ? '▼' : '▶'}</span>
+            ⚙️ 工程师专区 — 系统内部决策(改了会破系统逻辑)
+            <Badge variant="outline" className="text-[10px] ml-2">
+              {engineerItems.length}
+            </Badge>
+          </button>
+          {showEngineer && (
+            <>
+              <div className="rounded-md border border-amber-300 bg-amber-50/50 dark:bg-amber-950/20 p-3 text-xs mb-3">
+                ⚠️ 这些 prompt 控制系统内部分类、记忆压缩等。改错了会让用户体验崩。
+                <strong>建议先跟工程师对齐</strong>再改。
+              </div>
+              <div className="grid gap-3">
+                {engineerItems.map((p) => (
+                  <PromptCard key={p.name} item={p} engineerOnly />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* 没分类的 */}
+      {otherItems.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold mb-2">其他</h3>
+          <div className="grid gap-3">
+            {otherItems.map((p) => (
+              <PromptCard key={p.name} item={p} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PromptCard({ item, engineerOnly = false }: { item: PromptListItem; engineerOnly?: boolean }) {
+  const meta = PROMPT_META[item.name]
+  return (
+    <Card className={engineerOnly ? 'border-amber-200 bg-amber-50/20 dark:bg-amber-950/10' : ''}>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center justify-between">
+          <span className="flex items-center gap-2 flex-wrap">
+            <span>{meta?.label ?? item.name}</span>
+            <Badge variant="outline" className="font-mono text-[10px]">
+              {item.name}
+            </Badge>
+          </span>
+          <span className="flex items-center gap-2 text-xs shrink-0">
+            {item.deployed_version !== null ? (
+              <Badge variant="default">线上 v{item.deployed_version}</Badge>
+            ) : (
+              <Badge variant="muted">未上线</Badge>
+            )}
+            {item.latest_version !== item.deployed_version && (
+              <Badge variant="secondary">最新 v{item.latest_version}(待上线)</Badge>
+            )}
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex items-center justify-between text-sm text-muted-foreground">
+        <span>{meta?.desc ?? `共 ${item.total_versions} 个版本`}</span>
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/prompts/${encodeURIComponent(item.name)}`}>改这条 →</Link>
+        </Button>
+      </CardContent>
+    </Card>
   )
 }
 

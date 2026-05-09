@@ -1,18 +1,17 @@
 // 老白prompt 加载器
 //
-// 从 lianai-dev-kit/03-prompts/<name>.md 提取 §"System Prompt" 节里的 ``` fence 内容。
-// 5 个标准状态(parsing/reflecting/diagnosing/planning/drafting)结构一致:
-//   ## N. System Prompt(...)
-//   <空行>
-//   ```
-//   <prompt 文本>
-//   ```
+// 优先级(spec-027):
+// 1. DB(prompt_versions 表 deployed 版本)— 运营在 admin 改的版本
+// 2. fallback 到 lianai-dev-kit/03-prompts/<name>.md(M1 安全网,运营没改时用)
 //
-// crisis 分支结构不同,后续单独处理。
+// 5min cache 进程内,运营在 admin 改 prompt 时调 invalidatePromptCache(name) 清掉
+// 让下次调用读到最新版本。
 
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { prisma } from '../lib/prisma.js'
+import { logger } from '../lib/logger.js'
 
 export type PromptName =
   | 'parsing'
@@ -30,29 +29,84 @@ const DEFAULT_PROMPTS_DIR = path.resolve(
   '../../../../lianai-dev-kit/03-prompts',
 )
 
-const cache = new Map<string, string>()
+interface CachedPrompt {
+  content: string
+  cached_at: number
+  source: 'db' | 'file'
+}
+const cache = new Map<string, CachedPrompt>()
+const CACHE_TTL_MS = 5 * 60_000 // 5 分钟
 
 export interface LoadPromptOptions {
   /** 覆盖默认 prompts 目录,主要给测试用 */
   promptsDir?: string
   /** 跳过缓存 */
   noCache?: boolean
+  /** 跳过 DB 查询(测试 / 故障兜底用)*/
+  skipDb?: boolean
 }
 
+/**
+ * 加载 prompt:DB 优先,fallback .md
+ * 5 分钟 cache;admin 改 prompt 后调 invalidatePromptCache(name)
+ */
 export async function loadPrompt(
   name: PromptName,
   opts: LoadPromptOptions = {},
 ): Promise<string> {
   const dir = opts.promptsDir ?? DEFAULT_PROMPTS_DIR
   const cacheKey = `${dir}::${name}`
-  if (!opts.noCache && cache.has(cacheKey)) return cache.get(cacheKey)!
+  const now = Date.now()
 
+  if (!opts.noCache) {
+    const cached = cache.get(cacheKey)
+    if (cached && now - cached.cached_at < CACHE_TTL_MS) {
+      return cached.content
+    }
+  }
+
+  // ① 先查 DB(spec-027)
+  if (!opts.skipDb && !opts.promptsDir) {
+    try {
+      const deployed = await prisma.promptVersion.findFirst({
+        where: { name, deployed_at: { not: null }, rolled_back_at: null },
+        orderBy: { deployed_at: 'desc' },
+        select: { content: true, version: true },
+      })
+      if (deployed) {
+        cache.set(cacheKey, { content: deployed.content, cached_at: now, source: 'db' })
+        return deployed.content
+      }
+    } catch (e) {
+      logger.warn(
+        { err: e, name, event: 'prompt_loader.db_failed' },
+        '[prompt-loader] DB 查询失败,fallback 到 .md',
+      )
+      // 继续走 file fallback
+    }
+  }
+
+  // ② Fallback 到 .md(safety net)
   const filePath = path.join(dir, `${name}.md`)
   const md = await readFile(filePath, 'utf-8')
   const prompt = extractSystemPrompt(md, name)
 
-  if (!opts.noCache) cache.set(cacheKey, prompt)
+  if (!opts.noCache) {
+    cache.set(cacheKey, { content: prompt, cached_at: now, source: 'file' })
+  }
   return prompt
+}
+
+/** Admin 改 prompt 后调,清掉单 prompt cache 让下次调用读最新 */
+export function invalidatePromptCache(name?: PromptName): void {
+  if (name) {
+    // 清所有以 ::<name> 结尾的 key
+    for (const key of cache.keys()) {
+      if (key.endsWith(`::${name}`)) cache.delete(key)
+    }
+  } else {
+    cache.clear()
+  }
 }
 
 /**

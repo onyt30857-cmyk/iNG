@@ -90,6 +90,101 @@ export async function createVersion(input: {
   })
 }
 
+/**
+ * spec-027 P1-5:保存并上线(一步到位)
+ * 创建新版本 + 立即 deploy + 自动回滚旧版本
+ */
+export async function saveAndDeploy(input: {
+  name: string
+  content: string
+  author: string
+  notes?: string
+}) {
+  const newVer = await createVersion(input)
+  await deployVersion(newVer.id, 100)
+  return prisma.promptVersion.findUnique({ where: { id: newVer.id } })
+}
+
+/**
+ * spec-027 P1-4:从 .md 文件读默认模板内容(不写 DB,只回传给前端)
+ */
+export async function getDefaultTemplate(name: string): Promise<string | null> {
+  const validNames = ['parsing', 'reflecting', 'diagnosing', 'planning', 'drafting']
+  if (!validNames.includes(name)) return null
+  try {
+    const { loadPrompt } = await import('../../ai/prompt-loader.js')
+    return await loadPrompt(name as 'parsing', { skipDb: true, noCache: true })
+  } catch {
+    return null
+  }
+}
+
+/**
+ * spec-027 P0-2:拿所有 prompt name + 当前 deployed 内容预览(给 /laoke 用)
+ */
+export async function getActivePrompts(): Promise<
+  Array<{
+    name: string
+    deployed_version: number | null
+    content_preview: string | null
+    deployed_at: Date | null
+    source: 'db' | 'file' | 'none'
+  }>
+> {
+  const validNames: Array<'parsing' | 'reflecting' | 'diagnosing' | 'planning' | 'drafting'> = [
+    'parsing',
+    'reflecting',
+    'diagnosing',
+    'planning',
+    'drafting',
+  ]
+  const result: Array<{
+    name: string
+    deployed_version: number | null
+    content_preview: string | null
+    deployed_at: Date | null
+    source: 'db' | 'file' | 'none'
+  }> = []
+  for (const name of validNames) {
+    const deployed = await prisma.promptVersion.findFirst({
+      where: { name, deployed_at: { not: null }, rolled_back_at: null },
+      orderBy: { deployed_at: 'desc' },
+      select: { content: true, version: true, deployed_at: true },
+    })
+    if (deployed) {
+      result.push({
+        name,
+        deployed_version: deployed.version,
+        content_preview: deployed.content.slice(0, 300),
+        deployed_at: deployed.deployed_at,
+        source: 'db',
+      })
+    } else {
+      // fallback 看 .md 是否有
+      try {
+        const { loadPrompt } = await import('../../ai/prompt-loader.js')
+        const content = await loadPrompt(name, { skipDb: true, noCache: true })
+        result.push({
+          name,
+          deployed_version: null,
+          content_preview: content.slice(0, 300),
+          deployed_at: null,
+          source: 'file',
+        })
+      } catch {
+        result.push({
+          name,
+          deployed_version: null,
+          content_preview: null,
+          deployed_at: null,
+          source: 'none',
+        })
+      }
+    }
+  }
+  return result
+}
+
 export async function deployVersion(versionId: string, rolloutPct = 100) {
   const v = await prisma.promptVersion.findUnique({ where: { id: versionId } })
   if (!v) throw errors.notFound('Prompt 版本不存在')
@@ -105,6 +200,14 @@ export async function deployVersion(versionId: string, rolloutPct = 100) {
       data: { deployed_at: new Date(), rolled_back_at: null, rollout_pct: rolloutPct },
     }),
   ])
+
+  // spec-027:invalidate prompt-loader 进程内 cache,让下次调用读到新版本
+  try {
+    const { invalidatePromptCache } = await import('../../ai/prompt-loader.js')
+    invalidatePromptCache(v.name as 'parsing' | 'reflecting' | 'diagnosing' | 'planning' | 'drafting')
+  } catch {
+    /* invalidate 失败不阻断 deploy,5 分钟后 cache 自然过期 */
+  }
 
   return prisma.promptVersion.findUnique({ where: { id: versionId } })
 }

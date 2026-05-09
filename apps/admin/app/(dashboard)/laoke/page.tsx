@@ -38,6 +38,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { LaokeAvatar } from '@/components/laoke/laoke-avatar'
+import { ActivePromptsCard } from '@/components/laoke/active-prompts-card'
 
 interface Persona {
   id: string
@@ -399,6 +400,9 @@ function PersonaTab({ persona, onSaved }: { persona: Persona; onSaved: () => voi
         field="identity_summary"
         onSaved={onSaved}
       />
+
+      {/* spec-027 P0-2:老白脑子里的 prompt */}
+      <ActivePromptsCard />
     </div>
   )
 }

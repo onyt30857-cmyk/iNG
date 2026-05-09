@@ -11,6 +11,9 @@ import {
   createVersion,
   deployVersion,
   rollbackToVersion,
+  saveAndDeploy,
+  getDefaultTemplate,
+  getActivePrompts,
   listDatasets,
   getDataset,
   createDataset,
@@ -146,6 +149,52 @@ export async function adminPromptRoutes(app: FastifyInstance): Promise<void> {
       return { ok: true, data: v }
     },
   )
+
+  // ============== spec-027 新增 ==============
+
+  // GET /v1/admin/prompts/active — 5 个 scene 的当前 deployed 内容预览(给 /laoke 用)
+  app.get('/v1/admin/prompts/active', async () => {
+    const result = await getActivePrompts()
+    return { ok: true, data: { items: result } }
+  })
+
+  // GET /v1/admin/prompts/default-template/:name — 拿 .md 默认模板内容(给"加载默认"按钮用)
+  app.get<{ Params: { name: string } }>(
+    '/v1/admin/prompts/default-template/:name',
+    async (request) => {
+      const content = await getDefaultTemplate(request.params.name)
+      return { ok: true, data: { content } }
+    },
+  )
+
+  // POST /v1/admin/prompts/save-and-deploy — 一步保存 + 上线(P1-5)
+  app.post('/v1/admin/prompts/save-and-deploy', async (request) => {
+    const body = z
+      .object({
+        name: z.string().min(1),
+        content: z.string().min(1),
+        notes: z.string().optional(),
+      })
+      .parse(request.body)
+    const v = await saveAndDeploy({
+      name: body.name,
+      content: body.content,
+      author: request.admin!.id,
+      ...(body.notes ? { notes: body.notes } : {}),
+    })
+    await recordAdminAudit(
+      request.admin!.id,
+      {
+        action: 'save_and_deploy_prompt',
+        target_type: 'prompt_version',
+        target_id: v?.id ?? 'unknown',
+        after: { name: body.name, version: v?.version },
+        reason: body.notes ?? '直接保存并上线',
+      },
+      request,
+    )
+    return { ok: true, data: v }
+  })
 
   // === Eval 数据集 ===
 
