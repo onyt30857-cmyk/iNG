@@ -19,7 +19,16 @@ const recoverModalOpen = ref(false)
 const recoverInput = ref('')
 const recovering = ref(false)
 
-onMounted(() => {
+onMounted(async () => {
+  // 2026-05-10 双保险守卫:已 onboarded 用户进 welcome → 立即跳 home
+  // 治"关掉重进还要重新取名"问题 — 防御 splash/App.vue 守卫被绕过的边界
+  await userStore.syncFromServer()
+  if (userStore.isOnboarded()) {
+    console.log('[welcome] 已 onboarded,直接跳 home')
+    uni.reLaunch({ url: '/pages/home/index' })
+    return
+  }
+
   // 气泡分批出现:0ms / 800ms / 1600ms
   const delays = [200, 1000, 1800]
   delays.forEach((d, i) => {

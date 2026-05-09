@@ -122,13 +122,23 @@ export const useUserStore = defineStore('user', () => {
    * 失败处理:静默(网络问题不阻塞冷启动,继续用本地缓存)
    */
   async function syncFromServer(): Promise<void> {
-    if (!token.value) return
+    if (!token.value) {
+      console.log('[syncFromServer] no token, skip')
+      return
+    }
+    console.log('[syncFromServer] start, user_id=', userId.value)
     const res = await apiGet<User>('/users/me', { token: token.value })
     if (!res.ok) {
-      console.warn('[user] syncFromServer failed:', res.error.message)
+      console.warn('[syncFromServer] failed:', res.error.code, res.error.message)
       return
     }
     setUser(res.data)
+    console.log(
+      '[syncFromServer] done, onboarding_completed_at=',
+      res.data.onboarding_completed_at,
+      'nickname=',
+      res.data.nickname,
+    )
   }
 
   /** 是否走完 onboarding(spec-018)*/

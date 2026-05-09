@@ -1,21 +1,32 @@
 <script setup lang="ts">
-// 启动页 - 1.5 秒后根据 onboarding 状态决定下一站
+// 启动页 - 主动 sync 服务器最新 user 后决定下一站
 // 没走完 onboarding → /pages/onboarding/welcome
 // 走完了 → /pages/home/index
+//
+// 2026-05-10 修复:之前用 setTimeout(1500) 直接看 storage 缓存判断,
+// 如果 App.vue 的 syncFromServer 还没回来,storage 是旧的,已 onboarded
+// 用户被错误送到 welcome。现在 splash 自己主动 sync + 1.5s 超时兜底
 import { onMounted } from 'vue'
 import { apiGet } from '../../api/client'
 import { useUserStore } from '../../stores/user'
 
-onMounted(() => {
+onMounted(async () => {
   apiGet<{ message: string }>('/hello').catch(() => { /* splash 不暴露网络问题 */ })
 
-  setTimeout(() => {
-    const userStore = useUserStore()
-    const next = userStore.isOnboarded()
-      ? '/pages/home/index'
-      : '/pages/onboarding/welcome'
-    uni.reLaunch({ url: next })
-  }, 1500)
+  const userStore = useUserStore()
+
+  // sync 跟 1.5s 超时赛跑 — 谁先完成都让 splash 显示至少 1.5s 给品牌呼吸感
+  // sync 失败也不阻塞,fallback 到 storage 缓存
+  await Promise.all([
+    userStore.syncFromServer().catch(() => {}),
+    new Promise((r) => setTimeout(r, 1500)),
+  ])
+
+  const onboarded = userStore.isOnboarded()
+  console.log('[splash] sync done, onboarded=', onboarded, 'user=', userStore.user)
+  uni.reLaunch({
+    url: onboarded ? '/pages/home/index' : '/pages/onboarding/welcome',
+  })
 })
 </script>
 
