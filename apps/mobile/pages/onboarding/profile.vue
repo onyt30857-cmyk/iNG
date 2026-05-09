@@ -6,13 +6,25 @@
 //   ③ 用户选 / 跳过 → PATCH /users/me → 进 /pages/home
 // 任一步失败 toast,不阻断 — 最坏情况用户再点一次
 
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { updateProfile } from '../../api/user.api'
 import { useUserStore } from '../../stores/user'
 import { PRESET_AVATARS } from '../../utils/preset-avatars'
 import LaokeAvatar from '../../components/LaokeAvatar.vue'
 
 const userStore = useUserStore()
+
+// 2026-05-10 双重保险守卫:已 onboarded 用户进到本页 → 立即弹回 home
+// 治 Sam 反馈"已经有账户了,退出之后还是要问我名字"问题 — 防御 App.vue
+// 守卫被绕过(syncFromServer 失败 / 竞态 / 直链 hash URL)
+// 也顺便 sync 一次,拿最新 onboarding_completed_at
+onMounted(async () => {
+  await userStore.syncFromServer()
+  if (userStore.isOnboarded()) {
+    console.log('[onboarding/profile] 已 onboarded,直接跳 home')
+    uni.reLaunch({ url: '/pages/home/index' })
+  }
+})
 
 // 流程阶段
 type Phase = 'naming' | 'choosing_avatar' | 'submitting'

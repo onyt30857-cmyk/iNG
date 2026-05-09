@@ -118,13 +118,14 @@ function goProfile() {
 // 对话页里(/pages/relationship/conversation),用户点关系卡进对话页 → + 按钮 → 选项发截图。
 // 原 goMockReplay / pickOcrFiles / processOcrFiles / replayStore 都删了。
 
-const greeting = (() => {
+// 时段问候 — 计算放 computed 让 nickname 变化(改头像 / 切账号)能立即响应
+const greeting = computed(() => {
   const h = new Date().getHours()
-  if (h < 6) return '深夜好'
-  if (h < 12) return '早'
-  if (h < 18) return '下午好'
-  return '晚上好'
-})()
+  const base = h < 6 ? '深夜好' : h < 12 ? '早' : h < 18 ? '下午好' : '晚上好'
+  const name = userStore.user?.nickname?.trim()
+  // 有昵称 → 带上("早, 张三" / "深夜好, 张三");没昵称 → 只显示时段
+  return name ? `${base},${name}` : base
+})
 </script>
 
 <template>
