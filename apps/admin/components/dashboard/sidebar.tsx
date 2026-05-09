@@ -32,20 +32,56 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>
 }
 
-const NAV: NavItem[] = [
-  { href: '/dashboard', label: '总览', icon: LayoutDashboard },
-  { href: '/users', label: '用户', icon: Users },
-  { href: '/relationships', label: '关系', icon: Heart },
-  { href: '/feedback', label: '反馈', icon: MessageSquareWarning },
-  { href: '/llm', label: 'AI 监控', icon: Activity },
-  { href: '/laoke', label: '老白档案', icon: Sparkles },
-  { href: '/prompts', label: 'Prompt 工程', icon: FileCode2 },
-  { href: '/moderation-logs', label: '红线触发', icon: ShieldAlert },
-  { href: '/annotations', label: '人工评分', icon: ClipboardCheck },
-  { href: '/errors', label: '错误码字典', icon: AlertCircle },
-  { href: '/changelog', label: '迭代记录', icon: History },
-  { href: '/settings/quota', label: '系统配置', icon: Settings },
-  { href: '/settings/billing', label: 'Claude 余额', icon: Wallet },
+interface NavGroup {
+  /** 分组标题(顶部"总览"等独立项 group=null)*/
+  group: string | null
+  /** 副标题/解释,提示运营这组干啥的 */
+  hint?: string
+  items: NavItem[]
+}
+
+// 按用户场景分类(spec-027)
+const NAV_GROUPS: NavGroup[] = [
+  {
+    group: null,
+    items: [{ href: '/dashboard', label: '总览', icon: LayoutDashboard }],
+  },
+  {
+    group: '运营',
+    hint: '看用户在用什么',
+    items: [
+      { href: '/users', label: '用户', icon: Users },
+      { href: '/relationships', label: '关系', icon: Heart },
+      { href: '/feedback', label: '反馈', icon: MessageSquareWarning },
+    ],
+  },
+  {
+    group: 'AI 质量',
+    hint: '老白说得好不好',
+    items: [
+      { href: '/llm', label: 'AI 监控', icon: Activity },
+      { href: '/moderation-logs', label: '红线触发', icon: ShieldAlert },
+      { href: '/annotations', label: '人工评分', icon: ClipboardCheck },
+    ],
+  },
+  {
+    group: '老白配置',
+    hint: '改老白本身',
+    items: [
+      { href: '/laoke', label: '老白档案', icon: Sparkles },
+      { href: '/prompts', label: 'Prompt 工程', icon: FileCode2 },
+    ],
+  },
+  {
+    group: '系统',
+    hint: '全局配置 + 工具',
+    items: [
+      { href: '/settings/quota', label: '系统配置', icon: Settings },
+      { href: '/settings/billing', label: 'Claude 余额', icon: Wallet },
+      { href: '/changelog', label: '迭代记录', icon: History },
+      { href: '/errors', label: '错误码字典', icon: AlertCircle },
+    ],
+  },
 ]
 
 /**
@@ -100,27 +136,45 @@ export function Sidebar() {
         </button>
       </div>
 
-      <nav className="flex-1 space-y-1 p-3 overflow-y-auto">
-        {NAV.map((item) => {
-          const Icon = item.icon
-          const active =
-            pathname === item.href || pathname.startsWith(item.href + '/')
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
-                active
-                  ? 'bg-secondary text-secondary-foreground font-medium'
-                  : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground',
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              {item.label}
-            </Link>
-          )
-        })}
+      <nav className="flex-1 p-3 overflow-y-auto">
+        {NAV_GROUPS.map((g, gi) => (
+          <div key={g.group ?? '__root__'} className={gi > 0 ? 'mt-4' : ''}>
+            {g.group && (
+              <div className="px-3 pt-1.5 pb-1 flex items-baseline gap-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                  {g.group}
+                </span>
+                {g.hint && (
+                  <span className="text-[10px] text-muted-foreground/50 truncate">
+                    · {g.hint}
+                  </span>
+                )}
+              </div>
+            )}
+            <div className="space-y-0.5">
+              {g.items.map((item) => {
+                const Icon = item.icon
+                const active =
+                  pathname === item.href || pathname.startsWith(item.href + '/')
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+                      active
+                        ? 'bg-secondary text-secondary-foreground font-medium'
+                        : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground',
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       <div className="border-t p-3">
@@ -176,7 +230,8 @@ export function Sidebar() {
  */
 export function MobileTopbar() {
   const pathname = usePathname()
-  const current = NAV.find(
+  const allItems = NAV_GROUPS.flatMap((g) => g.items)
+  const current = allItems.find(
     (n) => pathname === n.href || pathname.startsWith(n.href + '/'),
   )
 
