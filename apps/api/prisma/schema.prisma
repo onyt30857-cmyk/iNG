@@ -667,6 +667,40 @@ model ModerationLog {
 // Prompt 评估反馈(用于持续优化)
 // ============================================================
 
+// 产品迭代记录(spec-022)
+// 用途:Sam / 运营回顾"我们做了什么",防止"做过什么忘了"
+// 不替代 admin_audit_logs(运营操作审计) / PromptVersion / git log,
+// 而是把工程 commit 浓缩成产品级中文摘要(支持 LLM 自动从 git log 生草稿)
+model ProductChangelog {
+  id String @id @default(cuid())
+
+  // YYYY-MM-DD 让运营回填日期
+  date String
+
+  // feature(新功能) / improve(优化) / fix(修复) / remove(移除) / breaking(影响用户)
+  category String
+
+  // 一句话(< 50 字),如"加了积分系统"
+  title String @db.VarChar(100)
+
+  // 详情:做了什么 / 为什么 / 给谁的 — markdown
+  description String? @db.Text
+
+  // user(用户可见) / admin(运营后台) / internal(内部)
+  scope String @default("user")
+
+  // admin user id
+  created_by String
+
+  created_at DateTime @default(now()) @db.Timestamptz
+  updated_at DateTime @updatedAt @db.Timestamptz
+
+  @@index([date(sort: Desc)])
+  @@index([category])
+  @@index([scope])
+  @@map("product_changelogs")
+}
+
 // 吐槽自动聚类(spec-021 P0-2)
 // 每天 cron 用 Haiku 把过去 7 天 dislike+comment 分组
 // 让运营 5 分钟看完一周吐槽,不用读 50 条
