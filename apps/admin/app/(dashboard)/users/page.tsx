@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Search, Trash2, Download, SlidersHorizontal } from 'lucide-react'
 import { adminFetch, adminGet, BASE } from '@/lib/api-client'
 import { auth } from '@/lib/auth'
-import { formatDate } from '@/lib/format'
+import { formatDate, formatRelative } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -36,6 +36,8 @@ interface UserItem {
   messages_7d: number
   feedback_7d: number
   last_active_at: string | null
+  // 2026-05-10:用户活跃看板
+  active_days_30d: number
 }
 
 // 系统标签 → 中文显示名 + 风险等级(用于行高亮)
@@ -435,6 +437,8 @@ export default function UsersListPage() {
               <TableHead>昵称</TableHead>
               <TableHead>用户 ID / openid</TableHead>
               <TableHead>注册时间</TableHead>
+              <TableHead>上次活跃</TableHead>
+              <TableHead>30 天活跃</TableHead>
               <TableHead>关系(点击跳对话)</TableHead>
               <TableHead className="text-right">复盘</TableHead>
               <TableHead>订阅</TableHead>
@@ -446,14 +450,14 @@ export default function UsersListPage() {
           <TableBody>
             {loading && !data && (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                   加载中…
                 </TableCell>
               </TableRow>
             )}
             {data && data.items.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                   没找到匹配的用户
                 </TableCell>
               </TableRow>
@@ -486,6 +490,12 @@ export default function UsersListPage() {
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {formatDate(u.created_at)}
+                </TableCell>
+                <TableCell className="text-muted-foreground text-xs">
+                  {formatRelative(u.last_active_at)}
+                </TableCell>
+                <TableCell>
+                  <ActiveDaysCell days={u.active_days_30d} />
                 </TableCell>
                 <TableCell>
                   {u.relationships.length === 0 ? (
@@ -680,5 +690,19 @@ export default function UsersListPage() {
         </div>
       )}
     </div>
+  )
+}
+
+// 30 天活跃天数 cell — 数字 + 颜色梯度(0-3 灰 / 4-14 蓝 / 15+ 绿,运营一眼看出留存深度)
+function ActiveDaysCell({ days }: { days: number }) {
+  const tone =
+    days === 0 ? 'text-muted-foreground' :
+    days <= 3 ? 'text-muted-foreground' :
+    days <= 14 ? 'text-blue-700 dark:text-blue-400' :
+    'text-emerald-700 dark:text-emerald-400 font-semibold'
+  return (
+    <span className={`text-xs tabular-nums ${tone}`}>
+      {days} <span className="text-muted-foreground">/ 30</span>
+    </span>
   )
 }

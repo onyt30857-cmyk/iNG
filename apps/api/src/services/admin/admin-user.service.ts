@@ -61,6 +61,8 @@ export interface UserListItem {
   } | null
   /** spec-014:用户标签 — 系统自动 + 手动,用于风险高亮和快速识别 */
   tags: Array<{ tag: string; source: string }>
+  /** 过去 30 天活跃天数(0-30,基于 ai_call_log.created_at distinct date)*/
+  active_days_30d: number
 }
 
 /** 列表里每个用户最多显示的关系 chip 数,多的折叠成 "+N" */
@@ -193,8 +195,9 @@ export async function listUsers(filter: UserListFilter): Promise<UserListResult>
   // 一次性拿这页所有用户的 tags + 7d 行为指标(避免 N+1)
   const userIds = users.map((u) => u.id)
   const sevenDaysAgo = new Date(Date.now() - 7 * 86400_000)
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400_000)
 
-  const [tagsRows, msgGroupBy, fbGroupBy, lastActiveGroupBy] = await Promise.all([
+  const [tagsRows, msgGroupBy, fbGroupBy, lastActiveGroupBy, activeDays30dRows] = await Promise.all([
     userIds.length > 0
       ? prisma.userTag.findMany({
           where: { user_id: { in: userIds } },
@@ -226,6 +229,17 @@ export async function listUsers(filter: UserListFilter): Promise<UserListResult>
           _max: { created_at: true },
         })
       : Promise.resolve([] as Array<{ user_id: string | null; _max: { created_at: Date | null } }>),
+    // 过去 30 天活跃天数:按 user_id + DATE(created_at) 去重计数
+    // raw SQL 因为 Prisma groupBy 不支持 date 截断
+    userIds.length > 0
+      ? prisma.$queryRaw<Array<{ user_id: string; days: bigint }>>`
+          SELECT user_id, COUNT(DISTINCT DATE(created_at AT TIME ZONE 'UTC'))::bigint AS days
+          FROM ai_call_logs
+          WHERE user_id = ANY(${userIds}::text[])
+            AND created_at >= ${thirtyDaysAgo}
+          GROUP BY user_id
+        `
+      : Promise.resolve([] as Array<{ user_id: string; days: bigint }>),
   ])
 
   // session → user 映射(message 是按 session 聚合的,要回查 user_id)
@@ -250,6 +264,9 @@ export async function listUsers(filter: UserListFilter): Promise<UserListResult>
     lastActiveGroupBy
       .filter((r): r is { user_id: string; _max: { created_at: Date | null } } => !!r.user_id)
       .map((r) => [r.user_id, r._max.created_at]),
+  )
+  const activeDays30dByUser = new Map(
+    activeDays30dRows.map((r) => [r.user_id, Number(r.days)]),
   )
 
   const tagsByUser = new Map<string, Array<{ tag: string; source: string }>>()
@@ -283,6 +300,7 @@ export async function listUsers(filter: UserListFilter): Promise<UserListResult>
     messages_7d: messages7dByUser.get(u.id) ?? 0,
     feedback_7d: feedback7dByUser.get(u.id) ?? 0,
     last_active_at: lastActiveByUser.get(u.id) ?? null,
+    active_days_30d: activeDays30dByUser.get(u.id) ?? 0,
   }))
 
   // 内存过滤(只对聚合字段)
