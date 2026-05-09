@@ -23,14 +23,14 @@
 //   editorial illustration style, minimal, half body, trustworthy elder brother feel"
 
 interface Props {
-  /** 尺寸,单位 rpx(默认 44,跟微信头像匹配)*/
+  /** 尺寸,单位 rpx(默认 64,微信头像同款 + 给 SVG 留够呼吸感)*/
   size?: number
   /** 是否带浅紫底圆背景(对话气泡里需要 / splash 等已有自己的背景就关掉)*/
   withBackground?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  size: 44,
+  size: 64,
   withBackground: true,
 })
 </script>
@@ -46,8 +46,8 @@ const props = withDefaults(defineProps<Props>(), {
       24x24 viewBox,所有坐标按这个比例。SVG 自动随父容器尺寸缩放
     -->
     <svg
-      :width="props.size * 0.6"
-      :height="props.size * 0.6"
+      :width="props.size * 0.78"
+      :height="props.size * 0.78"
       viewBox="0 0 24 24"
       fill="none"
       class="laoke-avatar-svg"
@@ -56,14 +56,14 @@ const props = withDefaults(defineProps<Props>(), {
       <path
         d="M5.4 13.5 c -0.6 0.2 -0.9 0.8 -0.7 1.4 c 0.15 0.45 0.55 0.7 1.0 0.6"
         stroke="currentColor"
-        stroke-width="1.2"
+        stroke-width="1.6"
         stroke-linecap="round"
         fill="none"
       />
       <path
         d="M18.6 13.5 c 0.6 0.2 0.9 0.8 0.7 1.4 c -0.15 0.45 -0.55 0.7 -1.0 0.6"
         stroke="currentColor"
-        stroke-width="1.2"
+        stroke-width="1.6"
         stroke-linecap="round"
         fill="none"
       />
@@ -72,7 +72,7 @@ const props = withDefaults(defineProps<Props>(), {
       <path
         d="M5.5 12.5 a6.5 6.5 0 0 1 13 0 v3.5 a2.5 2.5 0 0 1 -2.5 2.5 h-8 a2.5 2.5 0 0 1 -2.5 -2.5 z"
         stroke="currentColor"
-        stroke-width="1.4"
+        stroke-width="1.8"
         stroke-linejoin="round"
       />
 
@@ -80,13 +80,13 @@ const props = withDefaults(defineProps<Props>(), {
       <path
         d="M7 9.5 Q 9 6.5 12 7"
         stroke="currentColor"
-        stroke-width="1.3"
+        stroke-width="1.7"
         stroke-linecap="round"
       />
       <path
         d="M12 7 Q 15 6.5 17 9.5"
         stroke="currentColor"
-        stroke-width="1.3"
+        stroke-width="1.7"
         stroke-linecap="round"
       />
 
@@ -94,35 +94,35 @@ const props = withDefaults(defineProps<Props>(), {
       <path
         d="M7.8 11 Q 9.4 10.4 10.8 11"
         stroke="currentColor"
-        stroke-width="1.0"
+        stroke-width="1.4"
         stroke-linecap="round"
         fill="none"
       />
       <path
         d="M13.2 11 Q 14.6 10.4 16.2 11"
         stroke="currentColor"
-        stroke-width="1.0"
+        stroke-width="1.4"
         stroke-linecap="round"
         fill="none"
       />
 
       <!-- 眼镜(细框双圆 + 中桥) -->
-      <circle cx="9.3" cy="13.2" r="1.5" stroke="currentColor" stroke-width="1.0" />
-      <circle cx="14.7" cy="13.2" r="1.5" stroke="currentColor" stroke-width="1.0" />
+      <circle cx="9.3" cy="13.2" r="1.5" stroke="currentColor" stroke-width="1.4" />
+      <circle cx="14.7" cy="13.2" r="1.5" stroke="currentColor" stroke-width="1.4" />
       <line
         x1="10.8"
         y1="13.2"
         x2="13.2"
         y2="13.2"
         stroke="currentColor"
-        stroke-width="0.9"
+        stroke-width="1.2"
       />
 
       <!-- 嘴角微弯(浅笑,克制不油滑) -->
       <path
         d="M10.5 16.6 Q 12 17.2 13.5 16.6"
         stroke="currentColor"
-        stroke-width="1.2"
+        stroke-width="1.6"
         stroke-linecap="round"
         fill="none"
       />
@@ -131,10 +131,10 @@ const props = withDefaults(defineProps<Props>(), {
       <path
         d="M9.5 19.5 Q 12 21 14.5 19.5"
         stroke="currentColor"
-        stroke-width="1.0"
+        stroke-width="1.4"
         stroke-linecap="round"
         fill="none"
-        opacity="0.55"
+        opacity="0.6"
       />
     </svg>
   </view>

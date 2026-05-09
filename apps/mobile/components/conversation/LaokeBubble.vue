@@ -169,7 +169,7 @@ async function onLongPress() {
 <template>
   <view class="row">
     <view class="avatar-wrap" :class="{ 'avatar-pulse': isThinking || isStreaming }">
-      <LaokeAvatar :size="44" />
+      <LaokeAvatar :size="64" />
     </view>
 
     <view class="bubble-wrap">
