@@ -1207,3 +1207,34 @@ model BehaviorEvent {
   @@index([event_type, created_at])
   @@map("behavior_events")
 }
+
+// 客户端错误日志(2026-05-10)
+//
+// mobile 端 client.ts 在请求失败 / 超时 / 网络错误时上报到 /v1/client-errors。
+// 用于 admin /errors 实时错误流,看真实用户哪些 path / code 在出错,定向治理。
+//
+// 隐私:不存任何用户输入文本,只 path + code + 简短 message + ua 摘要。
+// user_id 可空(报错时可能没 token / token 失效)。
+model ClientErrorLog {
+  id String @id @default(cuid())
+
+  user_id String?
+
+  path    String  @db.VarChar(500)
+  method  String  @db.VarChar(10)
+  code    String  @db.VarChar(50)
+  message String  @db.VarChar(500)
+  detail  String? @db.VarChar(2000)
+
+  // 客户端环境信息
+  ua  String? @db.VarChar(500)
+  url String? @db.VarChar(500)
+  ip  String? @db.VarChar(64)
+
+  created_at DateTime @default(now()) @db.Timestamptz
+
+  @@index([code, created_at])
+  @@index([path, created_at])
+  @@index([created_at])
+  @@map("client_error_logs")
+}

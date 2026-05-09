@@ -36,6 +36,7 @@ import { adminConversationRoutes } from './routes/v1/admin/conversation.route.js
 import { adminChangelogRoutes } from './routes/v1/admin/changelog.route.js'
 import { adminOverviewRoutes } from './routes/v1/admin/overview.route.js'
 import { adminLaokeRoutes } from './routes/v1/admin/laoke.route.js'
+import { adminClientErrorRoutes } from './routes/v1/admin/client-errors.route.js'
 import { reloadCache as reloadRedLineCache } from './services/admin/red-line-rules.service.js'
 import { behaviorRoutes } from './routes/v1/behavior.route.js'
 import { laokeRoutes } from './routes/v1/laoke.route.js'
@@ -124,6 +125,7 @@ async function buildApp() {
   await app.register(adminChangelogRoutes)
   await app.register(adminOverviewRoutes)
   await app.register(adminLaokeRoutes)
+  await app.register(adminClientErrorRoutes)
   await app.register(behaviorRoutes)
 
   // 远程诊断端点(给 Claude 自主排查用,prod 必须带 DEBUG_PROBE_SECRET)

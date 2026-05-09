@@ -3,12 +3,16 @@
 // mobile 端 client.ts 在请求失败 / 超时 / 网络错误时调用本接口上报,
 // fire-and-forget。无 auth(失败可能就是因为 token 失效,不能挡)。
 //
-// M1 实现:落 Pino 日志(Railway logs / Sentry 可关联),不入库。
-// M2 升级:加 ClientErrorLog 表 + admin /errors 实时流展示。
+// 双轨制(2026-05-10 升级):
+// - 落 client_error_logs 表 → admin /errors 实时流可视化
+// - 同时 logger.warn → Railway logs 应急排查
+// 落库失败不阻塞 logger,反之亦然。
 
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { logger } from '../../lib/logger.js'
+import { prisma } from '../../lib/prisma.js'
+import { verifyToken } from '../../lib/jwt.js'
 
 const bodySchema = z.object({
   path: z.string().max(500),
@@ -52,14 +56,45 @@ export async function clientErrorRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(204).send()
     }
 
+    // 尝试从 Authorization header 提 user_id(可能没 token / token 失效,允许 null)
+    let userId: string | null = null
+    const auth = request.headers.authorization
+    if (auth && auth.startsWith('Bearer ')) {
+      const token = auth.slice('Bearer '.length).trim()
+      try {
+        userId = verifyToken(token, 'access').sub
+      } catch {
+        userId = null // token 失效不影响上报,留 null
+      }
+    }
+
+    // 落库 + 落日志,任一失败不阻塞另一
+    void prisma.clientErrorLog
+      .create({
+        data: {
+          user_id: userId,
+          path: payload.path,
+          method: payload.method,
+          code: payload.code,
+          message: payload.message,
+          detail: payload.detail ?? null,
+          ua: payload.ua ?? null,
+          url: payload.url ?? null,
+          ip,
+        },
+      })
+      .catch((e) => {
+        logger.warn({ event: 'client_error.db_write_failed', err: String(e) }, '错误日志落库失败(已忽略)')
+      })
+
     logger.warn(
       {
         event: 'client_error',
+        user_id: userId,
         path: payload.path,
         method: payload.method,
         code: payload.code,
         message: payload.message,
-        detail: payload.detail,
         ua: payload.ua,
         url: payload.url,
         ip,
