@@ -10,6 +10,7 @@ import { useRelationshipStore } from '../../stores/relationship'
 import { useConversationStore } from '../../stores/conversation'
 import { runOcr, streamConversationTurnHTTP } from '../../api/conversation.api'
 import { compressImageFromBlobUrl } from '../../utils/compress-image'
+import { userFacingError } from '../../utils/error-codes'
 import { useRelationshipSignalsStore } from '../../stores/relationship-signals'
 import SystemDivider from '../../components/conversation/SystemDivider.vue'
 import LaokeBubble from '../../components/conversation/LaokeBubble.vue'
@@ -249,11 +250,10 @@ async function handleScreenshotsChosen(payload: { note: string; paths: string[] 
     } catch (e) {
       // eslint-disable-next-line no-console
       console.warn('[turn-after-ocr] 失败:', e)
-      const errMsg = e instanceof Error ? e.message : String(e)
       conversationStore.updateStreamingLaokeText(
         relationshipId.value,
         streamingMsgId,
-        `我这边出了点意外:${errMsg}`,
+        userFacingError(e),
       )
       conversationStore.finishStreamingLaokeText(relationshipId.value, streamingMsgId)
       return
@@ -265,7 +265,7 @@ async function handleScreenshotsChosen(payload: { note: string; paths: string[] 
     conversationStore.updateStreamingLaokeText(
       relationshipId.value,
       streamingMsgId,
-      err instanceof Error ? err.message : '我这边出了点意外,你重新试一下',
+      userFacingError(err),
     )
     conversationStore.finishStreamingLaokeText(relationshipId.value, streamingMsgId)
   } finally {

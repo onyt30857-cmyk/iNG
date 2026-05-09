@@ -16,6 +16,7 @@ import {
   Heart,
   Menu,
   X,
+  AlertCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -36,6 +37,7 @@ const NAV: NavItem[] = [
   { href: '/llm', label: 'AI 监控', icon: Activity },
   { href: '/prompts', label: 'Prompt 工程', icon: FileCode2 },
   { href: '/annotations', label: '人工评分', icon: ClipboardCheck },
+  { href: '/errors', label: '错误码字典', icon: AlertCircle },
   { href: '/settings/quota', label: '系统配置', icon: Settings },
   { href: '/settings/billing', label: 'Claude 余额', icon: Wallet },
 ]

@@ -9,6 +9,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import type { Message, ReplyDraft, PlanningContent } from '../types/message'
+import { userFacingError } from '../utils/error-codes'
 
 // === localStorage 持久化(spec-006 §3.2)===
 // 每段关系 messages 数组单独存一个 key。uni.setStorageSync H5 模式底层用 localStorage。
@@ -494,12 +495,11 @@ export const useConversationStore = defineStore('conversation', () => {
         return
       }
 
+      const friendly = userFacingError(e)
       updateStreamingLaokeText(
         relationshipId,
         streamingId,
-        fullText
-          ? `${fullText}\n\n[出错了:${errMsg}]`
-          : `我这边出了点意外:${errMsg}`,
+        fullText ? `${fullText}\n\n[${friendly}]` : friendly,
       )
     }
     finishStreamingLaokeText(relationshipId, streamingId)
