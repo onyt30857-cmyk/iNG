@@ -1,5 +1,14 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useUserStore } from '../../stores/user'
+
 const props = defineProps<{ text: string; subtle?: boolean; isOtherQuote?: boolean; quoteName?: string }>()
+
+// 2026-05-10:在用户气泡顶部显示昵称,让对话流明显是"用户 ↔ 老白"两边
+// subtle(系统消息)和"她回的"引用气泡不显示昵称(语义不是用户本人发言)
+const userStore = useUserStore()
+const showNickname = computed(() => !props.subtle && !props.isOtherQuote)
+const nickname = computed(() => userStore.user?.nickname?.trim() || null)
 
 // Q2 E:长按菜单(微信经典)— 复制全文 + 收藏(M2 接 backend 时打通)
 async function onLongPress() {
@@ -22,13 +31,17 @@ async function onLongPress() {
 
 <template>
   <view class="row" :class="{ 'row-quote': isOtherQuote }">
-    <view
-      class="bubble"
-      :class="{ subtle, 'bubble-quote': isOtherQuote }"
-      @longpress="onLongPress"
-    >
-      <text v-if="isOtherQuote" class="quote-tag">{{ quoteName || '她' }} 回的</text>
-      <text class="text">{{ text }}</text>
+    <view class="cell">
+      <!-- 用户昵称(自己发的话气泡顶部右对齐)-->
+      <text v-if="showNickname && nickname" class="nickname">{{ nickname }}</text>
+      <view
+        class="bubble"
+        :class="{ subtle, 'bubble-quote': isOtherQuote }"
+        @longpress="onLongPress"
+      >
+        <text v-if="isOtherQuote" class="quote-tag">{{ quoteName || '她' }} 回的</text>
+        <text class="text">{{ text }}</text>
+      </view>
     </view>
   </view>
 </template>
@@ -40,6 +53,21 @@ async function onLongPress() {
   justify-content: flex-end;
   margin-bottom: 24rpx;
   animation: fadeIn 0.4s ease both;
+}
+// cell 容器:让昵称跟气泡一起右对齐
+.cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  max-width: 84%;
+}
+// 用户昵称小字(2026-05-10):顶部右对齐,跟老白侧"老白"标签视觉对应
+.nickname {
+  font-size: 22rpx;
+  color: $color-text-tertiary;
+  margin-bottom: 6rpx;
+  padding-right: 4rpx;
+  font-weight: $weight-medium;
 }
 .row-quote {
   // 她回的 — 让气泡靠左一些,跟"我说"区分
