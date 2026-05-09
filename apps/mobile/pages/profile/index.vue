@@ -81,18 +81,38 @@ async function onConfirmRecover() {
   const code = recoverInput.value.trim()
   if (!code) return
   if (recovering.value) return
+
+  // L2 防火墙:已登录用户切账户,弹警告确认
+  // 当前账号有"用过"痕迹(onboarding 完成 / 自填昵称 / 自定义头像)→ 强警告
+  const u = userStore.user
+  const hasUsageTraces = !!(u?.onboarding_completed_at || u?.nickname || u?.avatar_url)
+  if (hasUsageTraces) {
+    const ok = await dialog.confirm('确认切到原账号?', {
+      body: [
+        '当前账号(' + (u?.nickname ?? u?.id?.slice(0, 6) ?? '匿名') + ')会从这台设备退出。',
+        '',
+        '它的关系档案、对话、积分都还在服务器,只要你保留了备份码随时能切回来。但是这台设备本地的缓存会清空。',
+        '',
+        '继续吗?',
+      ].join('\n'),
+      confirmText: '切过去',
+      danger: true,
+    })
+    if (!ok) return
+  }
+
   recovering.value = true
   try {
     const result = await userStore.recoverWithBackup(code)
     if (result.ok) {
       recoverModalOpen.value = false
-      await dialog.alert('恢复成功', {
-        body: '账户和数据已经拿回来了',
+      await dialog.alert('切回原账号了', {
+        body: '关系档案、对话都拿回来了',
       })
       // 强刷应用回到主页(让所有 store 重新加载)
       uni.reLaunch({ url: '/pages/home/index' })
     } else {
-      await dialog.alert('恢复失败', {
+      await dialog.alert('没切成', {
         body: result.message ?? '备份码不对,再确认一下',
       })
     }
@@ -175,8 +195,8 @@ async function onConfirmRecover() {
 
         <view class="action-card" @tap="onOpenRecover">
           <view class="action-card-body">
-            <text class="action-card-title">用备份码恢复账户</text>
-            <text class="action-card-sub">已经备份过 → 输入备份码拿回所有数据</text>
+            <text class="action-card-title">切到原账号(用备份码)</text>
+            <text class="action-card-sub">当前账号会退出 — 服务器数据都还在,留着备份码随时切回</text>
           </view>
           <text class="action-card-arrow">›</text>
         </view>
