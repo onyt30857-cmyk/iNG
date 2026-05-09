@@ -90,7 +90,7 @@ export function FeedbackSceneBreakdown({ windowDays = 7 }: { windowDays?: number
                             ? 'text-amber-600'
                             : 'text-emerald-600'
                     }`}>
-                      {d.total < 5 ? '—' : `${(d.dislike_rate * 100).toFixed(0)}% dislike`}
+                      {d.total < 5 ? '—' : `${(d.dislike_rate * 100).toFixed(0)}% 吐槽率`}
                     </span>
                   </span>
                 </div>
@@ -105,7 +105,7 @@ export function FeedbackSceneBreakdown({ windowDays = 7 }: { windowDays?: number
           })}
         </div>
         <div className="text-xs text-muted-foreground pt-3 mt-3 border-t">
-          📌 反馈数 &lt; 5 的 scene 不显示 dislike 率(样本太小)。看哪个 scene 的 dislike 率最高 → 优先改那个 prompt。
+          📌 反馈数 &lt; 5 的场景不显示吐槽率(样本太小)。看哪个场景吐槽率最高 → 优先改那个 prompt。
         </div>
       </CardContent>
     </Card>

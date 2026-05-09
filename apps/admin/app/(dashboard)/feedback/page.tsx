@@ -113,7 +113,7 @@ export default function FeedbackDashboardPage() {
             <section className="space-y-2">
               <h3 className="font-semibold">几个数字什么意思</h3>
               <div className="space-y-2 text-muted-foreground">
-                <Tip emoji="📊" title="今天 vs 昨天 dislike 率">
+                <Tip emoji="📊" title="今天 vs 昨天吐槽率">
                   最重要的趋势 — 关心**变化**比关心绝对数字重要。
                   今天比昨天高了 5% 就值得查;每天 5% 的差不多算稳定。
                 </Tip>
@@ -133,9 +133,9 @@ export default function FeedbackDashboardPage() {
               <div className="rounded-lg border border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 p-4 space-y-2">
                 <Tip emoji="⚠️" title="主动反馈样本很少">
                   只有 5-15% 的用户会主动点评价。所以**少量数据别过度解读**。
-                  比如总共 10 条反馈、3 条 dislike,30% 听起来吓人但样本太小,可能就 3 个用户而已。
+                  比如总共 10 条反馈、3 条吐槽,30% 听起来吓人但样本太小,可能就 3 个用户而已。
                 </Tip>
-                <Tip emoji="🔍" title="dislike 多的用户不是坏用户">
+                <Tip emoji="🔍" title="吐槽多的用户不是坏用户">
                   他们是给反馈最多的人 — 真用心在用产品的人。**不要去想"处理掉",
                   反而要珍惜**。如果他们流失了,产品就没人帮你迭代。
                 </Tip>
@@ -147,12 +147,12 @@ export default function FeedbackDashboardPage() {
             </section>
 
             <section className="space-y-3">
-              <h3 className="font-semibold">真实场景:这周 dislike 涨了怎么办?</h3>
+              <h3 className="font-semibold">真实场景:这周吐槽涨了怎么办?</h3>
               <Card>
                 <CardContent className="p-4 text-xs space-y-2">
                   <p className="text-muted-foreground">
                     <strong className="text-foreground">第 1 步</strong>:
-                    在这页看到"今天 dislike 率 12%,昨天 6%" — 涨了一倍,该查
+                    在这页看到"今天吐槽率 12%,昨天 6%" — 涨了一倍,该查
                   </p>
                   <p className="text-muted-foreground">
                     <strong className="text-foreground">第 2 步</strong>:
@@ -160,7 +160,7 @@ export default function FeedbackDashboardPage() {
                   </p>
                   <p className="text-muted-foreground">
                     <strong className="text-foreground">第 3 步</strong>:
-                    看 5-10 条 dislike → 找规律(比如"老白一直在重复用户原话""老白给的话术太正式")
+                    看 5-10 条吐槽 → 找规律(比如"老白一直在重复用户原话""老白给的话术太正式")
                   </p>
                   <p className="text-muted-foreground">
                     <strong className="text-foreground">第 4 步</strong>:
@@ -168,7 +168,7 @@ export default function FeedbackDashboardPage() {
                   </p>
                   <p className="text-muted-foreground">
                     <strong className="text-foreground">第 5 步</strong>:
-                    改完 1-3 天后回来看这页,dislike 率有没有降。降了说明修对了。
+                    改完 1-3 天后回来看这页,吐槽率有没有降。降了说明修对了。
                   </p>
                 </CardContent>
               </Card>
@@ -227,7 +227,7 @@ export default function FeedbackDashboardPage() {
           {/* 24h 趋势 */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">24h dislike 率(今 vs 昨)</CardTitle>
+              <CardTitle className="text-base">24h 吐槽率(今 vs 昨)</CardTitle>
             </CardHeader>
             <CardContent>
               <TrendRow
@@ -330,7 +330,7 @@ function TrendRow({
       <span className="text-muted-foreground">{label}</span>
       <span className="flex items-center gap-4">
         <span>总 {total}</span>
-        <span>dislike {dislike}</span>
+        <span>吐槽 {dislike}</span>
         <span className="font-medium">{formatPercent(rate)}</span>
       </span>
     </div>

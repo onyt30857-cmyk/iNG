@@ -338,7 +338,7 @@ function TrendChart({ days }: { days: TrendDay[] }) {
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-0.5 bg-red-500" />
-            👎 dislike
+            👎 吐槽数
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-0.5 bg-purple-500" />

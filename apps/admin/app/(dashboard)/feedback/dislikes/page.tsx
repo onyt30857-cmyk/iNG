@@ -173,7 +173,7 @@ export default function DislikesPage() {
                 {it.feedback_type === 'comment' ? (
                   <Badge variant="default">💬 comment</Badge>
                 ) : (
-                  <Badge variant="destructive">👎 dislike</Badge>
+                  <Badge variant="destructive">👎 吐槽</Badge>
                 )}
                 {it.relationship_stage && <Badge variant="muted">{it.relationship_stage}</Badge>}
                 <span className="text-muted-foreground">

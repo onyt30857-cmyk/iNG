@@ -135,7 +135,7 @@ export function FeedbackTrendChart() {
     <Card>
       <CardHeader>
         <CardTitle className="text-base flex items-center justify-between flex-wrap gap-2">
-          <span>30 天 dislike 率趋势</span>
+          <span>30 天吐槽率趋势</span>
           {stats && (
             <span className="text-xs font-normal flex items-center gap-2">
               <span className="text-muted-foreground">近 7 天均值</span>
@@ -295,7 +295,7 @@ export function FeedbackTrendChart() {
           </svg>
         </div>
         <div className="text-xs text-muted-foreground pt-2 flex items-center gap-2">
-          <span className="inline-block w-3 h-0.5 bg-red-500" /> 每日 dislike 率
+          <span className="inline-block w-3 h-0.5 bg-red-500" /> 每日吐槽率
           <span className="inline-block w-3 h-0.5 ml-3" style={{ background: 'rgb(168 162 158)', borderTop: '1px dashed rgb(168 162 158)' }} />
           30d 均值
         </div>
