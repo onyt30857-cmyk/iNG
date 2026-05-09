@@ -434,17 +434,17 @@ export default function UsersListPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>昵称</TableHead>
-              <TableHead>用户 ID / openid</TableHead>
-              <TableHead>注册时间</TableHead>
-              <TableHead>上次活跃</TableHead>
-              <TableHead>30 天活跃</TableHead>
-              <TableHead>关系(点击跳对话)</TableHead>
-              <TableHead className="text-right">复盘</TableHead>
-              <TableHead>订阅</TableHead>
-              <TableHead>状态</TableHead>
-              <TableHead>标签</TableHead>
-              <TableHead></TableHead>
+              <TableHead className="whitespace-nowrap">昵称</TableHead>
+              <TableHead className="whitespace-nowrap">ID / openid</TableHead>
+              <TableHead className="whitespace-nowrap">注册</TableHead>
+              <TableHead className="whitespace-nowrap">上次活跃</TableHead>
+              <TableHead className="whitespace-nowrap">30 天活跃</TableHead>
+              <TableHead className="whitespace-nowrap">关系</TableHead>
+              <TableHead className="text-right whitespace-nowrap">复盘</TableHead>
+              <TableHead className="whitespace-nowrap">订阅</TableHead>
+              <TableHead className="whitespace-nowrap">状态</TableHead>
+              <TableHead className="whitespace-nowrap">标签</TableHead>
+              <TableHead className="whitespace-nowrap"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -488,13 +488,13 @@ export default function UsersListPage() {
                     <span className="ml-2">/ {u.wechat_open_id_hint}</span>
                   )}
                 </TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell className="text-muted-foreground whitespace-nowrap">
                   {formatDate(u.created_at)}
                 </TableCell>
-                <TableCell className="text-muted-foreground text-xs">
+                <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
                   {formatRelative(u.last_active_at)}
                 </TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
                   <ActiveDaysCell days={u.active_days_30d} />
                 </TableCell>
                 <TableCell>
