@@ -23,6 +23,7 @@ import {
   Power,
   History,
   User,
+  Brain,
 } from 'lucide-react'
 import { adminFetch, adminGet } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
@@ -85,7 +86,7 @@ interface AuditItem {
   created_at: string
 }
 
-type TabKey = 'persona' | 'red_lines' | 'ai_config' | 'audit'
+type TabKey = 'persona' | 'prompts' | 'red_lines' | 'ai_config' | 'audit'
 
 export default function LaokePage() {
   const [persona, setPersona] = useState<Persona | null>(null)
@@ -125,10 +126,13 @@ export default function LaokePage() {
       {/* Hero — 老白形象卡(永久顶部)*/}
       <Hero persona={persona} onAvatarChanged={loadAll} />
 
-      {/* 4 Tab 切换 */}
+      {/* 5 Tab 切换 — 人格 / 在用 Prompt / 红线 / AI 配置 / 修改历史 */}
       <div className="border-b flex items-center gap-1 overflow-x-auto">
         <TabButton active={tab === 'persona'} onClick={() => setTab('persona')} icon={<User className="h-4 w-4" />}>
           人格
+        </TabButton>
+        <TabButton active={tab === 'prompts'} onClick={() => setTab('prompts')} icon={<Brain className="h-4 w-4" />}>
+          在用 Prompt
         </TabButton>
         <TabButton
           active={tab === 'red_lines'}
@@ -148,6 +152,7 @@ export default function LaokePage() {
 
       {/* Tab 内容 */}
       {tab === 'persona' && <PersonaTab persona={persona} onSaved={loadAll} />}
+      {tab === 'prompts' && <ActivePromptsCard />}
       {tab === 'red_lines' && <RedLinesTab rules={redLines} onChanged={loadAll} />}
       {tab === 'ai_config' && aiConfig && <AiConfigTab config={aiConfig} />}
       {tab === 'audit' && <AuditTab items={audit} />}
@@ -400,9 +405,6 @@ function PersonaTab({ persona, onSaved }: { persona: Persona; onSaved: () => voi
         field="identity_summary"
         onSaved={onSaved}
       />
-
-      {/* spec-027 P0-2:老白脑子里的 prompt */}
-      <ActivePromptsCard />
     </div>
   )
 }

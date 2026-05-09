@@ -106,31 +106,36 @@ export async function saveAndDeploy(input: {
 }
 
 /**
- * spec-027 P1-4:从 .md 文件读默认模板内容(不写 DB,只回传给前端)
+ * spec-027 P1-4:读内置默认 prompt 内容(不写 DB,只回传给前端)
+ * 修复(2026-05-10):改用 inline default-prompts.ts,不再依赖 .md 文件(Railway 上读不到)
  */
 export async function getDefaultTemplate(name: string): Promise<string | null> {
-  const validNames = ['parsing', 'reflecting', 'diagnosing', 'planning', 'drafting']
-  if (!validNames.includes(name)) return null
-  try {
-    const { loadPrompt } = await import('../../ai/prompt-loader.js')
-    return await loadPrompt(name as 'parsing', { skipDb: true, noCache: true })
-  } catch {
-    return null
-  }
+  const { getDefaultPrompt } = await import('../../ai/default-prompts.js')
+  return getDefaultPrompt(name)
 }
 
 /**
  * spec-027 P0-2:拿所有 prompt name + 当前 deployed 内容预览(给 /laoke 用)
  */
-export async function getActivePrompts(): Promise<
-  Array<{
-    name: string
-    deployed_version: number | null
-    content_preview: string | null
+export interface ActivePromptItem {
+  name: string
+  deployed_version: number | null
+  content_preview: string | null
+  deployed_at: Date | null
+  source: 'db' | 'file' | 'none'
+  total_versions: number // 已创建的版本数(含未上线/已回滚)
+  recent_versions: Array<{
+    id: string
+    version: number
+    author: string
+    notes: string | null
     deployed_at: Date | null
-    source: 'db' | 'file' | 'none'
+    rolled_back_at: Date | null
+    created_at: Date
   }>
-> {
+}
+
+export async function getActivePrompts(): Promise<ActivePromptItem[]> {
   const validNames: Array<'parsing' | 'reflecting' | 'diagnosing' | 'planning' | 'drafting'> = [
     'parsing',
     'reflecting',
@@ -138,19 +143,30 @@ export async function getActivePrompts(): Promise<
     'planning',
     'drafting',
   ]
-  const result: Array<{
-    name: string
-    deployed_version: number | null
-    content_preview: string | null
-    deployed_at: Date | null
-    source: 'db' | 'file' | 'none'
-  }> = []
+  const result: ActivePromptItem[] = []
   for (const name of validNames) {
-    const deployed = await prisma.promptVersion.findFirst({
-      where: { name, deployed_at: { not: null }, rolled_back_at: null },
-      orderBy: { deployed_at: 'desc' },
-      select: { content: true, version: true, deployed_at: true },
-    })
+    const [deployed, totalCount, recentVersions] = await Promise.all([
+      prisma.promptVersion.findFirst({
+        where: { name, deployed_at: { not: null }, rolled_back_at: null },
+        orderBy: { deployed_at: 'desc' },
+        select: { content: true, version: true, deployed_at: true },
+      }),
+      prisma.promptVersion.count({ where: { name } }),
+      prisma.promptVersion.findMany({
+        where: { name },
+        orderBy: { version: 'desc' },
+        take: 3,
+        select: {
+          id: true,
+          version: true,
+          author: true,
+          notes: true,
+          deployed_at: true,
+          rolled_back_at: true,
+          created_at: true,
+        },
+      }),
+    ])
     if (deployed) {
       result.push({
         name,
@@ -158,26 +174,32 @@ export async function getActivePrompts(): Promise<
         content_preview: deployed.content.slice(0, 300),
         deployed_at: deployed.deployed_at,
         source: 'db',
+        total_versions: totalCount,
+        recent_versions: recentVersions,
       })
     } else {
-      // fallback 看 .md 是否有
-      try {
-        const { loadPrompt } = await import('../../ai/prompt-loader.js')
-        const content = await loadPrompt(name, { skipDb: true, noCache: true })
+      // fallback 用内置默认(2026-05-10:Railway 不带 .md,改读 default-prompts.ts inline 常量)
+      const { getDefaultPrompt } = await import('../../ai/default-prompts.js')
+      const content = getDefaultPrompt(name)
+      if (content) {
         result.push({
           name,
           deployed_version: null,
           content_preview: content.slice(0, 300),
           deployed_at: null,
           source: 'file',
+          total_versions: totalCount,
+          recent_versions: recentVersions,
         })
-      } catch {
+      } else {
         result.push({
           name,
           deployed_version: null,
           content_preview: null,
           deployed_at: null,
           source: 'none',
+          total_versions: totalCount,
+          recent_versions: recentVersions,
         })
       }
     }

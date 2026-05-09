@@ -2,16 +2,20 @@
 //
 // 优先级(spec-027):
 // 1. DB(prompt_versions 表 deployed 版本)— 运营在 admin 改的版本
-// 2. fallback 到 lianai-dev-kit/03-prompts/<name>.md(M1 安全网,运营没改时用)
+// 2. fallback 到 inline 默认(default-prompts.ts,从 .md 蒸馏出来)
 //
-// 5min cache 进程内,运营在 admin 改 prompt 时调 invalidatePromptCache(name) 清掉
-// 让下次调用读到最新版本。
+// 不再依赖文件系统(Railway 部署 dev-kit 文件夹访问不到)
+// 5min cache 进程内,改了 prompt 调 invalidatePromptCache(name) 清掉
+//
+// 历史变更:之前 fallback 是 readFile() lianai-dev-kit/03-prompts/<name>.md,
+// Railway 部署后 dev-kit 文件夹不在容器里,导致全部"未配置"。改成 inline 兜底。
 
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { prisma } from '../lib/prisma.js'
 import { logger } from '../lib/logger.js'
+import { getDefaultPrompt } from './default-prompts.js'
 
 export type PromptName =
   | 'parsing'
@@ -23,7 +27,7 @@ export type PromptName =
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-// apps/api/src/ai → repo 根 → lianai-dev-kit/03-prompts
+// apps/api/src/ai → repo 根 → lianai-dev-kit/03-prompts(仅 dev 模式 / 测试用)
 const DEFAULT_PROMPTS_DIR = path.resolve(
   __dirname,
   '../../../../lianai-dev-kit/03-prompts',
@@ -86,15 +90,26 @@ export async function loadPrompt(
     }
   }
 
-  // ② Fallback 到 .md(safety net)
-  const filePath = path.join(dir, `${name}.md`)
-  const md = await readFile(filePath, 'utf-8')
-  const prompt = extractSystemPrompt(md, name)
-
-  if (!opts.noCache) {
-    cache.set(cacheKey, { content: prompt, cached_at: now, source: 'file' })
+  // ② Fallback 到 inline 默认(spec-027 修复:Railway 上读不到 .md,改用代码内 const)
+  // 测试 / dev 模式可以传 promptsDir 强制读 .md
+  if (opts.promptsDir) {
+    const filePath = path.join(dir, `${name}.md`)
+    const md = await readFile(filePath, 'utf-8')
+    const prompt = extractSystemPrompt(md, name)
+    if (!opts.noCache) {
+      cache.set(cacheKey, { content: prompt, cached_at: now, source: 'file' })
+    }
+    return prompt
   }
-  return prompt
+
+  const inlinePrompt = getDefaultPrompt(name)
+  if (!inlinePrompt) {
+    throw new Error(`prompt "${name}" 既无 DB deployed,inline 默认也找不到`)
+  }
+  if (!opts.noCache) {
+    cache.set(cacheKey, { content: inlinePrompt, cached_at: now, source: 'file' })
+  }
+  return inlinePrompt
 }
 
 /** Admin 改 prompt 后调,清掉单 prompt cache 让下次调用读最新 */
