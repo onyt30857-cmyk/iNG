@@ -2,10 +2,14 @@
 // 底部输入区:截图 + 文字 + 发送
 import { ref, computed, watch, nextTick } from 'vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   presetText?: string
   uploading?: boolean
-}>()
+  /** 主输入框占位文案,默认"想到啥说啥",新关系冷启动时父组件可传"先和老白说说{name}" */
+  placeholder?: string
+}>(), {
+  placeholder: '想到啥说啥',
+})
 
 // 主输入框 ref,父组件通过 defineExpose 调用 focus
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
@@ -149,7 +153,7 @@ defineExpose({
           ref="textareaRef"
           class="input"
           v-model="text"
-          placeholder="想到啥说啥"
+          :placeholder="props.placeholder"
           :auto-height="true"
           :show-confirm-bar="false"
           :adjust-position="true"

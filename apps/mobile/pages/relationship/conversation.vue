@@ -286,13 +286,18 @@ const starterName = computed(() => relationship.value?.name ?? '她')
 // chatInput ref:用来调 ChatInput 暴露的 openScreenshotNote / openQuote / focusInput
 const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null)
 
-function handleStarterAction(action: 'screenshot' | 'quote' | 'freetext') {
+function handleStarterAction(action: 'screenshot' | 'quote') {
   const ci = chatInputRef.value
   if (!ci) return
   if (action === 'screenshot') ci.openScreenshotNote()
   else if (action === 'quote') ci.openQuote()
-  else if (action === 'freetext') ci.focusInput()
 }
+
+// 输入框 placeholder:新关系用"先和老白说说{name}"引导文字开口,
+// 老对话用通用"想到啥说啥"
+const inputPlaceholder = computed(() =>
+  isFresh.value ? `先和老白说说 ${starterName.value}` : '想到啥说啥',
+)
 
 // presetText 已废弃(原 chip 文案预填逻辑),保留空值兼容 ChatInput props
 const presetText = ref('')
@@ -402,6 +407,7 @@ function handleSavePlanning(planningId: string, content: import('../../types/mes
       <ChatInput
         ref="chatInputRef"
         :preset-text="presetText"
+        :placeholder="inputPlaceholder"
         :uploading="isOcrLoading"
         @send-text="handleSendText"
         @screenshots-chosen="handleScreenshotsChosen"

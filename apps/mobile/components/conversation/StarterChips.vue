@@ -10,18 +10,19 @@
 // 改成老白引导口吻 + 动作驱动,新人不需要思考"该说啥"。
 
 interface StarterAction {
-  key: 'screenshot' | 'quote' | 'freetext'
+  key: 'screenshot' | 'quote'
   label: string
   icon: string
 }
 
 defineProps<{ name: string }>()
-const emit = defineEmits<{ action: ['screenshot' | 'quote' | 'freetext'] }>()
+const emit = defineEmits<{ action: ['screenshot' | 'quote'] }>()
 
+// "先和老白说说她"已挪到 ChatInput placeholder,不再放 chip 里
+// 这样新人看到的引导是:2 个明确动作 + 输入框默认提示三选一,自然不挤
 const actions: StarterAction[] = [
   { key: 'screenshot', label: '截图发老白看看', icon: '📷' },
   { key: 'quote', label: '粘她原话过来', icon: '📋' },
-  { key: 'freetext', label: '先和老白说说她', icon: '💬' },
 ]
 </script>
 
