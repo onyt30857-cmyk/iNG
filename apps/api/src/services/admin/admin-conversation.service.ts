@@ -308,6 +308,157 @@ export async function listRelationshipMessages(
   return { items, has_more }
 }
 
+// ============== spec-018 C:全量关系扁平视图 ==============
+
+export interface AdminRelationshipFilter {
+  page: number
+  pageSize: number
+  search?: string
+  /** 排序键:updated / messages / dislikes / persona_fail / created */
+  sort?: 'updated' | 'messages' | 'dislikes' | 'persona_fail' | 'created'
+  archived?: 'all' | 'archived' | 'active'
+}
+
+export interface AdminRelationshipListItem {
+  id: string
+  name: string
+  stage: string
+  archived: boolean
+  created_at: Date
+  updated_at: Date
+  // 用户基础信息(让运营一眼能看到关系归属哪个用户)
+  user: {
+    id: string
+    nickname: string | null
+    admin_alias: string | null
+  }
+  // 聚合指标(对话查阅器要的核心数据)
+  message_count: number
+  last_message_at: Date | null
+  dislike_count: number
+  persona_fail_count: number
+}
+
+export interface AdminRelationshipListResult {
+  items: AdminRelationshipListItem[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+/**
+ * 全量关系扁平视图(spec-018 C)— admin 按"关系"维度排查
+ * 不限定某个 user,所有 active 关系都列
+ */
+export async function listAllRelationshipsForAdmin(
+  filter: AdminRelationshipFilter,
+): Promise<AdminRelationshipListResult> {
+  const where: import('@prisma/client').Prisma.RelationshipWhereInput = {
+    deleted_at: null,
+  }
+  if (filter.archived === 'archived') where.archived = true
+  else if (filter.archived === 'active') where.archived = false
+  // 'all' 不过滤
+
+  if (filter.search && filter.search.trim()) {
+    const q = filter.search.trim()
+    where.OR = [
+      { name: { contains: q, mode: 'insensitive' } },
+      { id: { startsWith: q } },
+      { user_id: { startsWith: q } },
+      { user: { admin_alias: { contains: q, mode: 'insensitive' } } },
+      { user: { nickname: { contains: q, mode: 'insensitive' } } },
+    ]
+  }
+
+  const [total, rels] = await Promise.all([
+    prisma.relationship.count({ where }),
+    prisma.relationship.findMany({
+      where,
+      orderBy: { updated_at: 'desc' }, // 默认按更新时间倒序;其他排序在内存里做
+      skip: (filter.page - 1) * filter.pageSize,
+      take: filter.pageSize,
+      select: {
+        id: true,
+        user_id: true,
+        name: true,
+        stage: true,
+        archived: true,
+        created_at: true,
+        updated_at: true,
+        user: {
+          select: { id: true, nickname: true, admin_alias: true },
+        },
+      },
+    }),
+  ])
+
+  if (rels.length === 0) {
+    return { items: [], total, page: filter.page, pageSize: filter.pageSize }
+  }
+
+  const relIds = rels.map((r) => r.id)
+  const [msgCounts, lastMsgs, dislikeCounts, personaFailCounts] = await Promise.all([
+    prisma.message.groupBy({
+      by: ['relationship_id'],
+      where: { relationship_id: { in: relIds }, deleted_at: null },
+      _count: { _all: true },
+    }),
+    prisma.message.groupBy({
+      by: ['relationship_id'],
+      where: { relationship_id: { in: relIds }, deleted_at: null },
+      _max: { created_at: true },
+    }),
+    prisma.promptFeedback.groupBy({
+      by: ['relationship_id'],
+      where: { relationship_id: { in: relIds }, feedback_type: 'dislike' },
+      _count: { _all: true },
+    }),
+    prisma.aiCallLog.groupBy({
+      by: ['relationship_id'],
+      where: { relationship_id: { in: relIds }, persona_passed: false },
+      _count: { _all: true },
+    }),
+  ])
+
+  const msgMap = new Map(msgCounts.map((m) => [m.relationship_id, m._count._all]))
+  const lastMap = new Map(lastMsgs.map((m) => [m.relationship_id, m._max.created_at]))
+  const dislikeMap = new Map(dislikeCounts.map((m) => [m.relationship_id, m._count._all]))
+  const personaMap = new Map(personaFailCounts.map((m) => [m.relationship_id, m._count._all]))
+
+  const items: AdminRelationshipListItem[] = rels.map((r) => ({
+    id: r.id,
+    name: r.name,
+    stage: r.stage,
+    archived: r.archived,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+    user: {
+      id: r.user.id,
+      nickname: r.user.nickname,
+      admin_alias: r.user.admin_alias,
+    },
+    message_count: msgMap.get(r.id) ?? 0,
+    last_message_at: lastMap.get(r.id) ?? null,
+    dislike_count: dislikeMap.get(r.id) ?? 0,
+    persona_fail_count: personaMap.get(r.id) ?? 0,
+  }))
+
+  // 排序(在 page 内重排,因为聚合数据 SQL 一次拿不出来)
+  if (filter.sort === 'messages') {
+    items.sort((a, b) => b.message_count - a.message_count)
+  } else if (filter.sort === 'dislikes') {
+    items.sort((a, b) => b.dislike_count - a.dislike_count)
+  } else if (filter.sort === 'persona_fail') {
+    items.sort((a, b) => b.persona_fail_count - a.persona_fail_count)
+  } else if (filter.sort === 'created') {
+    items.sort((a, b) => b.created_at.getTime() - a.created_at.getTime())
+  }
+  // 'updated' 默认 SQL 已排好
+
+  return { items, total, page: filter.page, pageSize: filter.pageSize }
+}
+
 /**
  * 给 admin /users/:id 详情页用 — 列出该用户所有关系 + 每段关系的聚合指标
  * 复用 getRelationshipOverview 的逻辑,但批量

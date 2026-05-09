@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Users, MessageSquareWarning, LayoutDashboard, LogOut, Activity, FileCode2, ClipboardCheck, Settings, Wallet } from 'lucide-react'
+import { Users, MessageSquareWarning, LayoutDashboard, LogOut, Activity, FileCode2, ClipboardCheck, Settings, Wallet, Heart } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { auth } from '@/lib/auth'
@@ -17,6 +17,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { href: '/dashboard', label: '总览', icon: LayoutDashboard },
   { href: '/users', label: '用户', icon: Users },
+  { href: '/relationships', label: '关系', icon: Heart },
   { href: '/feedback', label: '反馈', icon: MessageSquareWarning },
   { href: '/llm', label: 'AI 监控', icon: Activity },
   { href: '/prompts', label: 'Prompt 工程', icon: FileCode2 },

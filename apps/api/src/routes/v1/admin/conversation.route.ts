@@ -7,6 +7,7 @@ import { recordAdminAudit } from '../../../services/admin/admin-audit.js'
 import {
   getRelationshipOverview,
   listRelationshipMessages,
+  listAllRelationshipsForAdmin,
 } from '../../../services/admin/admin-conversation.service.js'
 
 const idParamsSchema = z.object({ id: z.string().min(1) })
@@ -18,8 +19,23 @@ const messagesQuerySchema = z.object({
   flag_filter: z.enum(['all', 'has_feedback', 'has_red_line', 'persona_fail']).default('all'),
 })
 
+const relationshipsListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(30),
+  search: z.string().trim().min(1).optional(),
+  sort: z.enum(['updated', 'messages', 'dislikes', 'persona_fail', 'created']).default('updated'),
+  archived: z.enum(['all', 'archived', 'active']).default('active'),
+})
+
 export async function adminConversationRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', requireAdmin)
+
+  // GET /v1/admin/relationships — 全量关系扁平列表(spec-018 C)
+  app.get('/v1/admin/relationships', async (request) => {
+    const q = relationshipsListQuerySchema.parse(request.query)
+    const result = await listAllRelationshipsForAdmin(q)
+    return { ok: true, data: result }
+  })
 
   // GET /v1/admin/relationships/:id/overview — 关系基本信息 + 聚合指标
   app.get('/v1/admin/relationships/:id/overview', async (request) => {

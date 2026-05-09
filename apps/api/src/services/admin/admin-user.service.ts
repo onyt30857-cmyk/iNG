@@ -33,6 +33,8 @@ export interface UserListItem {
   created_at: Date
   deleted_at: Date | null
   relationship_count: number
+  /** 列表里直接显示前几段关系作为 chips,点击跳对话查阅器(spec-018 A)*/
+  relationships: Array<{ id: string; name: string; stage: string }>
   session_count: number
   active_subscription: {
     plan: SubscriptionPlan
@@ -41,6 +43,9 @@ export interface UserListItem {
   /** spec-014:用户标签 — 系统自动 + 手动,用于风险高亮和快速识别 */
   tags: Array<{ tag: string; source: string }>
 }
+
+/** 列表里每个用户最多显示的关系 chip 数,多的折叠成 "+N" */
+const RELATIONSHIP_CHIPS_LIMIT = 5
 
 export interface UserListResult {
   items: UserListItem[]
@@ -112,6 +117,12 @@ export async function listUsers(filter: UserListFilter): Promise<UserListResult>
             sessions: { where: { deleted_at: null } },
           },
         },
+        relationships: {
+          where: { deleted_at: null },
+          orderBy: { updated_at: 'desc' },
+          take: RELATIONSHIP_CHIPS_LIMIT,
+          select: { id: true, name: true, stage: true },
+        },
         subscriptions: {
           where: { status: 'ACTIVE', expires_at: { gt: new Date() } },
           orderBy: { expires_at: 'desc' },
@@ -150,6 +161,11 @@ export async function listUsers(filter: UserListFilter): Promise<UserListResult>
       created_at: u.created_at,
       deleted_at: u.deleted_at,
       relationship_count: u._count.relationships,
+      relationships: u.relationships.map((r) => ({
+        id: r.id,
+        name: r.name,
+        stage: r.stage,
+      })),
       session_count: u._count.sessions,
       active_subscription: u.subscriptions[0]
         ? { plan: u.subscriptions[0].plan, expires_at: u.subscriptions[0].expires_at }

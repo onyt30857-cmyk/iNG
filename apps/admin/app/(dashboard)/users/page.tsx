@@ -28,6 +28,7 @@ interface UserItem {
   created_at: string
   deleted_at: string | null
   relationship_count: number
+  relationships: Array<{ id: string; name: string; stage: string }>
   session_count: number
   active_subscription: { plan: string; expires_at: string } | null
   tags: Array<{ tag: string; source: string }>
@@ -274,7 +275,7 @@ export default function UsersListPage() {
               <TableHead>昵称</TableHead>
               <TableHead>用户 ID / openid</TableHead>
               <TableHead>注册时间</TableHead>
-              <TableHead className="text-right">关系</TableHead>
+              <TableHead>关系(点击跳对话)</TableHead>
               <TableHead className="text-right">复盘</TableHead>
               <TableHead>订阅</TableHead>
               <TableHead>状态</TableHead>
@@ -326,7 +327,30 @@ export default function UsersListPage() {
                 <TableCell className="text-muted-foreground">
                   {formatDate(u.created_at)}
                 </TableCell>
-                <TableCell className="text-right">{u.relationship_count}</TableCell>
+                <TableCell>
+                  {u.relationships.length === 0 ? (
+                    <span className="text-muted-foreground text-xs">—</span>
+                  ) : (
+                    <div className="flex flex-wrap gap-1 max-w-[260px]">
+                      {u.relationships.map((r) => (
+                        <Link
+                          key={r.id}
+                          href={`/conversations/${r.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary hover:bg-secondary/80 text-xs transition-colors"
+                          title={`${r.name} · ${r.stage}`}
+                        >
+                          <span className="truncate max-w-[80px]">{r.name}</span>
+                        </Link>
+                      ))}
+                      {u.relationship_count > u.relationships.length && (
+                        <span className="text-xs text-muted-foreground self-center">
+                          +{u.relationship_count - u.relationships.length}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </TableCell>
                 <TableCell className="text-right">{u.session_count}</TableCell>
                 <TableCell>
                   {u.active_subscription ? (
