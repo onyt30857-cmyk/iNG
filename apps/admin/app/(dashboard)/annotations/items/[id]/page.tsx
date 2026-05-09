@@ -135,41 +135,75 @@ export default function AnnotationItemPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* 左:对话上下文 */}
+        {/* 左:对话上下文 — 微信式气泡 */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">对话上下文</CardTitle>
+            <CardTitle className="text-base flex items-center justify-between">
+              <span>对话内容</span>
+              {data.nearby_messages.length > 0 && (
+                <span className="text-xs font-normal text-muted-foreground">
+                  {data.nearby_messages.length} 条消息
+                </span>
+              )}
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            {data.call && (
-              <div className="text-xs text-muted-foreground space-y-1 mb-3">
-                <div>scene: {data.call.scene}</div>
-                <div>model: {data.call.model}</div>
-                <div>耗时: {data.call.duration_ms}ms</div>
-                <div>persona check: {data.call.persona_passed ? '✓' : '✗'}</div>
-                {data.call.error && <div className="text-destructive">error: {data.call.error}</div>}
+          <CardContent className="space-y-3">
+            {data.nearby_messages.length === 0 ? (
+              <div className="rounded-md border-2 border-dashed p-6 text-center space-y-2">
+                <p className="text-sm font-medium">⚠️ 这条没找到对话内容</p>
+                <p className="text-xs text-muted-foreground">
+                  可能是旧抽样(过滤前抽到的辅助调用)。建议:
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  跳过 → 重新抽一批,新批次只会抽真对话
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
+                {data.nearby_messages.map((m) => {
+                  const isLaoke = m.role === 'LAOKE'
+                  const isUser = m.role === 'USER' || m.role === 'USER_SCREENSHOT'
+                  return (
+                    <div key={m.id} className={`flex ${isLaoke ? 'justify-start' : isUser ? 'justify-end' : 'justify-center'}`}>
+                      <div className={`max-w-[80%] ${isLaoke ? 'order-1' : ''}`}>
+                        <div className={`text-[10px] text-muted-foreground mb-1 ${isUser ? 'text-right' : ''}`}>
+                          {isLaoke ? '🐻 老白' : isUser ? '👤 用户' : m.role} · {new Date(m.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                        <div
+                          className={`rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${
+                            isLaoke
+                              ? 'bg-secondary text-foreground rounded-tl-sm'
+                              : isUser
+                                ? 'bg-emerald-500 text-white rounded-tr-sm'
+                                : 'bg-muted/50 text-xs text-muted-foreground'
+                          }`}
+                        >
+                          {m.content || <span className="italic opacity-60">(无内容)</span>}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )}
-            {data.nearby_messages.length === 0 ? (
-              <p className="text-sm text-muted-foreground">同关系附近无 messages 记录</p>
-            ) : (
-              <div className="space-y-2 max-h-[500px] overflow-y-auto">
-                {data.nearby_messages.map((m) => (
-                  <div
-                    key={m.id}
-                    className={`text-sm rounded-md p-3 ${
-                      m.role === 'LAOKE'
-                        ? 'bg-primary/10 border border-primary/20'
-                        : 'bg-secondary/40'
-                    }`}
-                  >
-                    <div className="text-xs text-muted-foreground mb-1">
-                      {m.role} · {formatDate(m.created_at)}
-                    </div>
-                    {m.content && <div className="whitespace-pre-wrap">{m.content}</div>}
-                  </div>
-                ))}
-              </div>
+
+            {/* 调用 metadata 折叠区 */}
+            {data.call && (
+              <details className="text-xs text-muted-foreground border-t pt-3">
+                <summary className="cursor-pointer hover:text-foreground select-none">
+                  ⚙️ 看技术详情 (model / 耗时 / persona check)
+                </summary>
+                <div className="mt-2 space-y-1 font-mono">
+                  <div>场景: {data.call.scene}</div>
+                  <div>模型: {data.call.model}</div>
+                  <div>耗时: {data.call.duration_ms}ms</div>
+                  <div>人格自查: {data.call.persona_passed ? '✓ 通过' : '✗ 未通过'}</div>
+                  {data.call.error && (
+                    <div className="text-destructive">出错: {data.call.error}</div>
+                  )}
+                  <div className="text-muted-foreground/60">调用时间: {formatDate(data.call.created_at)}</div>
+                </div>
+              </details>
             )}
           </CardContent>
         </Card>

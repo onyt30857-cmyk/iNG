@@ -35,6 +35,8 @@ interface MyItem {
   reviewed_at: string | null
   queue: { batch_name: string; source: string }
   tags: string[]
+  user_preview: string | null
+  laoke_preview: string | null
 }
 
 export default function AnnotationsPage() {
@@ -105,14 +107,30 @@ export default function AnnotationsPage() {
           ) : (
             <div className="space-y-2">
               {myItems.slice(0, 10).map((it) => (
-                <div key={it.id} className="flex items-center justify-between border rounded-md p-3 text-sm">
-                  <div>
-                    <span className="font-mono text-xs text-muted-foreground">#{it.call_id.slice(0, 8)}</span>
-                    <span className="ml-3 text-xs">
-                      来自批次 <strong>{it.queue.batch_name}</strong>
-                    </span>
+                <div key={it.id} className="flex items-start justify-between gap-3 border rounded-md p-3 text-sm">
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <div className="flex items-center gap-2 flex-wrap text-xs">
+                      <span className="text-muted-foreground">来自批次 <strong>{it.queue.batch_name}</strong></span>
+                      <span className="font-mono text-muted-foreground/70">#{it.call_id.slice(0, 6)}</span>
+                    </div>
+                    {/* 对话预览 */}
+                    {it.user_preview && (
+                      <div className="text-xs flex gap-1.5">
+                        <span className="text-muted-foreground shrink-0">👤 用户:</span>
+                        <span className="text-foreground line-clamp-1">{it.user_preview}</span>
+                      </div>
+                    )}
+                    {it.laoke_preview && (
+                      <div className="text-xs flex gap-1.5">
+                        <span className="text-muted-foreground shrink-0">🐻 老白:</span>
+                        <span className="text-foreground line-clamp-1">{it.laoke_preview}</span>
+                      </div>
+                    )}
+                    {!it.user_preview && !it.laoke_preview && (
+                      <div className="text-xs text-muted-foreground italic">⚠️ 没找到关联对话(数据可能在新抽样后才会有)</div>
+                    )}
                   </div>
-                  <Button asChild variant="outline" size="sm">
+                  <Button asChild variant="outline" size="sm" className="shrink-0">
                     <Link href={`/annotations/items/${it.id}`}>开始打分 →</Link>
                   </Button>
                 </div>
@@ -145,22 +163,27 @@ export default function AnnotationsPage() {
         )}
         <div className="space-y-2">
           {queues.map((q) => (
-            <Card key={q.id}>
-              <CardContent className="p-4 flex items-center justify-between">
-                <div>
-                  <div className="font-medium">{q.batch_name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {formatDate(q.created_at)} · 进度 {q._count.items}/{q.total_items}
-                    {q._count.items === q.total_items && q.total_items > 0 && (
-                      <span className="ml-2 text-emerald-600 dark:text-emerald-400">全部评完 ✓</span>
-                    )}
+            <Link key={q.id} href={`/annotations/batches/${q.id}`} className="block group">
+              <Card className="group-hover:bg-muted/30 transition-colors">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div>
+                    <div className="font-medium group-hover:underline">{q.batch_name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatDate(q.created_at)} · 进度 {q._count.items}/{q.total_items}
+                      {q._count.items === q.total_items && q.total_items > 0 && (
+                        <span className="ml-2 text-emerald-600 dark:text-emerald-400">全部评完 ✓ 点击看报表</span>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <Badge variant={q.status === 'closed' ? 'muted' : 'default'}>
-                  {q.status === 'closed' ? '已关闭' : q.status === 'open' ? '进行中' : q.status}
-                </Badge>
-              </CardContent>
-            </Card>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={q.status === 'closed' ? 'muted' : 'default'}>
+                      {q.status === 'closed' ? '已关闭' : q.status === 'open' ? '进行中' : q.status}
+                    </Badge>
+                    <span className="text-muted-foreground text-sm group-hover:translate-x-0.5 transition-transform">→</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       </div>

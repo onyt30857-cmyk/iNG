@@ -293,7 +293,9 @@ export async function runConversationTurn(
     user_id: input.user_id,
     relationship_id: input.relationship_id,
     ...(input.session_id !== undefined ? { session_id: input.session_id } : {}),
-    scene: 'parsing', // 借用 parsing 做 audit_logs 分类,后续可扩 'conversation_turn'
+    // spec-013 模块 C 抽样只看 'conversation_turn',这是真正的老白主对话(Layer B)
+    // 历史:之前借用 'parsing' 名,导致抽样混入 OCR;2026-05-09 改正
+    scene: 'conversation_turn',
   }
 
   // Phase 4.1 长期记忆:history > 100 条时,把超出 80 条窗口的部分用 Haiku 摘要

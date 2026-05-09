@@ -40,6 +40,8 @@ export interface AiCallContext {
     | 'crisis'
     | 'profile_update'
     | 'intent_classify'
+    // spec-013 模块 C 抽样用:Layer B 老白主对话(原本借用 'parsing',2026-05-09 拆分)
+    | 'conversation_turn'
 }
 
 export interface CallClaudeParams {
