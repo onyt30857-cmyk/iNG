@@ -278,23 +278,24 @@ function handleSelectDraft(_draftId: string) {
   uni.showToast({ title: '记下来了', icon: 'none' })
 }
 
-// === 冷启动示例气泡 ===
+// === 冷启动新手引导(2026-05-10 重做)===
+// 老白引导口吻的 3 个动作按钮:截图 / 粘原话 / 文字开口
 const isFresh = computed(() => conversationStore.isFreshConversation(relationshipId.value))
-const starterChips = computed(() => {
-  const name = relationship.value?.name ?? '她'
-  return [
-    `${name}已读不回了`,
-    '我想直接发截图给你看',
-    `我不知道${name}现在啥意思`,
-  ]
-})
+const starterName = computed(() => relationship.value?.name ?? '她')
 
-const presetText = ref('')
-function handlePickChip(text: string) {
-  presetText.value = text
-  // 触发 watch 后清空,允许重复点同一气泡
-  setTimeout(() => { presetText.value = '' }, 100)
+// chatInput ref:用来调 ChatInput 暴露的 openScreenshotNote / openQuote / focusInput
+const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null)
+
+function handleStarterAction(action: 'screenshot' | 'quote' | 'freetext') {
+  const ci = chatInputRef.value
+  if (!ci) return
+  if (action === 'screenshot') ci.openScreenshotNote()
+  else if (action === 'quote') ci.openQuote()
+  else if (action === 'freetext') ci.focusInput()
 }
+
+// presetText 已废弃(原 chip 文案预填逻辑),保留空值兼容 ChatInput props
+const presetText = ref('')
 
 // === 收藏话术 / 方向 ===
 function handleSaveDraft(draftId: string) {
@@ -396,9 +397,10 @@ function handleSavePlanning(planningId: string, content: import('../../types/mes
         @dismiss="handleProactiveHintDismiss"
       />
 
-      <!-- 冷启动示例气泡(只在新对话显示) -->
-      <StarterChips v-if="isFresh" :chips="starterChips" @pick="handlePickChip" />
+      <!-- 冷启动新手引导(只在新对话显示)2026-05-10 重做:动作型按钮 -->
+      <StarterChips v-if="isFresh" :name="starterName" @action="handleStarterAction" />
       <ChatInput
+        ref="chatInputRef"
         :preset-text="presetText"
         :uploading="isOcrLoading"
         @send-text="handleSendText"

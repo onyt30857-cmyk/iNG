@@ -6,6 +6,9 @@ const props = defineProps<{
   presetText?: string
   uploading?: boolean
 }>()
+
+// 主输入框 ref,父组件通过 defineExpose 调用 focus
+const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const emit = defineEmits<{
   sendText: [{ text: string; isOtherQuote: boolean }]
   screenshotsChosen: [{ note: string; paths: string[] }]
@@ -98,6 +101,22 @@ function confirmNoteAndPickImages() {
     })
   })
 }
+
+// 父组件(conversation.vue StarterChips)调用入口
+function focusInput() {
+  // uni-app textarea 用 :focus prop 控制,这里通过短暂 false→true 触发
+  // 但实际更稳的做法:直接拿 DOM focus()
+  nextTick(() => {
+    const el = textareaRef.value
+    if (el && typeof el.focus === 'function') el.focus()
+  })
+}
+
+defineExpose({
+  openScreenshotNote: chooseScreenshots,
+  openQuote: openQuoteModal,
+  focusInput,
+})
 </script>
 
 <template>
@@ -127,6 +146,7 @@ function confirmNoteAndPickImages() {
     <view class="chat-input">
       <view class="input-wrap">
         <textarea
+          ref="textareaRef"
           class="input"
           v-model="text"
           placeholder="想到啥说啥"
