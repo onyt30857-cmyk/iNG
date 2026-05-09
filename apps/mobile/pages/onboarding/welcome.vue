@@ -96,21 +96,21 @@ async function onConfirmRecover() {
         class="bubble"
         :class="{ 'fade-in': visibleCount >= 1 }"
       >
-        嗨,我是<text class="strong">老白</text>。
+        进来吧,坐。
       </view>
       <view
         v-show="visibleCount >= 2"
         class="bubble"
         :class="{ 'fade-in': visibleCount >= 2 }"
       >
-        你不擅长跟喜欢的人说话?{{'\n'}}没事,我年轻时也是。
+        这地方<text class="strong">只有咱俩</text> — 不广播、不分享、不进群。
       </view>
       <view
         v-show="visibleCount >= 3"
         class="bubble"
         :class="{ 'fade-in': visibleCount >= 3 }"
       >
-        来,从这里开始 — 这里只有你跟我,<text class="strong">不广播、不分享、不发动态</text>。
+        想好让我怎么叫你了么?
       </view>
     </view>
 
