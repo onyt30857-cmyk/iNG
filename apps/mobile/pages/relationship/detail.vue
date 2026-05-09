@@ -508,6 +508,11 @@ async function archiveIt() {
     uni.navigateBack()
   }
 }
+async function restoreIt() {
+  await store.restore(id.value)
+  uni.showToast({ title: '已恢复到主列表', icon: 'none' })
+  setTimeout(() => uni.navigateBack(), 600)
+}
 async function deleteIt() {
   const ok = await dialog.confirm('删了就找不回来了', {
     body: '真的要删吗?30 天内还可以恢复。',
@@ -797,7 +802,8 @@ async function deleteIt() {
     <view class="footer-links">
       <text class="footer-link" @tap="goEdit">编辑档案</text>
       <text class="footer-sep">·</text>
-      <text class="footer-link" @tap="archiveIt">归档</text>
+      <text v-if="relationship.archived" class="footer-link" @tap="restoreIt">恢复到主列表</text>
+      <text v-else class="footer-link" @tap="archiveIt">归档</text>
       <text class="footer-sep">·</text>
       <text class="footer-link danger" @tap="deleteIt">删除整段关系</text>
     </view>
