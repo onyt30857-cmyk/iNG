@@ -10,6 +10,8 @@
 
 import type { FastifyInstance } from 'fastify'
 import { prisma } from '../../lib/prisma.js'
+import { requireAuth } from '../../middleware/auth.js'
+import { generateGreeting } from '../../services/laoke/greeting.service.js'
 
 interface LaokePublicProfile {
   avatar_url: string | null
@@ -62,5 +64,12 @@ export async function laokeRoutes(app: FastifyInstance): Promise<void> {
 
     cache = { profile, expires_at: now + CACHE_TTL_MS }
     return { ok: true, data: profile }
+  })
+
+  // 个性化回归问候(2026-05-10):mobile 冷启动时调,显示老白迎接气泡
+  // 走 Claude Haiku 实时生成,5min 进程 cache 防同 user 短时间重算
+  app.get('/v1/laoke/greeting', { preHandler: requireAuth }, async (request) => {
+    const result = await generateGreeting(request.user!.id)
+    return { ok: true, data: result }
   })
 }

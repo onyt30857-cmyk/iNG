@@ -9,6 +9,10 @@
 import { onMounted } from 'vue'
 import { apiGet } from '../../api/client'
 import { useUserStore } from '../../stores/user'
+import { storage, StorageKeys } from '../../utils/storage'
+
+// 6 小时内不重复触发回归问候页(防疲劳)
+const GREETING_COOLDOWN_MS = 6 * 3_600_000
 
 onMounted(async () => {
   apiGet<{ message: string }>('/hello').catch(() => { /* splash 不暴露网络问题 */ })
@@ -24,9 +28,24 @@ onMounted(async () => {
 
   const onboarded = userStore.isOnboarded()
   console.log('[splash] sync done, onboarded=', onboarded, 'user=', userStore.user)
-  uni.reLaunch({
-    url: onboarded ? '/pages/home/index' : '/pages/onboarding/welcome',
-  })
+
+  // 决定下一站:
+  // 未 onboarded → welcome
+  // 已 onboarded + 距上次问候 ≥ 6h → greeting(老白个性化迎接)
+  // 已 onboarded + 6h 内已问候过 → 直接 home(防疲劳)
+  if (!onboarded) {
+    uni.reLaunch({ url: '/pages/onboarding/welcome' })
+    return
+  }
+
+  const lastGreetingAt = Number(storage.get<string>(StorageKeys.LAST_GREETING_SHOWN_AT) ?? '0')
+  const since = Date.now() - lastGreetingAt
+  if (since >= GREETING_COOLDOWN_MS) {
+    uni.reLaunch({ url: '/pages/greeting/index' })
+  } else {
+    console.log('[splash] greeting cooldown, skip — 距上次', Math.round(since / 60_000), '分钟')
+    uni.reLaunch({ url: '/pages/home/index' })
+  }
 })
 </script>
 

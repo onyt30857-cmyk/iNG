@@ -70,6 +70,12 @@
       "style": {
         "navigationBarTitleText": "编辑资料"
       }
+    },
+    {
+      "path": "pages/greeting/index",
+      "style": {
+        "navigationStyle": "custom"
+      }
     }
   ],
   "globalStyle": {
