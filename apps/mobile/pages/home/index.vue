@@ -5,12 +5,15 @@
 //   主页 = 关系列表,点关系卡 = 直接和这段关系开始复盘
 //   减少"我要复盘 → 再选关系"的两步抽象,改成"点小雨 = 和小雨聊聊"
 
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { apiGet } from '../../api/client'
 import { useRelationshipStore } from '../../stores/relationship'
+import { useUserStore } from '../../stores/user'
 import RelationshipCard from '../../components/RelationshipCard.vue'
 
 const store = useRelationshipStore()
+const userStore = useUserStore()
+const userAvatarUrl = computed(() => userStore.user?.avatar_url ?? null)
 
 onMounted(async () => {
   // 静默 ping 后端 + 拉关系列表
@@ -143,8 +146,15 @@ const greeting = (() => {
           <line x1="4" y1="18" x2="20" y2="18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
         </svg>
       </view>
-      <view class="icon-btn" @tap="goProfile">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <view class="icon-btn icon-btn-avatar" @tap="goProfile">
+        <!-- 用户配置过头像 → 显示头像图;否则 fallback 默认 person 图标 -->
+        <image
+          v-if="userAvatarUrl"
+          :src="userAvatarUrl"
+          mode="aspectFill"
+          class="user-avatar-img"
+        />
+        <svg v-else width="22" height="22" viewBox="0 0 24 24" fill="none">
           <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.6" />
           <path d="M4 20c0-4 4-6 8-6s8 2 8 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
         </svg>
@@ -263,11 +273,21 @@ const greeting = (() => {
   flex-shrink: 0;
   margin-left: 12rpx;
   color: $color-text-secondary;
+  overflow: hidden; // 头像图填满圆形时切角
 
   &:active {
     background-color: $color-surface-subtle;
     transform: scale(0.94);
   }
+}
+// 头像版本:图填满整圆,去掉内边距
+.icon-btn-avatar {
+  padding: 0;
+}
+.user-avatar-img {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 .manage-btn-text {
   font-size: 26rpx;
