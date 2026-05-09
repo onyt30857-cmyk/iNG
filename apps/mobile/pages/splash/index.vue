@@ -30,11 +30,15 @@ onMounted(async () => {
   console.log('[splash] sync done, onboarded=', onboarded, 'user=', userStore.user)
 
   // 决定下一站:
-  // 未 onboarded → welcome
+  // 未 onboarded + intro 没看过 → intro(老白首次见面 4.5s)
+  // 未 onboarded + intro 看过 → welcome
   // 已 onboarded + 距上次问候 ≥ 6h → greeting(老白个性化迎接)
   // 已 onboarded + 6h 内已问候过 → 直接 home(防疲劳)
   if (!onboarded) {
-    uni.reLaunch({ url: '/pages/onboarding/welcome' })
+    const introShown = !!storage.get<string>(StorageKeys.INTRO_SHOWN)
+    uni.reLaunch({
+      url: introShown ? '/pages/onboarding/welcome' : '/pages/onboarding/intro',
+    })
     return
   }
 

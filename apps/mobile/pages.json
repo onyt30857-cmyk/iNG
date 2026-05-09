@@ -54,6 +54,12 @@
       }
     },
     {
+      "path": "pages/onboarding/intro",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/onboarding/welcome",
       "style": {
         "navigationStyle": "custom"
