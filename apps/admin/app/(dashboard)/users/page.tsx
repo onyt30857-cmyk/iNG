@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Search, Trash2 } from 'lucide-react'
-import { adminFetch, adminGet } from '@/lib/api-client'
+import { Search, Trash2, Download, SlidersHorizontal } from 'lucide-react'
+import { adminFetch, adminGet, BASE } from '@/lib/api-client'
+import { auth } from '@/lib/auth'
 import { formatDate } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,7 +21,6 @@ import {
 interface UserItem {
   id: string
   nickname: string | null
-  /** spec-014:admin 内部别名,运营给用户起的简称 */
   admin_alias: string | null
   avatar_url: string | null
   wechat_open_id_hint: string | null
@@ -32,6 +32,10 @@ interface UserItem {
   session_count: number
   active_subscription: { plan: string; expires_at: string } | null
   tags: Array<{ tag: string; source: string }>
+  // spec-024 P0-1
+  messages_7d: number
+  feedback_7d: number
+  last_active_at: string | null
 }
 
 // 系统标签 → 中文显示名 + 风险等级(用于行高亮)
@@ -91,6 +95,16 @@ export default function UsersListPage() {
   const [status, setStatus] = useState('all')
   const [subscribed, setSubscribed] = useState('all')
 
+  // spec-024 P0-1 高级过滤
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [minMessages7d, setMinMessages7d] = useState<string>('')
+  const [minFeedback7d, setMinFeedback7d] = useState<string>('')
+  const [tagFilter, setTagFilter] = useState<string>('')
+  const [registeredSince, setRegisteredSince] = useState<string>('')
+  const [registeredUntil, setRegisteredUntil] = useState<string>('')
+  const [sortKey, setSortKey] = useState<'created' | 'messages' | 'feedback' | 'last_active'>('created')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+
   // 空账户清理(spec-018)
   const [cleanupOpen, setCleanupOpen] = useState(false)
   const [cleanupDays, setCleanupDays] = useState(7)
@@ -105,13 +119,22 @@ export default function UsersListPage() {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    adminGet<UserListResponse>('/v1/admin/users', {
+    const params: Record<string, string | number> = {
       page,
       pageSize: PAGE_SIZE,
-      search: search || undefined,
       status,
       subscribed,
-    }).then((res) => {
+      sort: sortKey,
+      order: sortOrder,
+    }
+    if (search) params.search = search
+    if (minMessages7d) params.min_messages_7d = Number(minMessages7d)
+    if (minFeedback7d) params.min_feedback_7d = Number(minFeedback7d)
+    if (tagFilter.trim()) params.tags = tagFilter.trim()
+    if (registeredSince) params.registered_since = new Date(registeredSince).toISOString()
+    if (registeredUntil) params.registered_until = new Date(registeredUntil).toISOString()
+
+    adminGet<UserListResponse>('/v1/admin/users', params).then((res) => {
       if (cancelled) return
       setLoading(false)
       if (res.ok) {
@@ -124,7 +147,7 @@ export default function UsersListPage() {
     return () => {
       cancelled = true
     }
-  }, [page, search, status, subscribed])
+  }, [page, search, status, subscribed, sortKey, sortOrder, minMessages7d, minFeedback7d, tagFilter, registeredSince, registeredUntil])
 
   // 清理空账户(spec-018):先 dry-run 看候选,再二次确认才真删
   async function openCleanupAndPreview() {
@@ -252,13 +275,150 @@ export default function UsersListPage() {
         <Button
           variant="outline"
           size="sm"
-          className="ml-auto gap-1 text-amber-700 hover:text-amber-800 border-amber-200"
+          className="ml-auto gap-1"
+          onClick={() => setShowAdvanced((v) => !v)}
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          {showAdvanced ? '收起高级' : '高级筛选'}
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1"
+          onClick={async () => {
+            const token = auth.getAccessToken()
+            if (!token) return
+            const params = new URLSearchParams()
+            if (search) params.set('search', search)
+            params.set('status', status)
+            params.set('subscribed', subscribed)
+            if (minMessages7d) params.set('min_messages_7d', minMessages7d)
+            if (minFeedback7d) params.set('min_feedback_7d', minFeedback7d)
+            if (tagFilter.trim()) params.set('tags', tagFilter.trim())
+            if (registeredSince) params.set('registered_since', new Date(registeredSince).toISOString())
+            if (registeredUntil) params.set('registered_until', new Date(registeredUntil).toISOString())
+
+            const res = await fetch(`${BASE}/v1/admin/users/export.csv?${params}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+            if (!res.ok) {
+              alert('导出失败,刷新重试')
+              return
+            }
+            const blob = await res.blob()
+            const link = document.createElement('a')
+            link.href = URL.createObjectURL(blob)
+            link.download = `users-${new Date().toISOString().slice(0, 10)}.csv`
+            link.click()
+            URL.revokeObjectURL(link.href)
+          }}
+        >
+          <Download className="h-3.5 w-3.5" />
+          导出 CSV
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1 text-amber-700 hover:text-amber-800 border-amber-200"
           onClick={openCleanupAndPreview}
         >
           <Trash2 className="h-3.5 w-3.5" />
           清理空账户
         </Button>
       </div>
+
+      {/* 高级筛选 panel */}
+      {showAdvanced && (
+        <div className="rounded-md border bg-muted/30 p-4 grid gap-3 md:grid-cols-3 text-sm">
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">最少 7 天消息数</label>
+            <Input
+              type="number"
+              min={0}
+              placeholder="例:5"
+              value={minMessages7d}
+              onChange={(e) => {
+                setMinMessages7d(e.target.value)
+                setPage(1)
+              }}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">最少 7 天反馈数</label>
+            <Input
+              type="number"
+              min={0}
+              placeholder="例:3"
+              value={minFeedback7d}
+              onChange={(e) => {
+                setMinFeedback7d(e.target.value)
+                setPage(1)
+              }}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">标签匹配(逗号分隔,任意一个)</label>
+            <Input
+              placeholder="如 high_activity,paying"
+              value={tagFilter}
+              onChange={(e) => {
+                setTagFilter(e.target.value)
+                setPage(1)
+              }}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">注册时间从</label>
+            <Input
+              type="date"
+              value={registeredSince}
+              onChange={(e) => {
+                setRegisteredSince(e.target.value)
+                setPage(1)
+              }}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">注册时间到</label>
+            <Input
+              type="date"
+              value={registeredUntil}
+              onChange={(e) => {
+                setRegisteredUntil(e.target.value)
+                setPage(1)
+              }}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">排序</label>
+            <div className="flex gap-2">
+              <select
+                className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm"
+                value={sortKey}
+                onChange={(e) => setSortKey(e.target.value as typeof sortKey)}
+              >
+                <option value="created">注册时间</option>
+                <option value="messages">7d 消息数</option>
+                <option value="feedback">7d 反馈数</option>
+                <option value="last_active">最后活跃</option>
+              </select>
+              <select
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
+              >
+                <option value="desc">↓ 降序</option>
+                <option value="asc">↑ 升序</option>
+              </select>
+            </div>
+          </div>
+          <div className="md:col-span-3 text-xs text-muted-foreground border-t pt-2">
+            💡 找种子用户:7d 消息数 ≥ 10 + 7d 反馈数 ≥ 3 + 排序按 7d 消息数 ↓
+          </div>
+        </div>
+      )}
 
       {/* 错误 */}
       {errorMsg && (

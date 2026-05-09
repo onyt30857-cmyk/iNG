@@ -333,10 +333,24 @@ export default function UserDetailPage() {
       {/* spec-014:运营备注(用户不可见) */}
       <NotesPanel userId={u.id} notes={data.notes ?? []} onChanged={reload} />
 
+      {/* spec-024 P0-2:用户事件流 timeline */}
+      <UserTimelineCard userId={u.id} />
+
+      {/* spec-024 P1-4:灵活补偿(送积分 / 24h 无限)*/}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">客服补偿工具</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-3">
+          <GrantPointsDialog userId={u.id} onGranted={reload} />
+          <GrantTempUnlimitedDialog userId={u.id} onGranted={reload} />
+        </CardContent>
+      </Card>
+
       {/* 右下:危险操作区 */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">操作</CardTitle>
+          <CardTitle className="text-base">高级操作</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
           <GrantSubscriptionDialog
@@ -350,6 +364,194 @@ export default function UserDetailPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+// ============== spec-024 P0-2 用户事件流 timeline ==============
+
+interface TimelineEvent {
+  type: string
+  at: string
+  title: string
+  detail?: string
+  href?: string
+}
+
+function UserTimelineCard({ userId }: { userId: string }) {
+  const [events, setEvents] = useState<TimelineEvent[]>([])
+  const [loading, setLoading] = useState(true)
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    setLoading(true)
+    adminGet<{ events: TimelineEvent[] }>(`/v1/admin/users/${userId}/timeline`).then((res) => {
+      setLoading(false)
+      if (res.ok) setEvents(res.data.events)
+    })
+  }, [open, userId])
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center justify-between">
+          <span>📜 时间线(经历的所有事件)</span>
+          <Button variant="ghost" size="sm" onClick={() => setOpen((v) => !v)}>
+            {open ? '收起' : '展开'}
+          </Button>
+        </CardTitle>
+      </CardHeader>
+      {open && (
+        <CardContent>
+          {loading && <p className="text-sm text-muted-foreground">加载中…</p>}
+          {!loading && events.length === 0 && (
+            <p className="text-sm text-muted-foreground py-4 text-center">这个用户还没有事件</p>
+          )}
+          <div className="space-y-2">
+            {events.map((e, i) => (
+              <div key={i} className="flex items-start gap-3 text-sm py-2 border-b last:border-0">
+                <span className="text-xs text-muted-foreground shrink-0 w-32 tabular-nums">
+                  {new Date(e.at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium">{e.title}</div>
+                  {e.detail && <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{e.detail}</div>}
+                </div>
+                {e.href && (
+                  <Link href={e.href} className="text-xs text-blue-600 hover:underline shrink-0">
+                    跳转 →
+                  </Link>
+                )}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      )}
+    </Card>
+  )
+}
+
+// ============== spec-024 P1-4 灵活补偿 ==============
+
+function GrantPointsDialog({ userId, onGranted }: { userId: string; onGranted: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [points, setPoints] = useState(50)
+  const [reason, setReason] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  async function submit() {
+    if (!reason.trim() || submitting) return
+    setSubmitting(true)
+    setErrorMsg(null)
+    const res = await adminFetch(`/v1/admin/users/${userId}/grant-points`, {
+      method: 'POST',
+      body: { points, reason: reason.trim() },
+    })
+    setSubmitting(false)
+    if (res.ok) {
+      setOpen(false)
+      setPoints(50)
+      setReason('')
+      onGranted()
+    } else {
+      setErrorMsg(res.error.message)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">🎁 送积分</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>送积分(立即生效)</DialogTitle>
+          <DialogDescription>
+            给用户加 N 积分(实现:今日 points_used 减 N)。客服补偿场景用,落 admin_audit。
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label>送多少积分</Label>
+            <Input type="number" min={1} max={10000} value={points} onChange={(e) => setPoints(Number(e.target.value))} />
+            <p className="text-xs text-muted-foreground">5 = 1 句话,20 = 1 张截图,50 = 一次小补偿</p>
+          </div>
+          <div className="space-y-1">
+            <Label>原因(必填,落审计)</Label>
+            <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="如:用户报 NW01 错误,补偿一次" />
+          </div>
+          {errorMsg && <p className="text-sm text-destructive">{errorMsg}</p>}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)}>取消</Button>
+          <Button onClick={submit} disabled={!reason.trim() || submitting}>
+            {submitting ? '处理中…' : `送 ${points} 积分`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function GrantTempUnlimitedDialog({ userId, onGranted }: { userId: string; onGranted: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [hours, setHours] = useState(24)
+  const [reason, setReason] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  async function submit() {
+    if (!reason.trim() || submitting) return
+    setSubmitting(true)
+    setErrorMsg(null)
+    const res = await adminFetch(`/v1/admin/users/${userId}/grant-temp-unlimited`, {
+      method: 'POST',
+      body: { hours, reason: reason.trim() },
+    })
+    setSubmitting(false)
+    if (res.ok) {
+      setOpen(false)
+      setReason('')
+      onGranted()
+    } else {
+      setErrorMsg(res.error.message)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">⏱️ 临时无限 N 小时</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>临时无限(N 小时内无配额)</DialogTitle>
+          <DialogDescription>
+            打 temp_unlimited 标签,有效期 N 小时;quota.service 自动 bypass。
+            常用 24h 给"用户体验崩坏的当天"。
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label>多少小时</Label>
+            <Input type="number" min={1} max={168} value={hours} onChange={(e) => setHours(Number(e.target.value))} />
+            <p className="text-xs text-muted-foreground">默认 24 小时(1 天);最多 168(7 天)</p>
+          </div>
+          <div className="space-y-1">
+            <Label>原因(必填,落审计)</Label>
+            <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="如:连续报错 5 次,补偿 24h 无限" />
+          </div>
+          {errorMsg && <p className="text-sm text-destructive">{errorMsg}</p>}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)}>取消</Button>
+          <Button onClick={submit} disabled={!reason.trim() || submitting}>
+            {submitting ? '处理中…' : `开 ${hours}h 无限`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

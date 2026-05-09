@@ -83,6 +83,13 @@ interface Overview {
     cost_30d_usd: number
     dau_30d_avg: number
   }
+  funnel_7d: {
+    registered: number
+    onboarded: number
+    sent_first_message: number
+    gave_first_feedback: number
+    subscribed: number
+  }
   week_changelog: Array<{
     id: string
     date: string
@@ -192,6 +199,9 @@ export default function DashboardPage() {
       {data.next_actions.length > 0 && (
         <NextActionsCard actions={data.next_actions} />
       )}
+
+      {/* spec-024 P1-5: 用户漏斗(7d 注册者达到各阶段) */}
+      <FunnelCard funnel={data.funnel_7d} />
 
       {/* P1-5 + P1-6 双栏:单位经济 + 本周 changelog */}
       <div className="grid gap-4 lg:grid-cols-2">
@@ -508,6 +518,65 @@ function RecentAuditCard({ items }: { items: AuditEntry[] }) {
             </li>
           ))}
         </ul>
+      </CardContent>
+    </Card>
+  )
+}
+
+function FunnelCard({ funnel }: { funnel: Overview['funnel_7d'] }) {
+  const stages: Array<{ key: keyof typeof funnel; label: string; emoji: string }> = [
+    { key: 'registered', label: '注册', emoji: '✨' },
+    { key: 'onboarded', label: '完成 onboarding', emoji: '🎯' },
+    { key: 'sent_first_message', label: '首次发消息', emoji: '💬' },
+    { key: 'gave_first_feedback', label: '首次反馈', emoji: '👍' },
+    { key: 'subscribed', label: '订阅', emoji: '💎' },
+  ]
+  const max = Math.max(funnel.registered, 1)
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">用户漏斗(过去 7 天注册者)</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {funnel.registered === 0 ? (
+          <p className="text-sm text-muted-foreground py-6 text-center">过去 7 天没有新用户</p>
+        ) : (
+          <div className="space-y-2">
+            {stages.map((s, i) => {
+              const value = funnel[s.key]
+              const widthPct = (value / max) * 100
+              const prevValue = i === 0 ? 0 : funnel[stages[i - 1]!.key]
+              const fromPrev = i === 0 ? 100 : prevValue > 0 ? (value / prevValue) * 100 : 0
+              return (
+                <div key={s.key} className="space-y-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <span>
+                      {s.emoji} {s.label}
+                    </span>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      <strong className="text-foreground">{value}</strong>
+                      {i > 0 && (
+                        <span className="ml-2">
+                          → 上一阶段 {fromPrev.toFixed(0)}%
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-muted rounded overflow-hidden">
+                    <div
+                      className="h-full bg-blue-500/70 transition-all"
+                      style={{ width: `${widthPct}%` }}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+        <div className="text-xs text-muted-foreground pt-3 mt-3 border-t">
+          📌 看哪一阶段流失最严重 → 改对应的产品环节(如 onboarding 转化低 → 改注册流程文案)
+        </div>
       </CardContent>
     </Card>
   )
