@@ -329,7 +329,7 @@ function QuickEditor({
     setEditing(true)
     setErrorMsg(null)
     if (!deployed) {
-      // 没 deployed → 拉 .md 默认作为起点
+      // 没 deployed → 拉内置默认作为起点
       await loadDefault()
       return
     }
@@ -417,7 +417,7 @@ function QuickEditor({
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
               <div className="text-sm font-medium">
-                {deployed ? `✓ 当前线上 v${deployed.version}` : '⚠️ 还没线上版本(系统在用 .md 默认)'}
+                {deployed ? `✓ 当前线上 v${deployed.version}` : '⚠️ 还没人改过这条,系统在用内置默认'}
               </div>
               {deployed && (
                 <div className="text-xs text-muted-foreground mt-0.5">
