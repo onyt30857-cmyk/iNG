@@ -209,9 +209,9 @@ export default function ConversationInspectorPage() {
 
       {/* 左右栏 Inspector */}
       {!loading && messages.length > 0 && (
-        <div className="grid gap-4 lg:grid-cols-[1fr_1fr] xl:grid-cols-[1fr_1.2fr]" style={{ minHeight: '600px' }}>
+        <div className="grid gap-4 lg:grid-cols-[1fr_1fr] xl:grid-cols-[1fr_1.2fr] lg:min-h-[600px]">
           {/* 左:微信式气泡 timeline(跟用户端 LaokeBubble 视觉对齐 — spec-022 fix)*/}
-          <Card className="overflow-hidden flex flex-col" style={{ maxHeight: '80vh' }}>
+          <Card className="overflow-hidden flex flex-col max-h-[60vh] lg:max-h-[80vh]">
             <div
               className="overflow-y-auto flex-1 px-4 py-4 space-y-3"
               style={{ background: '#EDEDED' }}
@@ -355,7 +355,7 @@ export default function ConversationInspectorPage() {
           </Card>
 
           {/* 右:Detail Inspector */}
-          <Card className="overflow-hidden flex flex-col" style={{ maxHeight: '80vh' }}>
+          <Card className="overflow-hidden flex flex-col max-h-[60vh] lg:max-h-[80vh]">
             <div className="overflow-y-auto flex-1 p-5 space-y-4">
               {selected ? (
                 <>

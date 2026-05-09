@@ -247,7 +247,7 @@ export default function LlmDashboardPage() {
               <CardTitle className="text-base">延迟分布</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-4 gap-3 text-center text-sm">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-sm">
                 <LatencyBlock label="P50" v={data.latency.p50_ms} />
                 <LatencyBlock label="P95" v={data.latency.p95_ms} warn={data.latency.p95_ms > 8000} />
                 <LatencyBlock label="P99" v={data.latency.p99_ms} warn={data.latency.p99_ms > 15000} />
@@ -263,7 +263,7 @@ export default function LlmDashboardPage() {
                 <CardTitle className="text-base">用户行为(隐性反馈,spec-013 模块 D)</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
                   <BehaviorKpi
                     label="30 秒留存率"
                     rate={behavior.retention_30s_rate}
@@ -306,7 +306,7 @@ export default function LlmDashboardPage() {
               </CardHeader>
               <CardContent>
                 {data.by_scene.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">暂无数据(AiCallLog Pino transport 刚开)</p>
+                  <p className="text-sm text-muted-foreground">还没数据,等几次真请求过来再看</p>
                 ) : (
                   <div className="space-y-3">
                     {data.by_scene.map((s) => (

@@ -440,7 +440,7 @@ function UnitEconomicsCard({ data }: { data: Overview['unit_economics'] }) {
         <CardTitle className="text-base">单位经济(过去 30 天)</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-3 gap-3 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
           <div>
             <div className="text-xs text-muted-foreground">$/DAU/天</div>
             <div className="text-xl font-semibold tabular-nums mt-1">

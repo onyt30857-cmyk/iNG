@@ -770,10 +770,10 @@ function AiConfigTab({ config }: { config: AiConfig }) {
   return (
     <Card>
       <CardContent className="p-5 space-y-3 text-sm">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <div className="text-xs text-muted-foreground">主模型</div>
-            <div className="font-mono">{config.model}</div>
+            <div className="font-mono break-all">{config.model}</div>
           </div>
           <div>
             <div className="text-xs text-muted-foreground">temperature</div>
@@ -784,8 +784,8 @@ function AiConfigTab({ config }: { config: AiConfig }) {
           <div className="text-xs text-muted-foreground mb-2">各场景参数</div>
           <div className="space-y-1">
             {config.scenes.map((s) => (
-              <div key={s.name} className="flex items-center justify-between py-1 text-xs">
-                <span>
+              <div key={s.name} className="flex items-center justify-between gap-2 flex-wrap py-1 text-xs">
+                <span className="min-w-0">
                   <Badge variant="outline" className="font-mono mr-2">
                     {s.name}
                   </Badge>

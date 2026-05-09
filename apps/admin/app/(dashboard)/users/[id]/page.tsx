@@ -229,7 +229,7 @@ export default function UserDetailPage() {
           </CardHeader>
           <CardContent className="space-y-6">
             {/* 反馈快览 */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
               <KpiBlock icon={<ThumbsUp className="h-4 w-4" />} label="👍" value={data.feedback_summary.likes} />
               <KpiBlock icon={<ThumbsDown className="h-4 w-4" />} label="👎" value={data.feedback_summary.dislikes} />
               <KpiBlock icon={<MessageSquare className="h-4 w-4" />} label="💬" value={data.feedback_summary.comments} />
