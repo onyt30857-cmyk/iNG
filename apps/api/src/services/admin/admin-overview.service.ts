@@ -85,6 +85,14 @@ export interface OverviewResult {
     cost_30d_usd: number
     dau_30d_avg: number
   }
+  // spec-024 P1-5: 用户漏斗(7d 窗口)
+  funnel_7d: {
+    registered: number
+    onboarded: number
+    sent_first_message: number
+    gave_first_feedback: number
+    subscribed: number
+  }
   // P1-6: 本周 changelog
   week_changelog: Array<{
     id: string
@@ -301,6 +309,50 @@ export async function getOverview(): Promise<OverviewResult> {
       : 100
   const errorRate = ai_call_count_7d > 0 ? (error_count_7d / ai_call_count_7d) * 100 : 0
 
+  // ============== P1-5 用户漏斗(7d 窗口)==============
+  // 近 7 天注册的用户 → 走到漏斗各阶段的人数
+  const [
+    registered7d,
+    onboarded7d,
+    sentFirst7d,
+    gaveFirstFeedback7d,
+    subscribed7d,
+  ] = await Promise.all([
+    prisma.user.count({
+      where: { created_at: { gte: sevenDaysAgo }, deleted_at: null },
+    }),
+    prisma.user.count({
+      where: {
+        created_at: { gte: sevenDaysAgo },
+        deleted_at: null,
+        onboarding_completed_at: { not: null },
+      },
+    }),
+    prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(DISTINCT u.id)::bigint AS count
+      FROM users u
+      JOIN sessions s ON s.user_id = u.id
+      JOIN messages m ON m.session_id = s.id AND m.role = 'USER'
+      WHERE u.created_at >= ${sevenDaysAgo}
+        AND u.deleted_at IS NULL
+    `,
+    prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(DISTINCT u.id)::bigint AS count
+      FROM users u
+      JOIN prompt_feedback pf ON pf.user_id = u.id
+      WHERE u.created_at >= ${sevenDaysAgo}
+        AND u.deleted_at IS NULL
+    `,
+    prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(DISTINCT u.id)::bigint AS count
+      FROM users u
+      JOIN subscriptions s ON s.user_id = u.id
+      WHERE u.created_at >= ${sevenDaysAgo}
+        AND u.deleted_at IS NULL
+        AND s.status = 'ACTIVE'
+    `,
+  ])
+
   // 30d trend 整合 + 填空
   const trendMap = new Map<string, TrendDay>()
   for (const r of trendActivity) {
@@ -467,6 +519,13 @@ export async function getOverview(): Promise<OverviewResult> {
       cost_30d_usd: cost30dUsd,
       dau_30d_avg: dau30dAvg,
       cost_per_dau_usd: dau30dAvg > 0 ? cost30dUsd / 30 / dau30dAvg : null,
+    },
+    funnel_7d: {
+      registered: registered7d,
+      onboarded: onboarded7d,
+      sent_first_message: Number(sentFirst7d[0]?.count ?? 0),
+      gave_first_feedback: Number(gaveFirstFeedback7d[0]?.count ?? 0),
+      subscribed: Number(subscribed7d[0]?.count ?? 0),
     },
     week_changelog: weekChangelog,
     recent_audit: recentAuditOut,

@@ -32,6 +32,12 @@ import {
   removeTag,
   recomputeSystemTagsForUser,
 } from '../../../services/admin/admin-tag.service.js'
+import {
+  getUserTimeline,
+  exportUsersCsv,
+  grantPoints,
+  grantTempUnlimited,
+} from '../../../services/admin/admin-user-timeline.service.js'
 
 // ============== schemas ==============
 
@@ -41,6 +47,14 @@ const listQuerySchema = z.object({
   search: z.string().trim().min(1).optional(),
   status: z.enum(['all', 'active', 'deleted']).default('all'),
   subscribed: z.enum(['all', 'subscribed', 'unsubscribed']).default('all'),
+  // P0-1
+  registered_since: z.string().datetime().optional(),
+  registered_until: z.string().datetime().optional(),
+  min_messages_7d: z.coerce.number().int().min(0).optional(),
+  min_feedback_7d: z.coerce.number().int().min(0).optional(),
+  tags: z.string().optional(),
+  sort: z.enum(['created', 'messages', 'feedback', 'last_active']).default('created'),
+  order: z.enum(['asc', 'desc']).default('desc'),
 })
 
 const idParamsSchema = z.object({
@@ -333,6 +347,94 @@ export async function adminUserRoutes(app: FastifyInstance): Promise<void> {
   app.post('/v1/admin/users/:id/recompute-tags', async (request) => {
     const { id } = idParamsSchema.parse(request.params)
     const result = await recomputeSystemTagsForUser(id)
+    return { ok: true, data: result }
+  })
+
+  // ============== spec-024 P0-2: 用户事件流 timeline ==============
+  app.get('/v1/admin/users/:id/timeline', async (request) => {
+    const { id } = idParamsSchema.parse(request.params)
+    const events = await getUserTimeline(id, 100)
+    return { ok: true, data: { events } }
+  })
+
+  // ============== spec-024 P0-3: 用户列表 CSV 导出 ==============
+  app.get('/v1/admin/users/export.csv', async (request, reply) => {
+    const q = listQuerySchema.parse(request.query)
+    const csv = await exportUsersCsv({
+      search: q.search,
+      status: q.status,
+      subscribed: q.subscribed,
+      registered_since: q.registered_since,
+      registered_until: q.registered_until,
+      min_messages_7d: q.min_messages_7d,
+      min_feedback_7d: q.min_feedback_7d,
+      tags: q.tags,
+    })
+    void recordAdminAudit(
+      request.admin!.id,
+      {
+        action: 'export_users_csv',
+        target_type: 'user_batch',
+        target_id: 'csv_export',
+        reason: JSON.stringify(q),
+      },
+      request,
+    )
+    const filename = `users-${new Date().toISOString().slice(0, 10)}.csv`
+    reply
+      .header('Content-Type', 'text/csv; charset=utf-8')
+      .header('Content-Disposition', `attachment; filename="${filename}"`)
+      .send(csv)
+  })
+
+  // ============== spec-024 P1-4: 灵活补偿 ==============
+  // POST /v1/admin/users/:id/grant-points
+  app.post('/v1/admin/users/:id/grant-points', async (request) => {
+    const { id } = idParamsSchema.parse(request.params)
+    const body = z
+      .object({
+        points: z.number().int().min(1).max(10000),
+        reason: z.string().min(1).max(500),
+      })
+      .parse(request.body)
+
+    const result = await grantPoints(id, body.points)
+    await recordAdminAudit(
+      request.admin!.id,
+      {
+        action: 'grant_points',
+        target_type: 'user',
+        target_id: id,
+        after: { points_granted: body.points, today_used_after: result.today_used },
+        reason: body.reason,
+      },
+      request,
+    )
+    return { ok: true, data: result }
+  })
+
+  // POST /v1/admin/users/:id/grant-temp-unlimited
+  app.post('/v1/admin/users/:id/grant-temp-unlimited', async (request) => {
+    const { id } = idParamsSchema.parse(request.params)
+    const body = z
+      .object({
+        hours: z.number().int().min(1).max(168),
+        reason: z.string().min(1).max(500),
+      })
+      .parse(request.body)
+
+    const result = await grantTempUnlimited(id, body.hours, body.reason, request.admin!.id)
+    await recordAdminAudit(
+      request.admin!.id,
+      {
+        action: 'grant_temp_unlimited',
+        target_type: 'user',
+        target_id: id,
+        after: { hours: body.hours, expires_at: result.expires_at.toISOString() },
+        reason: body.reason,
+      },
+      request,
+    )
     return { ok: true, data: result }
   })
 }

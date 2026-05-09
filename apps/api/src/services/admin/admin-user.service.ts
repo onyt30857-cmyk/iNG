@@ -20,6 +20,21 @@ export interface UserListFilter {
   search?: string | undefined
   status?: 'all' | 'active' | 'deleted'
   subscribed?: 'all' | 'subscribed' | 'unsubscribed'
+  // spec-024 P0-1 高级过滤
+  /** 注册时间下限 ISO */
+  registered_since?: string
+  /** 注册时间上限 ISO */
+  registered_until?: string
+  /** 消息数下限(7d 内)*/
+  min_messages_7d?: number
+  /** 反馈数下限(7d 内)*/
+  min_feedback_7d?: number
+  /** 标签匹配(逗号分隔,任意一个匹配即算)*/
+  tags?: string
+  /** 排序:created / messages / feedback / last_active */
+  sort?: 'created' | 'messages' | 'feedback' | 'last_active'
+  /** 排序方向 */
+  order?: 'asc' | 'desc'
 }
 
 export interface UserListItem {
@@ -36,6 +51,10 @@ export interface UserListItem {
   /** 列表里直接显示前几段关系作为 chips,点击跳对话查阅器(spec-018 A)*/
   relationships: Array<{ id: string; name: string; stage: string }>
   session_count: number
+  // spec-024 P0-1:列表展示 7d 行为指标(给运营按这些排序/过滤)
+  messages_7d: number
+  feedback_7d: number
+  last_active_at: Date | null
   active_subscription: {
     plan: SubscriptionPlan
     expires_at: Date
@@ -71,9 +90,7 @@ export async function listUsers(filter: UserListFilter): Promise<UserListResult>
   }
   // 'all' 或 undefined → 不过滤
 
-  // 搜索:nickname / admin_alias / openid 模糊;id 完全匹配前缀
-  // spec-014:admin_alias(运营备注的别名)是最重要的搜索维度 — 没昵称的匿名用户
-  // 全靠这个别名找
+  // 搜索
   if (filter.search && filter.search.trim()) {
     const q = filter.search.trim()
     where.OR = [
@@ -95,13 +112,53 @@ export async function listUsers(filter: UserListFilter): Promise<UserListResult>
     }
   }
 
+  // P0-1 新过滤:注册时间区间
+  if (filter.registered_since) {
+    where.created_at = { ...((where.created_at as object) ?? {}), gte: new Date(filter.registered_since) }
+  }
+  if (filter.registered_until) {
+    where.created_at = { ...((where.created_at as object) ?? {}), lte: new Date(filter.registered_until) }
+  }
+
+  // P0-1 新过滤:标签匹配(任意一个匹配)— User 没反向 relation,用子查询
+  if (filter.tags && filter.tags.trim()) {
+    const tagList = filter.tags.split(',').map((t) => t.trim()).filter(Boolean)
+    if (tagList.length > 0) {
+      const taggedUsers = await prisma.userTag.findMany({
+        where: { tag: { in: tagList } },
+        select: { user_id: true },
+      })
+      const taggedIds = Array.from(new Set(taggedUsers.map((t) => t.user_id)))
+      if (taggedIds.length === 0) {
+        // 没匹配的用户 → 直接返空
+        return { items: [], total: 0, page: filter.page, pageSize: filter.pageSize }
+      }
+      where.id = { in: taggedIds }
+    }
+  }
+
+  // 排序键(默认 created_at desc)
+  // 注意:messages / feedback / last_active 这些聚合字段无法直接 SQL ORDER BY,
+  // 用 raw SQL 子查询 + 分页 → 简化:先 SELECT 一页,然后内存里再排序(M1 量小够用)
+  const orderBy: Prisma.UserOrderByWithRelationInput =
+    filter.sort && filter.sort !== 'created'
+      ? { created_at: 'desc' } // 聚合排序内存做
+      : { created_at: filter.order === 'asc' ? 'asc' : 'desc' }
+
   const [total, users] = await Promise.all([
     prisma.user.count({ where }),
     prisma.user.findMany({
       where,
-      orderBy: { created_at: 'desc' },
-      skip: (filter.page - 1) * filter.pageSize,
-      take: filter.pageSize,
+      orderBy,
+      // 聚合排序时多取些再裁剪(简化策略,M1 阶段量级 < 5k 用户够用)
+      skip:
+        filter.sort && filter.sort !== 'created'
+          ? 0
+          : (filter.page - 1) * filter.pageSize,
+      take:
+        filter.sort && filter.sort !== 'created'
+          ? Math.min(filter.pageSize * 10, 1000)
+          : filter.pageSize,
       select: {
         id: true,
         nickname: true,
@@ -133,16 +190,68 @@ export async function listUsers(filter: UserListFilter): Promise<UserListResult>
     }),
   ])
 
-  // 一次性拿这页所有用户的 tags(避免 N+1)
+  // 一次性拿这页所有用户的 tags + 7d 行为指标(避免 N+1)
   const userIds = users.map((u) => u.id)
-  const tagsRows =
+  const sevenDaysAgo = new Date(Date.now() - 7 * 86400_000)
+
+  const [tagsRows, msgGroupBy, fbGroupBy, lastActiveGroupBy] = await Promise.all([
     userIds.length > 0
-      ? await prisma.userTag.findMany({
+      ? prisma.userTag.findMany({
           where: { user_id: { in: userIds } },
           select: { user_id: true, tag: true, source: true },
-          orderBy: { source: 'asc' }, // system 在前 manual 在后
+          orderBy: { source: 'asc' },
         })
-      : []
+      : Promise.resolve([]),
+    // 7 天消息数(按 message.created_at,通过 session 关联到 user)
+    userIds.length > 0
+      ? prisma.message.groupBy({
+          by: ['session_id'],
+          where: { created_at: { gte: sevenDaysAgo }, deleted_at: null },
+          _count: { _all: true },
+        })
+      : Promise.resolve([] as Array<{ session_id: string; _count: { _all: number } }>),
+    // 7 天反馈数
+    userIds.length > 0
+      ? prisma.promptFeedback.groupBy({
+          by: ['user_id'],
+          where: { user_id: { in: userIds }, created_at: { gte: sevenDaysAgo } },
+          _count: { _all: true },
+        })
+      : Promise.resolve([] as Array<{ user_id: string; _count: { _all: number } }>),
+    // 最后活跃(取每个 user 最近一次 ai_call_log 的 created_at)
+    userIds.length > 0
+      ? prisma.aiCallLog.groupBy({
+          by: ['user_id'],
+          where: { user_id: { in: userIds } },
+          _max: { created_at: true },
+        })
+      : Promise.resolve([] as Array<{ user_id: string | null; _max: { created_at: Date | null } }>),
+  ])
+
+  // session → user 映射(message 是按 session 聚合的,要回查 user_id)
+  const sessionIds = msgGroupBy.map((m) => m.session_id)
+  const sessions = sessionIds.length > 0
+    ? await prisma.session.findMany({
+        where: { id: { in: sessionIds } },
+        select: { id: true, user_id: true },
+      })
+    : []
+  const sessionToUser = new Map(sessions.map((s) => [s.id, s.user_id]))
+
+  const messages7dByUser = new Map<string, number>()
+  for (const m of msgGroupBy) {
+    const uid = sessionToUser.get(m.session_id)
+    if (!uid) continue
+    messages7dByUser.set(uid, (messages7dByUser.get(uid) ?? 0) + m._count._all)
+  }
+
+  const feedback7dByUser = new Map(fbGroupBy.map((r) => [r.user_id, r._count._all]))
+  const lastActiveByUser = new Map(
+    lastActiveGroupBy
+      .filter((r): r is { user_id: string; _max: { created_at: Date | null } } => !!r.user_id)
+      .map((r) => [r.user_id, r._max.created_at]),
+  )
+
   const tagsByUser = new Map<string, Array<{ tag: string; source: string }>>()
   for (const r of tagsRows) {
     const arr = tagsByUser.get(r.user_id) ?? []
@@ -150,28 +259,63 @@ export async function listUsers(filter: UserListFilter): Promise<UserListResult>
     tagsByUser.set(r.user_id, arr)
   }
 
-  return {
-    items: users.map((u) => ({
-      id: u.id,
-      nickname: u.nickname,
-      admin_alias: u.admin_alias,
-      avatar_url: u.avatar_url,
-      wechat_open_id_hint: maskOpenId(u.wechat_open_id),
-      usage_stage: u.usage_stage,
-      created_at: u.created_at,
-      deleted_at: u.deleted_at,
-      relationship_count: u._count.relationships,
-      relationships: u.relationships.map((r) => ({
-        id: r.id,
-        name: r.name,
-        stage: r.stage,
-      })),
-      session_count: u._count.sessions,
-      active_subscription: u.subscriptions[0]
-        ? { plan: u.subscriptions[0].plan, expires_at: u.subscriptions[0].expires_at }
-        : null,
-      tags: tagsByUser.get(u.id) ?? [],
+  // 拼装 + 内存过滤(min_messages_7d / min_feedback_7d)+ 内存排序
+  let items: UserListItem[] = users.map((u) => ({
+    id: u.id,
+    nickname: u.nickname,
+    admin_alias: u.admin_alias,
+    avatar_url: u.avatar_url,
+    wechat_open_id_hint: maskOpenId(u.wechat_open_id),
+    usage_stage: u.usage_stage,
+    created_at: u.created_at,
+    deleted_at: u.deleted_at,
+    relationship_count: u._count.relationships,
+    relationships: u.relationships.map((r) => ({
+      id: r.id,
+      name: r.name,
+      stage: r.stage,
     })),
+    session_count: u._count.sessions,
+    active_subscription: u.subscriptions[0]
+      ? { plan: u.subscriptions[0].plan, expires_at: u.subscriptions[0].expires_at }
+      : null,
+    tags: tagsByUser.get(u.id) ?? [],
+    messages_7d: messages7dByUser.get(u.id) ?? 0,
+    feedback_7d: feedback7dByUser.get(u.id) ?? 0,
+    last_active_at: lastActiveByUser.get(u.id) ?? null,
+  }))
+
+  // 内存过滤(只对聚合字段)
+  if (filter.min_messages_7d !== undefined) {
+    items = items.filter((it) => it.messages_7d >= filter.min_messages_7d!)
+  }
+  if (filter.min_feedback_7d !== undefined) {
+    items = items.filter((it) => it.feedback_7d >= filter.min_feedback_7d!)
+  }
+
+  // 内存排序(聚合字段)
+  if (filter.sort && filter.sort !== 'created') {
+    const dir = filter.order === 'asc' ? 1 : -1
+    if (filter.sort === 'messages') {
+      items.sort((a, b) => (a.messages_7d - b.messages_7d) * dir)
+    } else if (filter.sort === 'feedback') {
+      items.sort((a, b) => (a.feedback_7d - b.feedback_7d) * dir)
+    } else if (filter.sort === 'last_active') {
+      items.sort((a, b) => {
+        const at = a.last_active_at?.getTime() ?? 0
+        const bt = b.last_active_at?.getTime() ?? 0
+        return (at - bt) * dir
+      })
+    }
+    // 聚合排序时 take 取了大窗口,这里裁回单页
+    items = items.slice(
+      (filter.page - 1) * filter.pageSize,
+      filter.page * filter.pageSize,
+    )
+  }
+
+  return {
+    items,
     total,
     page: filter.page,
     pageSize: filter.pageSize,

@@ -52,6 +52,21 @@ async function hasActiveSubscription(userId: string): Promise<boolean> {
 }
 
 /**
+ * 临时补偿(spec-024 P1-4):admin 给的 'temp_unlimited' 未过期标签
+ * 跟订阅一样 bypass
+ */
+async function hasTempUnlimited(userId: string): Promise<boolean> {
+  const tag = await prisma.userTag.findFirst({
+    where: {
+      user_id: userId,
+      tag: 'temp_unlimited',
+      expires_at: { gt: new Date() },
+    },
+  })
+  return !!tag
+}
+
+/**
  * 检查 + 扣积分(原子)
  * 订阅用户 / bypass 直接 allowed=true 不扣分。
  * 超额 allowed=false,业务层抛 402 由前端弹付费墙。
@@ -77,9 +92,9 @@ export async function checkAndIncrementQuota(
     }
   }
 
-  // 订阅 bypass
-  if (await hasActiveSubscription(userId)) {
-    // 订阅用户也累加 turn_count/ocr_count/heavy_count(用于行为分析,不影响付费)
+  // 订阅 / 临时补偿 bypass
+  if ((await hasActiveSubscription(userId)) || (await hasTempUnlimited(userId))) {
+    // 也累加 turn_count/ocr_count/heavy_count(用于行为分析,不影响付费)
     await incrementCounters(userId, kind, /* incrementPoints */ false)
     return {
       allowed: true,
