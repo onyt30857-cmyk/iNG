@@ -10,6 +10,7 @@ import { config } from '../../../config/index.js'
 // RED_LINE_META 中文 hardcode 也不需要(name 改存 DB)
 import { getPersona, updatePersona, updateAvatar } from '../../../services/admin/laoke-persona.service.js'
 import { putAvatar } from '../../../services/storage/storage.service.js'
+import { invalidateLaokePublicCache } from '../laoke.route.js'
 import {
   listAllRules,
   createRule,
@@ -112,6 +113,7 @@ export async function adminLaokeRoutes(app: FastifyInstance): Promise<void> {
       },
       request,
     )
+    invalidateLaokePublicCache() // mobile 端下次 fetch 立即拿新头像
     return { ok: true, data: { avatar_url: persona.avatar_url, updated_at: persona.avatar_updated_at } }
   })
 
@@ -127,6 +129,7 @@ export async function adminLaokeRoutes(app: FastifyInstance): Promise<void> {
       },
       request,
     )
+    invalidateLaokePublicCache()
     return { ok: true, data: { avatar_url: persona.avatar_url } }
   })
 

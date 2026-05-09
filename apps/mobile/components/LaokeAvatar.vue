@@ -1,51 +1,60 @@
 <script setup lang="ts">
-// 老白头像统一组件(spec-022)
+// 老白头像统一组件(spec-022 + 2026-05-10 升级:接 admin 上传头像)
+//
+// 行为:
+// - 默认从 useLaokeStore() 读 avatarUrl(admin 改头像后全 mobile 跟着变)
+// - 父组件可通过 :url="..." 显式覆盖
+// - 没有 url(内置默认 / 加载中 / fetch 失败)→ 渲染 SVG 兜底头像
 //
 // 设计目标:看了让人产生信任感的兄长形象 — 戴细框眼镜、温和微笑、克制不油滑
-// 替代之前散落 4 处的不同实现(LaokeBubble.vue / welcome.vue / profile.vue / splash.vue)
-//
-// v2 升级要点(对比 v1 戴眼镜简笔):
-// - 加眉毛(温和弧线,不挑眉)
-// - 嘴角微弯(暗示微笑但克制)
-// - 加耳朵增加可识别性
-// - 头发更自然(两缕,稍微凌乱)
-// - 毛衣领口(温度感、不商务)
-// - 描边粗细分级(脸 1.4 / 五官 1.0-1.2,层次更清楚)
-//
-// 配色用 design tokens 自动适配亮/暗主题
-//
-// 真"照片级"头像(M2 / 上线品牌升级时):
-//   用 Midjourney / DALL-E 出 1024x1024 PNG → 上传 Supabase 公开 bucket
-//   把这里 <svg> 替换成 <image :src="..." />
-//   prompt 参考:
-//   "a warm portrait illustration of a 32-year-old asian man with thin glasses,
-//   slight smile, gentle expression, soft brown sweater, warm cream background,
-//   editorial illustration style, minimal, half body, trustworthy elder brother feel"
+
+import { computed } from 'vue'
+import { useLaokeStore } from '../stores/laoke'
 
 interface Props {
   /** 尺寸,单位 rpx(默认 64,微信头像同款 + 给 SVG 留够呼吸感)*/
   size?: number
   /** 是否带浅紫底圆背景(对话气泡里需要 / splash 等已有自己的背景就关掉)*/
   withBackground?: boolean
+  /** 显式 url(优先级高于 store);传空字符串/null 则强制走 SVG 默认 */
+  url?: string | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
   size: 64,
   withBackground: true,
+  url: undefined,
+})
+
+const laokeStore = useLaokeStore()
+
+// url prop 显式传 → 用 prop;否则读 store。两者都为空 → SVG 兜底
+const effectiveUrl = computed(() => {
+  if (props.url !== undefined) return props.url
+  return laokeStore.avatarUrl
 })
 </script>
 
 <template>
   <view
     class="laoke-avatar"
-    :class="{ 'with-bg': withBackground }"
+    :class="{ 'with-bg': withBackground && !effectiveUrl }"
     :style="{ width: `${props.size}rpx`, height: `${props.size}rpx` }"
   >
+    <!-- admin 上传头像 → 渲染图片(Supabase 公网 URL 或 data URL 都支持)-->
+    <image
+      v-if="effectiveUrl"
+      :src="effectiveUrl"
+      mode="aspectFill"
+      class="laoke-avatar-img"
+    />
+
     <!--
-      老白 v2 — 戴眼镜兄长简笔
+      老白 v2 — 戴眼镜兄长简笔(默认兜底 / 加载失败时显示)
       24x24 viewBox,所有坐标按这个比例。SVG 自动随父容器尺寸缩放
     -->
     <svg
+      v-else
       :width="props.size * 0.78"
       :height="props.size * 0.78"
       viewBox="0 0 24 24"
@@ -156,6 +165,11 @@ const props = withDefaults(defineProps<Props>(), {
 .laoke-avatar-svg {
   /* 头像 SVG 描边色:用 $color-laoke-deep(深紫,在浅紫底上读得清)*/
   color: $color-laoke-deep;
+  display: block;
+}
+.laoke-avatar-img {
+  width: 100%;
+  height: 100%;
   display: block;
 }
 </style>

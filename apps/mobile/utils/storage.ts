@@ -60,6 +60,7 @@ export const StorageKeys = {
   TOKEN: 'lianai.token',
   REFRESH_TOKEN: 'lianai.refresh_token',
   USER: 'lianai.user',
+  LAOKE_PROFILE: 'lianai.laoke_profile',
 } as const
 
 export { noop }

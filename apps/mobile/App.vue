@@ -2,6 +2,7 @@
 // 全局生命周期 —— uni-app 项目根组件
 import { onLaunch, onShow, onHide } from '@dcloudio/uni-app'
 import { useUserStore } from './stores/user'
+import { useLaokeStore } from './stores/laoke'
 
 onLaunch(async () => {
   // 启动时从 storage 恢复 token,如果没有就匿名注册(spec-002 v2,无手机/邮箱/微信)
@@ -13,6 +14,12 @@ onLaunch(async () => {
   } else {
     console.log('[App] launch, restored user_id=', userStore.userId)
   }
+
+  // 拉老白 profile(头像 / 身份介绍),admin 改了立即生效
+  // 先 init 用 storage 缓存避免冷启动闪默认,再异步 fetch 拿最新
+  const laokeStore = useLaokeStore()
+  laokeStore.init()
+  void laokeStore.fetch()
 
   // spec-018 全局 onboarding 守卫:未走完 onboarding 强制跳 welcome
   // 必须在 App 级,因为 uni-app H5 的 hash URL 可能直接跳到任意页(如 #/pages/home/index)
