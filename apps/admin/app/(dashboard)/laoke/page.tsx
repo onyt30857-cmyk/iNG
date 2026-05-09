@@ -219,10 +219,10 @@ function Hero({ persona, onAvatarChanged }: { persona: Persona; onAvatarChanged:
 
   return (
     <Card className="overflow-hidden">
-      <CardContent className="p-6">
-        <div className="flex items-start gap-6 flex-wrap">
+      <CardContent className="p-4 sm:p-6">
+        <div className="flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left gap-4 sm:gap-6">
           {/* 头像 + 上传按钮 */}
-          <div className="relative group">
+          <div className="relative group shrink-0">
             {persona.avatar_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -251,28 +251,27 @@ function Hero({ persona, onAvatarChanged }: { persona: Persona; onAvatarChanged:
             />
           </div>
 
-          <div className="flex-1 min-w-0 space-y-2">
+          <div className="flex-1 min-w-0 w-full space-y-2">
             <div>
-              <h1 className="text-3xl font-semibold flex items-center gap-3">
-                老白
-                <Badge variant="outline" className="text-sm font-normal">
-                  {persona.role}
-                </Badge>
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                {persona.age} 岁 · 练爱产品的 AI 兄长
+              <h1 className="text-2xl sm:text-3xl font-semibold">老白</h1>
+              <p className="text-sm text-muted-foreground mt-1.5 break-words">
+                <span>{persona.role}</span>
+                <span className="mx-2 text-muted-foreground/40">·</span>
+                <span>{persona.age} 岁</span>
+                <span className="mx-2 text-muted-foreground/40">·</span>
+                <span>练爱产品的 AI 兄长</span>
                 {persona.avatar_url && (
                   <button
                     onClick={() => setConfirming('remove')}
-                    className="ml-3 text-xs text-destructive hover:underline"
+                    className="ml-2 text-xs text-destructive hover:underline whitespace-nowrap"
                   >
                     移除头像
                   </button>
                 )}
               </p>
             </div>
-            <p className="text-sm leading-relaxed">{persona.identity_summary}</p>
-            <div className="flex flex-wrap gap-2 pt-2">
+            <p className="text-sm leading-relaxed break-words">{persona.identity_summary}</p>
+            <div className="flex flex-wrap gap-x-3 gap-y-2 pt-2 justify-center sm:justify-start">
               <Link href="/prompts" className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1">
                 改老白说话方式 <ExternalLink className="h-3 w-3" />
               </Link>
