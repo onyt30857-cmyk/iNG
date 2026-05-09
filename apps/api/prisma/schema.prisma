@@ -667,6 +667,47 @@ model ModerationLog {
 // Prompt 评估反馈(用于持续优化)
 // ============================================================
 
+// 红线规则(spec-026)— 完全自定义,运营可改/禁用/新增/删除
+// 设计:服务启动时全量加载到内存 cache,guard.ts 从 cache 读;改了 invalidate
+// 默认 seed 9 条(SEXUAL_PURPOSE/PUA/NSFW/STALKING/DECEPTION/MINOR/NON_CONSENT/SELF_HARM/VIOLENCE)
+//
+// keyword_patterns:JSON 数组,每条是 regex source 字符串(不含两端 //)
+//   运行时 new RegExp(source, 'i') 转回正则;不合法的会被 service 校验拦下
+model RedLineRule {
+  id String @id @default(cuid())
+
+  // 唯一标识(UPPER_SNAKE),如 SEXUAL_PURPOSE。新增时必填,改不了
+  category String @unique
+
+  // 中文名,如 "性目的话术"
+  name String @db.VarChar(100)
+
+  // 运营后台看的描述
+  description String @db.Text
+
+  // 关键词 regex(JSON 数组,每条是 regex source 字符串)
+  // 例:["约炮", "一夜情", "找[人个]?睡"]
+  keyword_patterns Json @default("[]")
+
+  // 触发后的拒绝文案(老白回给用户的话)
+  refusal_reply String @db.Text
+
+  // 是否启用(false 时跳过这条规则的检测)
+  enabled Boolean @default(true)
+
+  // 排序权重(列表展示用,越小越靠前)
+  sort_order Int @default(100)
+
+  // 元数据
+  is_default   Boolean   @default(false) // seed 默认的(允许重置)
+  updated_by   String?
+  updated_at   DateTime  @updatedAt @db.Timestamptz
+  created_at   DateTime  @default(now()) @db.Timestamptz
+
+  @@index([enabled, sort_order])
+  @@map("red_line_rules")
+}
+
 // 老白人格档案(spec-025)
 // 单行表,id='laoke',admin 可编辑(改 prompt 不会自动同步,但运营心里要知道老白是谁)
 // 结构化存放 persona-laoke.md 的核心规则,让运营不用看 markdown 也能查
@@ -696,6 +737,11 @@ model LaokePersona {
   // 改 prompt 时的硬规则提醒
   // 用 markdown 写,管理员看到这个就知道改 prompt 不能怎么改
   do_not_change_warnings String? @db.Text
+
+  // spec-026 头像(全局生效)
+  avatar_url         String?   @db.Text // Supabase Storage URL,空 = 用 SVG 默认
+  avatar_updated_at  DateTime? @db.Timestamptz
+  avatar_updated_by  String?
 
   // 元数据
   updated_by String?  // admin id

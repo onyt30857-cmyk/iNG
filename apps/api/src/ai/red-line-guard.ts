@@ -88,6 +88,32 @@ export interface KeywordHit {
 }
 
 export function scanKeywords(text: string): KeywordHit | null {
+  // spec-026:优先读 DB cache(运营可改),失败/空 fallback 到 hardcode 默认
+  // 注意:动态 import 避免循环依赖(red-line-rules.service 也 import 自此文件的类型)
+  // 改成同步 require 也行,这里用 lazy require 模式
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+    const mod = require('../services/admin/red-line-rules.service.js') as {
+      getRulesCacheSync: () => Array<{ category: string; patterns: RegExp[] }>
+    }
+    const rules = mod.getRulesCacheSync()
+    if (rules.length > 0) {
+      for (const rule of rules) {
+        for (const p of rule.patterns) {
+          const m = text.match(p)
+          if (m) {
+            return { category: rule.category as RedLineCategory, matched_text: m[0], pattern: p.source }
+          }
+        }
+      }
+      return null // cache 已加载且没命中 → 真没事
+    }
+  } catch (e) {
+    // require 失败 / cache 未初始化 → 走 fallback
+    void e
+  }
+
+  // Fallback:用 hardcode 默认 patterns(M1 安全网,确保 cache 加载前红线不漏检)
   for (const [cat, patterns] of Object.entries(KEYWORD_PATTERNS) as [RedLineCategory, RegExp[]][]) {
     for (const p of patterns) {
       const m = text.match(p)
@@ -217,6 +243,18 @@ export async function guardUserInput(
  * 不同 category 有不同语气:严重的(SELF_HARM)主动关怀,中度的(PUA)温和说不。
  */
 export function buildRefusalReply(category: RedLineCategory): string {
+  // spec-026:优先用 DB cache 的 refusal_reply,运营改了立即生效;cache 空 fallback 到 hardcode
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+    const mod = require('../services/admin/red-line-rules.service.js') as {
+      findRefusalReply: (cat: string) => string | null
+    }
+    const cached = mod.findRefusalReply(category)
+    if (cached) return cached
+  } catch {
+    // 走 fallback
+  }
+
   switch (category) {
     case 'SELF_HARM':
       return [

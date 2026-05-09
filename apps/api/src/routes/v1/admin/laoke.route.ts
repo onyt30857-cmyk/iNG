@@ -6,48 +6,17 @@ import { requireAdmin } from '../../../middleware/admin-auth.js'
 import { recordAdminAudit } from '../../../services/admin/admin-audit.js'
 import { prisma } from '../../../lib/prisma.js'
 import { config } from '../../../config/index.js'
-import { RED_LINES, buildRefusalReply, type RedLineCategory } from '../../../ai/red-line-guard.js'
-import { getPersona, updatePersona } from '../../../services/admin/laoke-persona.service.js'
-
-// 红线类别 → 中文名 + 描述(给运营看)
-const RED_LINE_META: Record<RedLineCategory, { name: string; desc: string }> = {
-  SEXUAL_PURPOSE: {
-    name: '性目的话术',
-    desc: '约炮 / 一夜情 / 开房 / 任何明确性目的的话术请求',
-  },
-  PUA_MANIPULATION: {
-    name: 'PUA / 操控',
-    desc: 'NEG / 煤气灯 / 孤立 / 服从测试 / 情感勒索',
-  },
-  NSFW: {
-    name: '露骨性化',
-    desc: '色情 / 露骨性描述 / 性化女性身体',
-  },
-  STALKING_HARASSMENT: {
-    name: '骚扰跟踪',
-    desc: '查对方位置 / 监控对方 / 强迫对方回应',
-  },
-  DECEPTION_HIDING: {
-    name: '隐瞒辅助',
-    desc: '帮用户骗对方 / 隐瞒已有伴侣 / 怎么"不被发现"',
-  },
-  MINOR_INVOLVED: {
-    name: '未成年参与',
-    desc: '用户或对方 < 18 岁',
-  },
-  NON_CONSENT: {
-    name: '非自愿状态',
-    desc: '对方醉酒 / 药物 / 胁迫等无意识状态',
-  },
-  SELF_HARM: {
-    name: '自伤倾向',
-    desc: '自杀 / 自伤倾向(走专门关怀路径,提供心理援助热线)',
-  },
-  VIOLENCE_THREAT: {
-    name: '暴力威胁',
-    desc: '"揍她 / 弄死她" 等暴力话术',
-  },
-}
+// spec-026:红线已 DB 化,不再 import RED_LINES / buildRefusalReply
+// RED_LINE_META 中文 hardcode 也不需要(name 改存 DB)
+import { getPersona, updatePersona, updateAvatar } from '../../../services/admin/laoke-persona.service.js'
+import { putAvatar } from '../../../services/storage/storage.service.js'
+import {
+  listAllRules,
+  createRule,
+  updateRule,
+  deleteRule,
+  resetDefaults,
+} from '../../../services/admin/red-line-rules.service.js'
 
 // AI 配置(只读,从 config 读)
 const AI_CONFIG_STATIC = {
@@ -127,15 +96,174 @@ export async function adminLaokeRoutes(app: FastifyInstance): Promise<void> {
     return { ok: true, data: updated }
   })
 
-  // GET /v1/admin/laoke/red-lines — 红线列表 + 拒绝文案预览
+  // POST /v1/admin/laoke/avatar — 上传老白头像(spec-026 B,全局生效)
+  app.post('/v1/admin/laoke/avatar', async (request) => {
+    const body = z.object({ data_url: z.string().min(1).max(2_000_000) }).parse(request.body)
+    const result = await putAvatar('laoke', body.data_url)
+    const persona = await updateAvatar(request.admin!.id, result.url)
+    await recordAdminAudit(
+      request.admin!.id,
+      {
+        action: 'update_laoke_avatar',
+        target_type: 'laoke_persona',
+        target_id: 'laoke',
+        after: { avatar_url: result.url, driver: result.driver },
+        reason: '改了老白头像(全局生效)',
+      },
+      request,
+    )
+    return { ok: true, data: { avatar_url: persona.avatar_url, updated_at: persona.avatar_updated_at } }
+  })
+
+  // DELETE /v1/admin/laoke/avatar — 移除头像,fallback 到默认 SVG
+  app.delete('/v1/admin/laoke/avatar', async (request) => {
+    const persona = await updateAvatar(request.admin!.id, null)
+    await recordAdminAudit(
+      request.admin!.id,
+      {
+        action: 'remove_laoke_avatar',
+        target_type: 'laoke_persona',
+        target_id: 'laoke',
+      },
+      request,
+    )
+    return { ok: true, data: { avatar_url: persona.avatar_url } }
+  })
+
+  // GET /v1/admin/laoke/audit — 关于老白的所有改动审计(spec-026 D)
+  app.get('/v1/admin/laoke/audit', async () => {
+    const items = await prisma.adminAuditLog.findMany({
+      where: {
+        OR: [
+          { target_type: 'laoke_persona' },
+          { target_type: 'red_line_rule' },
+        ],
+      },
+      orderBy: { created_at: 'desc' },
+      take: 100,
+      select: {
+        id: true,
+        action: true,
+        target_type: true,
+        target_id: true,
+        admin_user_id: true,
+        before: true,
+        after: true,
+        reason: true,
+        created_at: true,
+      },
+    })
+    // 拉 admin email
+    const adminIds = Array.from(new Set(items.map((it) => it.admin_user_id)))
+    const admins = adminIds.length > 0
+      ? await prisma.adminUser.findMany({
+          where: { id: { in: adminIds } },
+          select: { id: true, email: true },
+        })
+      : []
+    const adminMap = new Map(admins.map((a) => [a.id, a.email]))
+    return {
+      ok: true,
+      data: {
+        items: items.map((it) => ({
+          ...it,
+          admin_email: adminMap.get(it.admin_user_id) ?? null,
+        })),
+      },
+    }
+  })
+
+  // GET /v1/admin/laoke/red-lines — DB 里所有红线(包括 disabled)
+  // spec-026:从 hardcode 改成 DB 读,运营可改/禁用/新增/删除
   app.get('/v1/admin/laoke/red-lines', async () => {
-    const items = RED_LINES.map((cat) => ({
-      category: cat,
-      name: RED_LINE_META[cat].name,
-      desc: RED_LINE_META[cat].desc,
-      refusal_reply: buildRefusalReply(cat),
-    }))
-    return { ok: true, data: { items } }
+    const result = await listAllRules()
+    return { ok: true, data: result }
+  })
+
+  // POST /v1/admin/laoke/red-lines — 新增一条红线
+  app.post('/v1/admin/laoke/red-lines', async (request) => {
+    const body = z
+      .object({
+        category: z.string().min(1).max(50),
+        name: z.string().min(1).max(100),
+        description: z.string().min(1).max(2000),
+        keyword_patterns: z.array(z.string().min(1)).max(50),
+        refusal_reply: z.string().min(1).max(5000),
+        sort_order: z.number().int().min(0).max(9999).optional(),
+      })
+      .parse(request.body)
+    const created = await createRule(request.admin!.id, body)
+    await recordAdminAudit(
+      request.admin!.id,
+      {
+        action: 'create_red_line',
+        target_type: 'red_line_rule',
+        target_id: created.id,
+        after: { category: created.category, name: created.name },
+      },
+      request,
+    )
+    return { ok: true, data: created }
+  })
+
+  // PATCH /v1/admin/laoke/red-lines/:id — 改一条红线
+  app.patch('/v1/admin/laoke/red-lines/:id', async (request) => {
+    const { id } = z.object({ id: z.string().min(1) }).parse(request.params)
+    const body = z
+      .object({
+        name: z.string().min(1).max(100).optional(),
+        description: z.string().min(1).max(2000).optional(),
+        keyword_patterns: z.array(z.string().min(1)).max(50).optional(),
+        refusal_reply: z.string().min(1).max(5000).optional(),
+        enabled: z.boolean().optional(),
+        sort_order: z.number().int().min(0).max(9999).optional(),
+      })
+      .parse(request.body)
+    const updated = await updateRule(id, request.admin!.id, body)
+    await recordAdminAudit(
+      request.admin!.id,
+      {
+        action: 'update_red_line',
+        target_type: 'red_line_rule',
+        target_id: id,
+        before: { keys: Object.keys(body) },
+        after: { enabled: updated.enabled },
+      },
+      request,
+    )
+    return { ok: true, data: updated }
+  })
+
+  // DELETE /v1/admin/laoke/red-lines/:id — 删自定义规则(默认规则不能删)
+  app.delete('/v1/admin/laoke/red-lines/:id', async (request) => {
+    const { id } = z.object({ id: z.string().min(1) }).parse(request.params)
+    await deleteRule(id)
+    await recordAdminAudit(
+      request.admin!.id,
+      {
+        action: 'delete_red_line',
+        target_type: 'red_line_rule',
+        target_id: id,
+      },
+      request,
+    )
+    return { ok: true, data: null }
+  })
+
+  // POST /v1/admin/laoke/red-lines/reset-defaults — 把 9 条默认还原
+  app.post('/v1/admin/laoke/red-lines/reset-defaults', async (request) => {
+    const result = await resetDefaults(request.admin!.id)
+    await recordAdminAudit(
+      request.admin!.id,
+      {
+        action: 'reset_red_line_defaults',
+        target_type: 'red_line_rule',
+        target_id: 'all_defaults',
+        after: { reset: result.reset },
+      },
+      request,
+    )
+    return { ok: true, data: result }
   })
 
   // GET /v1/admin/laoke/ai-config — AI 配置(只读)
@@ -205,13 +333,15 @@ export async function adminLaokeRoutes(app: FastifyInstance): Promise<void> {
   })
 
   // GET /v1/admin/laoke/categories — 红线类别选项(给前端过滤器用)
+  // spec-026:从 DB 读所有(包括 disabled),运营改了立即同步
   app.get('/v1/admin/laoke/categories', async () => {
+    const result = await listAllRules()
     return {
       ok: true,
       data: {
-        categories: RED_LINES.map((cat) => ({
-          value: cat,
-          name: RED_LINE_META[cat].name,
+        categories: result.items.map((r) => ({
+          value: r.category,
+          name: r.name,
         })),
       },
     }

@@ -17,13 +17,37 @@ export interface LaokePersona {
   recognizes: string[]
   formatting_rules: string
   do_not_change_warnings: string | null
+  avatar_url: string | null
+  avatar_updated_at: Date | null
+  avatar_updated_by: string | null
   updated_by: string | null
   updated_at: Date
   created_at: Date
 }
 
+/**
+ * 更新头像 URL(spec-026 B)
+ * 跟 updatePersona 拆开是因为头像有独立的 audit 时间戳
+ */
+export async function updateAvatar(
+  adminId: string,
+  avatarUrl: string | null,
+): Promise<LaokePersona> {
+  return prisma.laokePersona.update({
+    where: { id: 'laoke' },
+    data: {
+      avatar_url: avatarUrl,
+      avatar_updated_at: new Date(),
+      avatar_updated_by: adminId,
+    },
+  })
+}
+
 // 从 persona-laoke.md + CLAUDE.md §4 蒸馏的默认值
-const DEFAULT_PERSONA: Omit<LaokePersona, 'id' | 'updated_at' | 'created_at' | 'updated_by'> = {
+const DEFAULT_PERSONA: Omit<
+  LaokePersona,
+  'id' | 'updated_at' | 'created_at' | 'updated_by' | 'avatar_url' | 'avatar_updated_at' | 'avatar_updated_by'
+> = {
   identity_summary:
     '32 岁,男,姓氏不知所以叫"老白"。自己年轻时(20-26岁)也不擅长追女生,摔过两次坑。现在生活稳定,有正经工作,自在独处,喜欢读书和老电影。不焦虑、有阅历、敢说真话。',
   age: 32,
@@ -111,6 +135,7 @@ export interface UpdatePersonaInput {
   recognizes?: string[]
   formatting_rules?: string
   do_not_change_warnings?: string | null
+  avatar_url?: string | null
 }
 
 export async function updatePersona(

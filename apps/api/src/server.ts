@@ -36,6 +36,7 @@ import { adminConversationRoutes } from './routes/v1/admin/conversation.route.js
 import { adminChangelogRoutes } from './routes/v1/admin/changelog.route.js'
 import { adminOverviewRoutes } from './routes/v1/admin/overview.route.js'
 import { adminLaokeRoutes } from './routes/v1/admin/laoke.route.js'
+import { reloadCache as reloadRedLineCache } from './services/admin/red-line-rules.service.js'
 import { behaviorRoutes } from './routes/v1/behavior.route.js'
 import { probeRoutes } from './routes/v1/probe.route.js'
 import { startDeletionCron } from './workers/deletion-cron.js'
@@ -154,6 +155,10 @@ async function main() {
     startUserTagCron()
     // spec-021 P0-2:反馈聚类 cron(每 24h 跑 LLM 聚类,启动 5 分钟后跑首次)
     startFeedbackClusteringCron()
+    // spec-026:启动时加载红线 cache(空 DB 自动 seed 9 条默认)
+    reloadRedLineCache().catch((e) => {
+      logger.error({ err: e, event: 'red_line_cache.startup_failed' }, '启动加载红线 cache 失败')
+    })
     // 一次性清理 dev seed 数据(2026-05-08,Sam 反馈"新用户看到默认 3 关系")
     // 第一次启动后 dev-user-1 已删,后续启动 noop。不阻塞启动。
     cleanupDevSeedIfExists().catch(() => { /* 已在内部 log,这里 swallow */ })
