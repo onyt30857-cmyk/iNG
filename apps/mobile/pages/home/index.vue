@@ -139,11 +139,14 @@ const greeting = (() => {
         </view>
       </view>
       <view class="icon-btn" @tap="goManageList">
-        <!-- 列表图标(管理),跟 profile-btn 同尺寸+同形,Sam 反馈"图文不一致难看" -->
+        <!-- 关系列表图标:三个点 + 三条线 = "条目列表",比纯汉堡更具语义,跟右侧头像一具体一抽象更平衡 -->
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <line x1="4" y1="6" x2="20" y2="6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-          <line x1="4" y1="12" x2="20" y2="12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-          <line x1="4" y1="18" x2="20" y2="18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          <circle cx="5" cy="6" r="1.4" fill="currentColor"/>
+          <circle cx="5" cy="12" r="1.4" fill="currentColor"/>
+          <circle cx="5" cy="18" r="1.4" fill="currentColor"/>
+          <line x1="9" y1="6" x2="20" y2="6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          <line x1="9" y1="12" x2="20" y2="12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          <line x1="9" y1="18" x2="20" y2="18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
         </svg>
       </view>
       <view class="icon-btn icon-btn-avatar" @tap="goProfile">
