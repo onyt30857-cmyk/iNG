@@ -479,65 +479,15 @@ async function regenerateInsights() {
   }
 }
 
-// 关键时刻(M1 mock,M2 接老白自动从对话流摘要)
-interface KeyMoment {
-  id: string
-  date: string  // ISO
-  title: string  // 老白给的简短标题
-  detail: string  // 1-2 句详细
-}
-// 倒序展示(最近在前):最近发生的事 = 当下最重要
-// M2 会加"老白标记的里程碑"权重(告白/第一次约会等可置顶)
-const keyMomentsRaw = ref<KeyMoment[]>([
-  {
-    id: 'km-1',
-    date: new Date(Date.now() - 24 * 86400_000).toISOString(),
-    title: '认识她',
-    detail: '朋友介绍,第一次见面在咖啡馆。',
-  },
-  {
-    id: 'km-2',
-    date: new Date(Date.now() - 12 * 86400_000).toISOString(),
-    title: '她主动找你聊',
-    detail: '她发来一张猫的照片,你那次没急着回。',
-  },
-  {
-    id: 'km-3',
-    date: new Date(Date.now() - 3 * 86400_000).toISOString(),
-    title: '已读不回那一次',
-    detail: '"先这样吧"那条。老白帮你看了,你忍住没追问。',
-  },
-  {
-    id: 'km-4',
-    date: new Date(Date.now() - 1 * 86400_000).toISOString(),
-    title: '她回话了',
-    detail: '"好啊,等我下周三忙完"。她有时间锚点,不是敷衍。',
-  },
-])
-
-// 按日期倒序展示(最近 → 最早)
-const keyMoments = computed(() =>
-  [...keyMomentsRaw.value].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-  ),
-)
-
-function keyMomentDate(iso: string): string {
-  const d = new Date(iso)
-  return `${d.getMonth() + 1} 月 ${d.getDate()} 日`
-}
 
 // === Tab 3: 工具箱 - 收藏 ===
-const savedDrafts = computed(() => conversationStore.getSavedDrafts(id.value))
-const savedPlannings = computed(() => conversationStore.getSavedPlannings(id.value))
+// spec-006 重构后,savedDrafts / savedPlannings 几乎不再产生(对应旧 6 状态机产物)
+// 工具箱只保留"收藏的回复"(savedQuotes) — 用户在老白气泡点 ☆ 触发
 const savedQuotes = computed(() => conversationStore.getSavedQuotes(id.value))
 function unsaveQuote(qid: string) {
   conversationStore.unsaveQuote(id.value, qid)
 }
 
-function unsaveDraft(draftId: string) {
-  conversationStore.unsaveDraft(id.value, draftId)
-}
 function copyDraftText(text: string) {
   uni.setClipboardData({
     data: text,
@@ -644,8 +594,8 @@ async function deleteIt() {
       </view>
       <view :class="['tab', activeTab === 'toolbox' && 'active']" @tap="activeTab = 'toolbox'">
         <text class="tab-text">工具箱</text>
-        <text v-if="savedQuotes.length + savedDrafts.length + savedPlannings.length > 0" class="tab-count">
-          {{ savedQuotes.length + savedDrafts.length + savedPlannings.length }}
+        <text v-if="savedQuotes.length > 0" class="tab-count">
+          {{ savedQuotes.length }}
         </text>
       </view>
     </view>
@@ -786,27 +736,6 @@ async function deleteIt() {
         <text v-else class="narrative-empty">还没写过这段关系的叙事,点上面让老白写。</text>
       </view>
 
-      <!-- 关键时刻 -->
-      <view class="section" style="margin-top: 48rpx">
-        <text class="section-title">这一段走过的</text>
-        <view class="timeline">
-          <view
-            v-for="(km, idx) in keyMoments"
-            :key="km.id"
-            class="moment"
-          >
-            <view class="moment-rail">
-              <view class="moment-dot"></view>
-              <view v-if="idx < keyMoments.length - 1" class="moment-line"></view>
-            </view>
-            <view class="moment-content">
-              <text class="moment-date">{{ keyMomentDate(km.date) }}</text>
-              <text class="moment-title">{{ km.title }}</text>
-              <text class="moment-detail">{{ km.detail }}</text>
-            </view>
-          </view>
-        </view>
-      </view>
     </view>
 
     <!-- ============ Tab 3: 工具箱 ============ -->
@@ -833,48 +762,6 @@ async function deleteIt() {
         </view>
       </view>
 
-      <!-- 收藏的话术(spec-005 ReplyDraft 结构,spec-006 后罕见出现,有数据才显示) -->
-      <view v-if="savedDrafts.length > 0" class="section">
-        <text class="section-title">收藏的话术 ({{ savedDrafts.length }})</text>
-        <view v-if="savedDrafts.length === 0" class="empty-line">
-          <text class="empty-line-text">和老白聊的时候,觉得哪句好用就点 ☆ 收藏。</text>
-        </view>
-        <view v-else>
-          <view v-for="d in savedDrafts" :key="d.id" class="saved-card">
-            <view class="saved-card-head">
-              <text class="saved-card-direction">{{ d.direction }}</text>
-              <view class="saved-card-unsave" @tap="unsaveDraft(d.id)">
-                <text class="saved-card-unsave-icon">★</text>
-              </view>
-            </view>
-            <view class="saved-card-text" @tap="copyDraftText(d.text)">
-              <text class="saved-text">{{ d.text }}</text>
-              <text class="saved-copy">点击复制 ⧉</text>
-            </view>
-          </view>
-        </view>
-      </view>
-
-      <!-- 收藏的方向(spec-005 PlanningContent 结构,spec-006 后罕见,有数据才显示) -->
-      <view v-if="savedPlannings.length > 0" class="section">
-        <text class="section-title">收藏的方向 ({{ savedPlannings.length }})</text>
-        <view v-if="savedPlannings.length === 0" class="empty-line">
-          <text class="empty-line-text">老白给的"做什么/为什么/红线/退路",觉得有用就点 ☆。</text>
-        </view>
-        <view v-else>
-          <view v-for="p in savedPlannings" :key="p.id" class="saved-card">
-            <text class="saved-planning-title">{{ p.content.title }}</text>
-            <view class="saved-planning-section">
-              <text class="saved-planning-label">做什么</text>
-              <text class="saved-planning-content">{{ p.content.what_to_do }}</text>
-            </view>
-            <view class="saved-planning-section">
-              <text class="saved-planning-label">为什么</text>
-              <text class="saved-planning-content">{{ p.content.why }}</text>
-            </view>
-          </view>
-        </view>
-      </view>
     </view>
 
     <!-- 添加 chip 的底部 modal(轻量,替代跳 edit 表单) -->
@@ -1492,60 +1379,6 @@ async function deleteIt() {
 }
 
 // === 关键时刻 timeline ===
-.timeline { padding: 8rpx 0 0; }
-.moment {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  padding: 4rpx 0;
-}
-.moment-rail {
-  width: 32rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-  padding-top: 12rpx;
-}
-.moment-dot {
-  width: 14rpx;
-  height: 14rpx;
-  border-radius: 50%;
-  background-color: $color-accent;
-  flex-shrink: 0;
-}
-.moment-line {
-  flex: 1;
-  width: 1rpx;
-  background-color: $color-border;
-  margin-top: 4rpx;
-  min-height: 80rpx;
-}
-.moment-content {
-  flex: 1;
-  padding: 4rpx 0 32rpx 16rpx;
-}
-.moment-date {
-  display: block;
-  font-size: 22rpx;
-  color: $color-text-tertiary;
-  margin-bottom: 6rpx;
-}
-.moment-title {
-  display: block;
-  font-size: 30rpx;
-  color: $color-text-primary;
-  font-weight: $weight-semibold;
-  margin-bottom: 6rpx;
-  line-height: 1.3;
-}
-.moment-detail {
-  display: block;
-  font-size: 26rpx;
-  color: $color-text-secondary;
-  line-height: 1.55;
-}
-
 // === 工具箱 Tab ===
 .empty-line { padding: 8rpx 0; }
 .empty-line-text {
