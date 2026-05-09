@@ -6,7 +6,7 @@
 
 练爱 = 一个让不擅社交的男生,慢慢学会和喜欢的人正常说话的 AI 产品。
 
-用户上传聊天截图 → 老 K(AI)复盘 → 给三方向话术 + 解释。
+用户上传聊天截图 → 老白(AI)复盘 → 给三方向话术 + 解释。
 
 这个包包含所有 Claude Code 需要的上下文:产品规格、技术架构、AI prompt、UI 规范、可执行的 spec。
 
@@ -47,7 +47,7 @@ lianai-dev-kit/
 │
 ├── 01-product/                        产品规格
 │   ├── PRD.md                         产品需求文档
-│   ├── persona-laoke.md               老 K 人格完整规格
+│   ├── persona-laoke.md               老白人格完整规格
 │   └── scenarios.md                   31 个真实场景库
 │
 ├── 02-architecture/                   技术架构
@@ -87,7 +87,7 @@ lianai-dev-kit/
 1. `README.md`(本文档)
 2. `CLAUDE.md`(项目宪法)
 3. `01-product/PRD.md`(产品需求)
-4. `01-product/persona-laoke.md`(老 K 人格)
+4. `01-product/persona-laoke.md`(老白人格)
 5. `02-architecture/system-architecture.md`(总体架构)
 6. `02-architecture/database-schema.prisma`(数据库)
 7. `02-architecture/tech-decisions.md`(技术决策)

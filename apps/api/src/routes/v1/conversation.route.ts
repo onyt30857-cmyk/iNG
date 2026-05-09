@@ -2,7 +2,7 @@
 //
 // POST /v1/conversations/:relationshipId/stream-turn
 // body: { user_text, history }
-// response: chunked text(老 K 流式输出)
+// response: chunked text(老白流式输出)
 //
 // 2026-05-09:补落库逻辑 — 之前所有对话只在前端 localStorage,
 // admin 看不到任何聊天记录。从这次起,USER + LAOKE 消息都写到 messages 表,
@@ -112,7 +112,7 @@ export async function conversationRoutes(app: FastifyInstance): Promise<void> {
       }
       reply.raw.end()
 
-      // 3) 老 K 消息后落库(包含 model / tokens / cost,给 admin 监控用)
+      // 3) 老白消息后落库(包含 model / tokens / cost,给 admin 监控用)
       // 流式已结束 → 用户已看到回复;落库失败不影响用户体验,只 warn
       if (sessionId && result && result.text) {
         try {
@@ -134,7 +134,7 @@ export async function conversationRoutes(app: FastifyInstance): Promise<void> {
             },
           })
         } catch (e) {
-          logger.warn({ err: e, sessionId }, '老 K 消息持久化失败')
+          logger.warn({ err: e, sessionId }, '老白消息持久化失败')
         }
       }
     },

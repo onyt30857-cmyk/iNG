@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 关系卡片 - 微信好友列表风格
-// 显示:头像 + 名字 + 阶段 + 老 K 最新一句话 + 时间(像微信好友列表)
-// 设计:让用户一眼看到"和老 K 聊到哪了",像看微信好友最新消息
+// 显示:头像 + 名字 + 阶段 + 老白最新一句话 + 时间(像微信好友列表)
+// 设计:让用户一眼看到"和老白聊到哪了",像看微信好友最新消息
 
 import { computed } from 'vue'
 import RelationshipAvatar from './RelationshipAvatar.vue'
@@ -57,9 +57,9 @@ const timeText = computed(() => {
         <text class="time">{{ timeText }}</text>
       </view>
       <view class="preview">
-        <text v-if="preview.from === 'laoke'" class="preview-prefix">老 K:</text>
+        <text v-if="preview.from === 'laoke'" class="preview-prefix">老白:</text>
         <text v-else-if="preview.from === 'user'" class="preview-prefix you">你:</text>
-        <text class="preview-text">{{ preview.text || '点开和老 K 聊聊' }}</text>
+        <text class="preview-text">{{ preview.text || '点开和老白聊聊' }}</text>
       </view>
     </view>
   </view>
@@ -106,7 +106,7 @@ const timeText = computed(() => {
 
 .stage-tag {
   // 双色系:关系阶段是用户视角的"她现在是什么状态",用中性灰底
-  // 不用 $color-accent 茶棕(那是老 K 装饰色,跟阶段语义无关)
+  // 不用 $color-accent 茶棕(那是老白装饰色,跟阶段语义无关)
   background-color: $color-divider;
   border-radius: 999rpx;
   padding: 4rpx 14rpx;

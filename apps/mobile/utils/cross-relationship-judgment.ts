@@ -1,13 +1,13 @@
 // 多关系横向判断 - spec-007 §6 / Phase 19.4
 //
 // 输入:active relationships + 各自的 signal snapshot
-// 输出:老 K 口吻的整体势头判断("X 在升温值得花心思 / Y 凉了先放放")
+// 输出:老白口吻的整体势头判断("X 在升温值得花心思 / Y 凉了先放放")
 //
 // 红线(CLAUDE.md §5.1 激进版,但仍然遵守):
 // - 不做"她对你比另一段兴趣高"这种横向情感打分
 // - 只给"该把心思放在哪"的资源分配建议
 // - 不主动揭穿用户在多线"管理"——这是用户自己的事
-// - 已凉的关系老 K 直说"凉了",不和稀泥
+// - 已凉的关系老白直说"凉了",不和稀泥
 
 import type { Relationship } from '../types/relationship'
 import type { RelationshipSignalSnapshot, HealthStatus } from './signal-computer'
@@ -18,22 +18,22 @@ export interface PerRelationshipNote {
   relationship_id: string
   name: string
   tone: RelationshipTone
-  /** 老 K 一句话判断,不含具体数值 */
+  /** 老白一句话判断,不含具体数值 */
   note: string
   health_status: HealthStatus
   has_enough_data: boolean
 }
 
 export interface CrossJudgment {
-  /** 总体一句话(老 K 口吻) */
+  /** 总体一句话(老白口吻) */
   headline: string
   /** 这周值得多花心思的(可空) */
   invest: { relationship_id: string; name: string } | null
   /** 这周可以先放放的(可空) */
   pause: { relationship_id: string; name: string } | null
-  /** 老 K 觉得已凉的(可能多段) */
+  /** 老白觉得已凉的(可能多段) */
   cold: Array<{ relationship_id: string; name: string }>
-  /** 每段关系一句老 K 判断 */
+  /** 每段关系一句老白判断 */
   per_relationship: PerRelationshipNote[]
   /** 整体是否还无法判断(全部数据不足或无 active) */
   too_few_data: boolean
@@ -135,7 +135,7 @@ export function computeCrossJudgment(
     .filter((e) => e.s.health_status === 'WITHDRAWING' || e.s.health_status === 'INACTIVE')
     .map((e) => ({ relationship_id: e.r.id, name: e.r.name }))
 
-  // === per_relationship 老 K 一句判断(按 priority 倒序展示) ===
+  // === per_relationship 老白一句判断(按 priority 倒序展示) ===
   const per_relationship: PerRelationshipNote[] = enriched
     .slice()
     .sort((a, b) => b.priority - a.priority)

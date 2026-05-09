@@ -18,11 +18,11 @@ export interface ReflectingInput {
   relationship_name: string
   /** spec-005 的场景标签,例如 'FLIRT_008'。可选 */
   scenario_primary?: string
-  /** PARSING 阶段老 K 完整输出 */
+  /** PARSING 阶段老白完整输出 */
   parsing_output: string
   /** 兄弟对反向确认问的回答(可能很短) */
   user_initial_response: string
-  /** OCR 后的对话(给老 K 参考用) */
+  /** OCR 后的对话(给老白参考用) */
   messages: ReadonlyArray<ParsingMessage>
   /** 跨关系审计的"其他关系识别词" */
   other_identifiers: ReadonlyArray<string>
@@ -117,7 +117,7 @@ export function parseReflectingOutput(text: string): ParsedReflecting {
   } catch (e) {
     throw new AppError({
       code: ErrorCodes.AI_SERVICE_ERROR,
-      message: '老 K 这次没出对格式,你重新触发一下',
+      message: '老白这次没出对格式,你重新触发一下',
       detail:
         e instanceof JsonExtractError
           ? `JSON 提取失败: ${e.raw.slice(0, 200)}`
@@ -129,7 +129,7 @@ export function parseReflectingOutput(text: string): ParsedReflecting {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new AppError({
       code: ErrorCodes.AI_SERVICE_ERROR,
-      message: '老 K 这次出的格式不对',
+      message: '老白这次出的格式不对',
       detail: 'REFLECTING 顶层应该是 object',
       statusCode: 502,
     })
@@ -140,7 +140,7 @@ export function parseReflectingOutput(text: string): ParsedReflecting {
   if (!Array.isArray(qsRaw) || qsRaw.length !== 3) {
     throw new AppError({
       code: ErrorCodes.AI_SERVICE_ERROR,
-      message: '老 K 这次出的问题数不对',
+      message: '老白这次出的问题数不对',
       detail: `期望 3 个问题,实际 ${Array.isArray(qsRaw) ? qsRaw.length : '不是数组'}`,
       statusCode: 502,
     })
@@ -167,7 +167,7 @@ export function parseReflectingOutput(text: string): ParsedReflecting {
     if (!q.text.trim()) {
       throw new AppError({
         code: ErrorCodes.AI_SERVICE_ERROR,
-        message: '老 K 出了空问题',
+        message: '老白出了空问题',
         detail: `第 ${q.index} 题 text 为空`,
         statusCode: 502,
       })

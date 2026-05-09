@@ -115,7 +115,7 @@ export function parseDraftingOutput(text: string): ParsedDrafting {
   } catch (e) {
     throw new AppError({
       code: ErrorCodes.AI_SERVICE_ERROR,
-      message: '老 K 这次出的话术格式没看懂,你重试一下',
+      message: '老白这次出的话术格式没看懂,你重试一下',
       detail:
         e instanceof JsonExtractError
           ? `JSON 提取失败: ${e.raw.slice(0, 200)}`
@@ -140,7 +140,7 @@ export function parseDraftingOutput(text: string): ParsedDrafting {
   if (!Array.isArray(cardsRaw) || cardsRaw.length === 0) {
     throw new AppError({
       code: ErrorCodes.AI_SERVICE_ERROR,
-      message: '老 K 没出话术卡片',
+      message: '老白没出话术卡片',
       detail: 'cards 缺失或空',
       statusCode: 502,
     })
@@ -171,7 +171,7 @@ export function parseDraftingOutput(text: string): ParsedDrafting {
     if (!c.reply_text.trim()) {
       throw new AppError({
         code: ErrorCodes.AI_SERVICE_ERROR,
-        message: '老 K 出了空话术',
+        message: '老白出了空话术',
         detail: `第 ${c.index} 张卡 reply_text 为空`,
         statusCode: 502,
       })

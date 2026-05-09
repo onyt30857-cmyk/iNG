@@ -46,8 +46,8 @@
 点击某段关系进入详情页:
 - 顶部 Hero:头像 + 称呼 + 关系阶段
 - 基础事实:怎么认识 + 关键事实(可编辑)
-- 老 K 看到的(M1 阶段先留空,Profile Updater 实现后填充)
-- 你提醒老 K 的(用户主动添加的注意事项)
+- 老白看到的(M1 阶段先留空,Profile Updater 实现后填充)
+- 你提醒老白的(用户主动添加的注意事项)
 - 复盘历史(列表,按时间倒序)
 - 数据控制(编辑、归档、删除)
 
@@ -89,7 +89,7 @@
 完整 schema 已在 `02-architecture/database-schema.prisma` 定义。本 spec 涉及的表:
 - `relationships`(主表)
 - `relationship_observations`(观察累积,本 spec 不写入,只读)
-- `profile_assertions`(老 K 累积的判断,本 spec 不写入,只读)
+- `profile_assertions`(老白累积的判断,本 spec 不写入,只读)
 
 ### 4.2 API 接口
 
@@ -104,7 +104,7 @@ POST   /api/v1/relationships/:id/archive  归档
 POST   /api/v1/relationships/:id/restore  恢复(从归档或软删除)
 DELETE /api/v1/relationships/:id          软删除
 GET    /api/v1/relationships/:id/history  复盘历史
-POST   /api/v1/relationships/:id/notes    用户对老 K 的提醒(单独一组)
+POST   /api/v1/relationships/:id/notes    用户对老白的提醒(单独一组)
 ```
 
 每个接口必须:

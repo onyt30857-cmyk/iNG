@@ -13,7 +13,7 @@ const props = defineProps<{
 }>()
 
 // === 话术 chip 解析(spec-009)===
-// 只把"独占一行的引号片段"识别成可复制话术 chip(那是老 K 真给的话术),
+// 只把"独占一行的引号片段"识别成可复制话术 chip(那是老白真给的话术),
 // 解释段里 inline quote 对方原话(如"她那句'有啥好事'")保持原文渲染。
 // 这样避免 false positive 把解释里的引用错做成 chip。
 interface Segment {
@@ -168,7 +168,7 @@ async function onLongPress() {
 <template>
   <view class="row">
     <view class="avatar" :class="{ 'avatar-pulse': isThinking || isStreaming }">
-      <!-- 老 K 默认头像:戴眼镜兄长简笔风,白 stroke + 紫底,无版权 -->
+      <!-- 老白默认头像:戴眼镜兄长简笔风,白 stroke + 紫底,无版权 -->
       <svg class="avatar-icon" width="26" height="26" viewBox="0 0 24 24" fill="none">
         <!-- 头(圆,留底部不闭合做下巴感) -->
         <path d="M5 13 a7 7 0 1 1 14 0 v3 a3 3 0 0 1 -3 3 h-8 a3 3 0 0 1 -3 -3 z"
@@ -289,7 +289,7 @@ async function onLongPress() {
   width: 44rpx;
   height: 44rpx;
   border-radius: 50%;
-  // 双色系:老 K 头像浅紫底(从 $color-primary 改 $color-laoke-subtle,降视觉重量)
+  // 双色系:老白头像浅紫底(从 $color-primary 改 $color-laoke-subtle,降视觉重量)
   background-color: $color-laoke-subtle;
   display: flex;
   align-items: center;
@@ -329,7 +329,7 @@ async function onLongPress() {
   background-color: $color-surface;
   // 微信温和圆角:从 28rpx 收紧到 16rpx(微信式)
   border-radius: 16rpx 16rpx 16rpx 4rpx;
-  // 老 K 标识:左 2rpx 紫色边条(从 $color-primary 改 $color-laoke,跟头像呼应)
+  // 老白标识:左 2rpx 紫色边条(从 $color-primary 改 $color-laoke,跟头像呼应)
   border-left: 2rpx solid $color-laoke;
   padding: 24rpx 28rpx;
   box-shadow: $shadow-sm;

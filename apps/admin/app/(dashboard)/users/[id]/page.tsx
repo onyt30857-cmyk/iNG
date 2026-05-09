@@ -850,7 +850,7 @@ function NotesPanel({
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="例:今天客服联系过他,反馈说订阅扣费有疑问,已解释清楚 / 创始人朋友,优先处理 / 多次反馈老 K 啰嗦,改 prompt v2 后他没再吐槽"
+              placeholder="例:今天客服联系过他,反馈说订阅扣费有疑问,已解释清楚 / 创始人朋友,优先处理 / 多次反馈老白啰嗦,改 prompt v2 后他没再吐槽"
               rows={3}
               maxLength={2000}
               required

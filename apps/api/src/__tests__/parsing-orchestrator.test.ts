@@ -55,7 +55,7 @@ describe('parsing orchestrator', () => {
     beforeEach(() => _setAnthropicClientForTest(null))
     afterEach(() => _setAnthropicClientForTest(null))
 
-    it('调用 Anthropic SDK 时 system 用 PARSING prompt(含老 K 关键句)', async () => {
+    it('调用 Anthropic SDK 时 system 用 PARSING prompt(含老白关键句)', async () => {
       const create = vi.fn().mockResolvedValue({
         content: [
           { type: 'text', text: '我看了你和小雨这段。\n\n几个事:...\n\n你看完什么感觉?' },

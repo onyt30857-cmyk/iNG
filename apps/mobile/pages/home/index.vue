@@ -132,7 +132,7 @@ const greeting = (() => {
         <text class="greeting">{{ greeting }}</text>
         <view class="laoke-status">
           <view class="laoke-dot"></view>
-          <text class="laoke-status-text">老 K 在听</text>
+          <text class="laoke-status-text">老白在听</text>
         </view>
       </view>
       <view class="icon-btn" @tap="goManageList">
@@ -197,7 +197,7 @@ const greeting = (() => {
       <text class="new-text">记一段新关系</text>
     </view>
 
-    <!-- spec-006 之后"复盘"融进每段关系对话页:点关系卡 → 进对话页 → + 按钮上传截图 / 粘贴对方原话 → 老 K 流式回应 -->
+    <!-- spec-006 之后"复盘"融进每段关系对话页:点关系卡 → 进对话页 → + 按钮上传截图 / 粘贴对方原话 → 老白流式回应 -->
   </view>
 </template>
 
@@ -237,7 +237,7 @@ const greeting = (() => {
   width: 12rpx;
   height: 12rpx;
   border-radius: 50%;
-  // 双色系:"老 K 在听"状态点用 $color-laoke 紫(从 $color-accent 茶棕改),跟头像呼应
+  // 双色系:"老白在听"状态点用 $color-laoke 紫(从 $color-accent 茶棕改),跟头像呼应
   background-color: $color-laoke;
   margin-right: 12rpx;
   animation: pulse 2s ease-in-out infinite;

@@ -2,7 +2,7 @@
 // 关系对话窗(取代 detail + session)— Phase 1 重构核心
 //
 // 设计:每段关系一个持续聊天流,session 退到后端
-// 用户体验:打开就是和老 K 关于这段关系的连续对话,任何时候发新内容,老 K 接
+// 用户体验:打开就是和老白关于这段关系的连续对话,任何时候发新内容,老白接
 
 import { onMounted, ref, computed, nextTick, watch } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
@@ -72,8 +72,8 @@ function goBack() {
   }
 }
 
-// 顶部 ⋯ 进入关系档案二级页(spec-007 §UI:5 维度 / 老 K 看到的 / 关键时刻 都在 detail.vue)
-// tab=us 让 detail.vue 默认落到"我们"Tab,直接看到"老 K 看到的"卡
+// 顶部 ⋯ 进入关系档案二级页(spec-007 §UI:5 维度 / 老白看到的 / 关键时刻 都在 detail.vue)
+// tab=us 让 detail.vue 默认落到"我们"Tab,直接看到"老白看到的"卡
 function openMeta() {
   uni.navigateTo({
     url: `/pages/relationship/detail?id=${relationshipId.value}&tab=us`,
@@ -88,7 +88,7 @@ function handleSendText(payload: { text: string; isOtherQuote: boolean }) {
   )
 }
 
-// === 老 K 主动引导卡(spec-007 Phase 19.6)===
+// === 老白主动引导卡(spec-007 Phase 19.6)===
 // 进对话页时如果信号显著(THRIVING/COOLING/WITHDRAWING/INACTIVE)且今天没看过这个提示,显示一行引导
 const hintDismissed = ref(false)
 
@@ -126,7 +126,7 @@ async function handleScreenshotsChosen(payload: { note: string; paths: string[] 
   if (isOcrLoading.value) return
   isOcrLoading.value = true
 
-  // silent=true:不让 conversationStore 触发自己的 mock 老 K 回复(我们自己接 PARSING 流式)
+  // silent=true:不让 conversationStore 触发自己的 mock 老白回复(我们自己接 PARSING 流式)
   // 直接传真实 blob URLs(uni.chooseImage 给的 tempFilePaths),让气泡显示真图
   // 拿到 screenshotsMsgId 用于 OCR 完成后回写 ocr_messages,让后续 turn 能"翻找"截图内容
   const screenshotsMsgId = conversationStore.appendUserScreenshots(
@@ -192,7 +192,7 @@ async function handleScreenshotsChosen(payload: { note: string; paths: string[] 
 
     // === 2. 走 spec-006 conversation-turn(替代老 PARSING,prompt 里 name 准确) ===
     // 把 OCR 出的对话内容拼成一段 user_text 给 LLM 看,前端用户气泡已经是 ScreenshotBubble,
-    // 这段文字只用于 LLM 上下文(history 里不会重复),老 K 流式回应直接渲染到现有气泡。
+    // 这段文字只用于 LLM 上下文(history 里不会重复),老白流式回应直接渲染到现有气泡。
     const ocrLines = ocrMessages.map((m) => {
       const who = m.speaker === 'user' ? '你' : (relationship.value?.name ?? '她')
       return `${who}: ${m.text}`
@@ -215,7 +215,7 @@ async function handleScreenshotsChosen(payload: { note: string; paths: string[] 
     })
 
     // 2026-05-06:OCR 后场景如果用户附了 note 且 note 是要话术(常见:"帮我编一句"),
-    // delivery signal 应该触发,让老 K 直接给
+    // delivery signal 应该触发,让老白直接给
     const { computeDeliverySignal, buildDeliveryDirective } = await import('../../utils/delivery-signal')
     const deliverySignal = computeDeliverySignal(all, payload.note ?? '')
     const directive = buildDeliveryDirective(deliverySignal)
@@ -274,7 +274,7 @@ async function handleScreenshotsChosen(payload: { note: string; paths: string[] 
 }
 
 function handleSelectDraft(_draftId: string) {
-  // 用户点话术卡(选了某个方向),老 K 风格 toast
+  // 用户点话术卡(选了某个方向),老白风格 toast
   uni.showToast({ title: '记下来了', icon: 'none' })
 }
 
@@ -388,7 +388,7 @@ function handleSavePlanning(planningId: string, content: import('../../types/mes
 
     <!-- 底部输入区(sticky) -->
     <view class="input-sticky">
-      <!-- 老 K 主动引导(spec-007 Phase 19.6)信号显著且今天没看过才显示 -->
+      <!-- 老白主动引导(spec-007 Phase 19.6)信号显著且今天没看过才显示 -->
       <LaokeProactiveHint
         v-if="proactiveHint"
         :hint="proactiveHint"

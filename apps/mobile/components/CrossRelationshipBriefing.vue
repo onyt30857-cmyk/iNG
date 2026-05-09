@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// 多关系横向"老 K 整体势头"卡 - spec-007 §6 / Phase 19.4
+// 多关系横向"老白整体势头"卡 - spec-007 §6 / Phase 19.4
 //
 // 入口:关系列表页顶部
-// 形态:折叠卡。默认 1 行 headline,展开后每段一句老 K 判断 + 跳详情
+// 形态:折叠卡。默认 1 行 headline,展开后每段一句老白判断 + 跳详情
 // 不展示数值/分数/进度条。这是社交产品,不是数据 dashboard。
 
 import { computed, ref } from 'vue'
@@ -30,7 +30,7 @@ function toggle() {
 }
 
 function goDetail(rel: PerRelationshipNote) {
-  // 默认进"我们" tab 直接看老 K 看到的
+  // 默认进"我们" tab 直接看老白看到的
   uni.navigateTo({
     url: `/pages/relationship/detail?id=${rel.relationship_id}&tab=us`,
   })
@@ -39,16 +39,16 @@ function goDetail(rel: PerRelationshipNote) {
 
 <template>
   <view v-if="visible" class="briefing">
-    <!-- 头部:老 K 看到的 + 展开/收起 -->
+    <!-- 头部:老白看到的 + 展开/收起 -->
     <view class="head" @tap="toggle">
       <view class="head-left">
-        <text class="tag">老 K 现在看到的</text>
+        <text class="tag">老白现在看到的</text>
         <text class="headline">{{ judgment.headline }}</text>
       </view>
       <text class="chev">{{ expanded ? '收起' : '展开' }}</text>
     </view>
 
-    <!-- 展开:每段一句老 K 判断 -->
+    <!-- 展开:每段一句老白判断 -->
     <view v-if="expanded" class="list">
       <view
         v-for="r in judgment.per_relationship"

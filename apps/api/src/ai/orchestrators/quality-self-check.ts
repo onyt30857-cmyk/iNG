@@ -1,4 +1,4 @@
-// 老 K 服务质量自查 - Phase 4.3
+// 老白服务质量自查 - Phase 4.3
 //
 // 异步扫一个对话 history,标记 anti-pattern。
 // 跟 spec-009 用户反馈互补:用户没主动 👎 但行为异常的 case 也能 catch。
@@ -7,11 +7,11 @@
 // 让 analyze-feedback 能一起归类。
 //
 // 检测规则:
-// - REPEATED_QUERY:用户连续 2+ 次明确要话术,老 K 之间没给具体话(只反问/分析)
-// - FRUSTRATION_IGNORED:用户表达不耐烦后,下一轮老 K 还在反问/铺垫
-// - LONG_SILENCE:老 K 给完话术后用户消失 24h+(可能效果不好但没明确反馈)
-// - FORMAL_TONE_DRIFT:老 K 连续 3+ 条回应都用"我跟你说真的"等正式开头(基线人格漂移)
-// - WALL_OF_TEXT:老 K 回应连续 3+ 条都超过 400 字(长度漂移)
+// - REPEATED_QUERY:用户连续 2+ 次明确要话术,老白之间没给具体话(只反问/分析)
+// - FRUSTRATION_IGNORED:用户表达不耐烦后,下一轮老白还在反问/铺垫
+// - LONG_SILENCE:老白给完话术后用户消失 24h+(可能效果不好但没明确反馈)
+// - FORMAL_TONE_DRIFT:老白连续 3+ 条回应都用"我跟你说真的"等正式开头(基线人格漂移)
+// - WALL_OF_TEXT:老白回应连续 3+ 条都超过 400 字(长度漂移)
 
 import { prisma } from '../../lib/prisma.js'
 
@@ -74,7 +74,7 @@ export function detectAntiPatterns(
   const out: DetectedAntiPattern[] = []
   if (messages.length < 2) return out
 
-  // 1. REPEATED_QUERY:用户连续 2+ 次问话术,老 K 之间没给具体话
+  // 1. REPEATED_QUERY:用户连续 2+ 次问话术,老白之间没给具体话
   let userAskCount = 0
   let lastLaokeGaveDraft = false
   for (const m of messages) {
@@ -84,7 +84,7 @@ export function detectAntiPatterns(
         out.push({
           pattern: 'REPEATED_QUERY',
           message_id: m.id,
-          evidence: `用户第 ${userAskCount} 次明确要话术,期间老 K 没给具体话:"${m.text.slice(0, 50)}"`,
+          evidence: `用户第 ${userAskCount} 次明确要话术,期间老白没给具体话:"${m.text.slice(0, 50)}"`,
           severity: Math.min(5, userAskCount + 2),
         })
       }
@@ -98,7 +98,7 @@ export function detectAntiPatterns(
     }
   }
 
-  // 2. FRUSTRATION_IGNORED:用户不耐烦后下一轮老 K 还反问
+  // 2. FRUSTRATION_IGNORED:用户不耐烦后下一轮老白还反问
   for (let i = 0; i < messages.length - 1; i++) {
     const cur = messages[i]!
     if (cur.speaker !== 'user' || !isFrustrated(cur.text)) continue
@@ -109,13 +109,13 @@ export function detectAntiPatterns(
       out.push({
         pattern: 'FRUSTRATION_IGNORED',
         message_id: nextLaoke.id,
-        evidence: `用户:"${cur.text.slice(0, 40)}" → 老 K 仍反问:"${nextLaoke.text.slice(0, 80)}"`,
+        evidence: `用户:"${cur.text.slice(0, 40)}" → 老白仍反问:"${nextLaoke.text.slice(0, 80)}"`,
         severity: 5,
       })
     }
   }
 
-  // 3. LONG_SILENCE:老 K 给完话术后用户 24h+ 没回(只在 messages 已经"截止到现在"时有意义)
+  // 3. LONG_SILENCE:老白给完话术后用户 24h+ 没回(只在 messages 已经"截止到现在"时有意义)
   for (let i = 0; i < messages.length - 1; i++) {
     const cur = messages[i]!
     if (cur.speaker !== 'laoke' || !laokeGaveDraft(cur.text)) continue
@@ -126,13 +126,13 @@ export function detectAntiPatterns(
       out.push({
         pattern: 'LONG_SILENCE',
         message_id: cur.id,
-        evidence: `老 K 给完话术 ${Math.round(gapMs / 3600_000)}h 后用户才回,可能效果不好`,
+        evidence: `老白给完话术 ${Math.round(gapMs / 3600_000)}h 后用户才回,可能效果不好`,
         severity: 2,
       })
     }
   }
 
-  // 4. FORMAL_TONE_DRIFT:老 K 连续 3+ 次正式开头
+  // 4. FORMAL_TONE_DRIFT:老白连续 3+ 次正式开头
   let formalStreak = 0
   let formalEvidences: string[] = []
   for (const m of messages) {
@@ -148,7 +148,7 @@ export function detectAntiPatterns(
       out.push({
         pattern: 'FORMAL_TONE_DRIFT',
         message_id: m.id,
-        evidence: `老 K 连续 ${formalStreak} 条正式开头:${formalEvidences.join(' / ')}`,
+        evidence: `老白连续 ${formalStreak} 条正式开头:${formalEvidences.join(' / ')}`,
         severity: 3,
       })
       formalStreak = 0
@@ -156,7 +156,7 @@ export function detectAntiPatterns(
     }
   }
 
-  // 5. WALL_OF_TEXT:老 K 连续 3+ 条 > 400 字
+  // 5. WALL_OF_TEXT:老白连续 3+ 条 > 400 字
   let longStreak = 0
   for (const m of messages) {
     if (m.speaker !== 'laoke') continue
@@ -166,7 +166,7 @@ export function detectAntiPatterns(
         out.push({
           pattern: 'WALL_OF_TEXT',
           message_id: m.id,
-          evidence: `老 K 连续 ${longStreak} 条超 400 字,可能太啰嗦`,
+          evidence: `老白连续 ${longStreak} 条超 400 字,可能太啰嗦`,
           severity: 3,
         })
         longStreak = 0

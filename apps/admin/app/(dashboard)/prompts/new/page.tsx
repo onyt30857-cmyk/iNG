@@ -14,13 +14,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 const SCENES = [
   {
     value: 'conversation_turn',
-    label: '老 K 主对话',
-    desc: '用户在 App 里跟老 K 直接聊天时,老 K 怎么回话。这是改动最频繁的一个。',
+    label: '老白主对话',
+    desc: '用户在 App 里跟老白直接聊天时,老白怎么回话。这是改动最频繁的一个。',
   },
   {
     value: 'parsing',
     label: '看截图复盘',
-    desc: '用户上传聊天截图后,老 K 怎么解读对方在说什么、关系当前状态。',
+    desc: '用户上传聊天截图后,老白怎么解读对方在说什么、关系当前状态。',
   },
   {
     value: 'ocr',
@@ -35,7 +35,7 @@ const SCENES = [
   {
     value: 'long_term_memory',
     label: '长期记忆压缩',
-    desc: '老 K 怎么把过去的对话浓缩成"她的人物档案"。',
+    desc: '老白怎么把过去的对话浓缩成"她的人物档案"。',
   },
 ]
 
@@ -76,9 +76,9 @@ export default function NewPromptVersionPage() {
 
       {/* 标题 + 说明 */}
       <div>
-        <h1 className="text-2xl font-semibold">准备一版新的"老 K 说话方式"</h1>
+        <h1 className="text-2xl font-semibold">准备一版新的"老白说话方式"</h1>
         <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-          这页让你写一份**新的指南**,告诉老 K 在某个场景下应该怎么说话。
+          这页让你写一份**新的指南**,告诉老白在某个场景下应该怎么说话。
           写完只是**保存草稿**,不会立刻让真实用户看到 — 你回列表后还要再点"上线"才会真正生效。
         </p>
       </div>
@@ -92,7 +92,7 @@ export default function NewPromptVersionPage() {
           <CardContent className="space-y-6">
             {/* === 场景选择 === */}
             <div className="space-y-2">
-              <Label>1. 老 K 用在哪个场景?</Label>
+              <Label>1. 老白用在哪个场景?</Label>
               <div className="grid gap-2">
                 {SCENES.map((s) => (
                   <label
@@ -125,7 +125,7 @@ export default function NewPromptVersionPage() {
 
             {/* === 说话指南内容 === */}
             <div className="space-y-2">
-              <Label htmlFor="content">2. 老 K 的"说话指南"</Label>
+              <Label htmlFor="content">2. 老白的"说话指南"</Label>
               <textarea
                 id="content"
                 value={content}
@@ -134,7 +134,7 @@ export default function NewPromptVersionPage() {
                 rows={14}
                 placeholder={
                   scene
-                    ? `把现在 ${selectedScene?.label} 场景下老 K 的指南整段粘贴进来。\n\n找开发要这个文件:\nlianai-dev-kit/03-prompts/${scene}.md\n\n复制里面所有内容(可能几千字),整段贴到这里。`
+                    ? `把现在 ${selectedScene?.label} 场景下老白的指南整段粘贴进来。\n\n找开发要这个文件:\nlianai-dev-kit/03-prompts/${scene}.md\n\n复制里面所有内容(可能几千字),整段贴到这里。`
                     : '先在上面选一个场景,这里会告诉你具体粘哪个文件'
                 }
                 className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono leading-relaxed"
@@ -180,7 +180,7 @@ export default function NewPromptVersionPage() {
               </p>
               <ul className="space-y-1.5 text-[13px] text-muted-foreground ml-6 list-disc">
                 <li>系统保存这版,**显示"未上线"**(草稿状态)</li>
-                <li>**不会影响真实用户** — 老 K 还是按当前线上的旧版本说话</li>
+                <li>**不会影响真实用户** — 老白还是按当前线上的旧版本说话</li>
                 <li>你回到 Prompt 列表 → 点这个新版的"部署"按钮 → 才会真上线</li>
                 <li>上线前可以先点"测试"跑 20 条样本,系统帮你打分,确认值得上线</li>
                 <li>已经发出的对话不会被改写,只影响**之后**的新对话</li>

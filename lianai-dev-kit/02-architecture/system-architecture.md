@@ -106,7 +106,7 @@ apps/mobile/
 │   │   ├── BottomSheet.vue
 │   │   └── ...
 │   ├── chat/                       对话气泡
-│   │   ├── LaokeMessage.vue        老 K 气泡
+│   │   ├── LaokeMessage.vue        老白气泡
 │   │   ├── UserMessage.vue         用户气泡
 │   │   └── ScreenshotMessage.vue   截图气泡
 │   ├── card/                       话术卡片
@@ -363,7 +363,7 @@ context 必须满足:
 
 ### 4.3 数据库选 PostgreSQL 不选 MySQL
 
-- pgvector 扩展可做语义检索(老 K 累积的观察可向量化)
+- pgvector 扩展可做语义检索(老白累积的观察可向量化)
 - JSON 字段支持更好(metadata 灵活存储)
 - 触发器和 stored function 强大(用于级联删除等)
 

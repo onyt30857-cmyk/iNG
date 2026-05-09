@@ -53,7 +53,7 @@ function goBack() {
     <view class="body">
       <!-- ready 态 -->
       <view v-if="store.listState === 'ready'">
-        <!-- 老 K 整体势头(spec-007 §6 / Phase 19.4)只在有关系时才显示 -->
+        <!-- 老白整体势头(spec-007 §6 / Phase 19.4)只在有关系时才显示 -->
         <CrossRelationshipBriefing v-if="store.items.length > 0" />
 
         <RelationshipCard

@@ -29,13 +29,13 @@ function parseArgs(): CliOpts {
   return opts
 }
 
-const ANALYZER_SYSTEM_PROMPT = `你是练爱产品的反馈分析师。我会给你一批用户对老 K(资深兄长型 AI)
+const ANALYZER_SYSTEM_PROMPT = `你是练爱产品的反馈分析师。我会给你一批用户对老白(资深兄长型 AI)
 的负反馈数据(dislike + comment),你帮我:
 
-1. **归类 anti-pattern**:把反馈按"老 K 犯的具体错"分组(比如"反复反问推迟交付"、
+1. **归类 anti-pattern**:把反馈按"老白犯的具体错"分组(比如"反复反问推迟交付"、
    "客服腔太正式"、"道歉式开场"、"接不住对方钩子"),每类给具体频次
 
-2. **每类引用 2-3 条最典型的原始反馈**(老 K 那条 bubble_text + 用户 comment)
+2. **每类引用 2-3 条最典型的原始反馈**(老白那条 bubble_text + 用户 comment)
 
 3. **给可执行的 prompt 改进建议**:针对每个 anti-pattern,在
    conversation-turn.orchestrator.ts 的 system prompt 哪一层加什么硬规则
@@ -58,7 +58,7 @@ function buildAnalyzerInput(items: Array<{
     const date = i.created_at.toISOString().slice(0, 10)
     const tag = i.feedback_type === 'dislike' ? '👎' : '💬'
     lines.push(`## ${tag} ${date}`)
-    lines.push(`**老 K 那条:** ${i.bubble_text || '(无快照)'}`)
+    lines.push(`**老白那条:** ${i.bubble_text || '(无快照)'}`)
     if (i.feedback_note) lines.push(`**兄弟说:** ${i.feedback_note}`)
     lines.push('')
   }

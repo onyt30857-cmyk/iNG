@@ -1,7 +1,7 @@
 // 关系对话流 store - Phase 1 重构核心
 //
 // 设计:每段关系一个持续聊天流,messages 时间线无穷累积
-// session 状态机退到后端,前端只渲染"老 K 输出 → 消息"
+// session 状态机退到后端,前端只渲染"老白输出 → 消息"
 //
 // M1 mock:写死一段完整对话(从 3 天前的复盘到今天)给 Sam 看产品形态
 // 后端联调后:这里改成"用户发新消息 → 后端创建 session → 状态机走完 → 流式推消息回来"
@@ -243,7 +243,7 @@ export const useConversationStore = defineStore('conversation', () => {
   const savedDrafts = ref<Record<string, ReplyDraft[]>>({})        // relationshipId → drafts
   const savedPlannings = ref<Record<string, Array<{ id: string; content: PlanningContent; saved_at: string }>>>({})
 
-  // spec-009 audit:老 K free text 回复的收藏(spec-006 之后老 K 主要是 free text,
+  // spec-009 audit:老白free text 回复的收藏(spec-006 之后老白主要是 free text,
   // ReplyDraft/PlanningContent 几乎不再出现,工具箱永远空。加这个让收藏闭环)
   const savedQuotes = ref<Record<string, Array<{ id: string; text: string; saved_at: string }>>>({})
 
@@ -270,7 +270,7 @@ export const useConversationStore = defineStore('conversation', () => {
   function isFreshConversation(relationshipId: string): boolean {
     const list = messagesByRelationship.value[relationshipId]
     if (!list) return true
-    // 只有 1 条老 K 开场白 = 新对话
+    // 只有 1 条老白开场白 = 新对话
     return list.length <= 1
   }
 
@@ -404,12 +404,12 @@ export const useConversationStore = defineStore('conversation', () => {
 
     if (opts.silent) return
 
-    // 真 LLM turn:用户发字 → 老 K 流式回应。失败时显示具体错误,不再 mock 占位
+    // 真 LLM turn:用户发字 → 老白流式回应。失败时显示具体错误,不再 mock 占位
     void triggerLaokeTurn(relationshipId, text, !!opts.isOtherQuote)
   }
 
-  /** spec-006 Phase 18.2:用户发字后,异步调 conversation turn 端点拿老 K 流式回应
-   *  spec-009:isOtherQuote=true 表示用户传过来的是"她回的原话",老 K 要当成观察素材 */
+  /** spec-006 Phase 18.2:用户发字后,异步调 conversation turn 端点拿老白流式回应
+   *  spec-009:isOtherQuote=true 表示用户传过来的是"她回的原话",老白要当成观察素材 */
   async function triggerLaokeTurn(
     relationshipId: string,
     userText: string,
@@ -420,7 +420,7 @@ export const useConversationStore = defineStore('conversation', () => {
     updateStreamingLaokeText(relationshipId, streamingId, '')
 
     // 收集对话历史:把所有类型的过往都翻译成 LLM 能读的行(尤其截图 OCR 内容,
-    // 这样老 K 能"翻找过去内容")。skipIds 排除当前 streaming 占位 + 当前 userText
+    // 这样老白能"翻找过去内容")。skipIds 排除当前 streaming 占位 + 当前 userText
     const { serializeHistoryForLLM } = await import('../utils/history-serializer')
     const { useRelationshipStore } = await import('./relationship')
     const relStore = useRelationshipStore()
@@ -441,7 +441,7 @@ export const useConversationStore = defineStore('conversation', () => {
       // 动态 import 避免 store 顶层 import api(顶层循环依赖风险)
       const { streamConversationTurnHTTP } = await import('../api/conversation.api')
 
-      // spec-007 Phase 19.5:把当前关系的 signal 翻译成老 K 视角 brief 塞进请求,
+      // spec-007 Phase 19.5:把当前关系的 signal 翻译成老白视角 brief 塞进请求,
       // 当 LLM 的 inner state(他"私下看到的")。数据不足时 brief 为 null,后端会跳过。
       const { useRelationshipSignalsStore } = await import('./relationship-signals')
       const { buildSignalBrief } = await import('../utils/signal-to-brief')
@@ -449,12 +449,12 @@ export const useConversationStore = defineStore('conversation', () => {
       const signalBrief = buildSignalBrief(signalsStore.getSignal(relationshipId))
 
       // 2026-05-06 新规则:扫 history 算 delivery signal,如果用户在反复要话术或不耐烦,
-      // 在 user_text 末尾追加硬规则 directive,逼老 K 直接交付不再反问
+      // 在 user_text 末尾追加硬规则 directive,逼老白直接交付不再反问
       const { computeDeliverySignal, buildDeliveryDirective } = await import('../utils/delivery-signal')
       const deliverySignal = computeDeliverySignal(all, userText)
       const directive = buildDeliveryDirective(deliverySignal)
 
-      // spec-009:isOtherQuote 时,把内容包成"[她刚回了:'...']" 让老 K 知道这是观察素材
+      // spec-009:isOtherQuote 时,把内容包成"[她刚回了:'...']" 让老白知道这是观察素材
       // 不是兄弟在跟你说话,需要分析这条对话怎么接,不能把它当成兄弟的草稿
       const finalUserText = isOtherQuote
         ? `[她刚回了我:"${userText}"]\n\n这是她发给我的原话(不是我自己写的草稿)。基于这句和上下文,你帮我看怎么接。`
@@ -504,7 +504,7 @@ export const useConversationStore = defineStore('conversation', () => {
     }
     finishStreamingLaokeText(relationshipId, streamingId)
 
-    // spec-013 模块 D 行为埋点:老 K 流式完成,作为后续 KPI 分母
+    // spec-013 模块 D 行为埋点:老白流式完成,作为后续 KPI 分母
     void import('../utils/behavior-tracker').then(({ reportBehavior }) => {
       reportBehavior('laoke_reply_received', {
         relationship_id: relationshipId,
@@ -575,7 +575,7 @@ export const useConversationStore = defineStore('conversation', () => {
     { deep: true },
   )
 
-  // silent=true:跳过 mock 老 K 自动回复(真 OCR 流程调用方自己接管 PARSING 流式)
+  // silent=true:跳过 mock 老白自动回复(真 OCR 流程调用方自己接管 PARSING 流式)
   // urls:用户上传的真实图片 URL 列表。气泡用它做缩略图 + uni.previewImage 点击放大
   function appendUserScreenshots(
     relationshipId: string,
@@ -599,7 +599,7 @@ export const useConversationStore = defineStore('conversation', () => {
 
     if (opts.silent) return id
 
-    // mock 老 K 看截图反馈(用户随手发截图时占位,OCR 真接入后调用方传 silent=true 跳过)
+    // mock 老白看截图反馈(用户随手发截图时占位,OCR 真接入后调用方传 silent=true 跳过)
     setTimeout(() => {
       const cur = messagesByRelationship.value[relationshipId] ?? []
       cur.push({

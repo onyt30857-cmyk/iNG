@@ -30,7 +30,7 @@ export interface DeliverySignal {
   has_frustration: boolean
   /** 不耐烦命中的具体字串(给 LLM 当证据) */
   frustration_evidence?: string
-  /** 老 K 之前是否已经给过具体话术(简单识别:回应里有引号包的句子) */
+  /** 老白之前是否已经给过具体话术(简单识别:回应里有引号包的句子) */
   laoke_already_delivered: boolean
 }
 
@@ -46,7 +46,7 @@ function findFrustration(text: string): string | null {
   return null
 }
 
-/** 老 K 是否已经在之前的回应里给过"具体可发的句子"(用引号或【】包起来) */
+/** 老白是否已经在之前的回应里给过"具体可发的句子"(用引号或【】包起来) */
 function laokeHasGivenDrafts(laokeText: string): boolean {
   // 中英文双引号、book quote、【】等典型话术包裹符号
   return /[""「」『』【\[][^""「」『』【\[\]]{6,}[""「」』』】\]]/.test(laokeText)

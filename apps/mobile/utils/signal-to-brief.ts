@@ -1,7 +1,7 @@
-// 信号 → 老 K 内部 brief - spec-007 Phase 19.5
+// 信号 → 老白内部 brief - spec-007 Phase 19.5
 //
-// 把 RelationshipSignalSnapshot 翻译成一段老 K 视角的简短文字,
-// 给后端 LLM 当 inner state(老 K"私下知道的"),让他在自然时机自己引用。
+// 把 RelationshipSignalSnapshot 翻译成一段老白视角的简短文字,
+// 给后端 LLM 当 inner state(老白"私下知道的"),让他在自然时机自己引用。
 //
 // 不要把数字/score 直接读出来 — LLM 拿到的是"她回得变慢""emoji 多了"这种行为白话,
 // 而不是"responsiveness=42"。

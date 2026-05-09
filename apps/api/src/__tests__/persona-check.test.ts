@@ -8,7 +8,7 @@ import {
 
 describe('persona-check', () => {
   describe('checkPersona - 干净文本', () => {
-    it('老 K 风格的句子全过', () => {
+    it('老白风格的句子全过', () => {
       const text = '我跟你说真的,这事我看是这样。她不是在退,是有事。'
       const r = checkPersona(text)
       expect(r.passed).toBe(true)

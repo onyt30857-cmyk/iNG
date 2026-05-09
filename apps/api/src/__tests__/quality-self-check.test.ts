@@ -1,4 +1,4 @@
-// Phase 4.3 老 K 服务质量自查测试
+// Phase 4.3 老白服务质量自查测试
 import { describe, it, expect } from 'vitest'
 import {
   detectAntiPatterns,
@@ -22,7 +22,7 @@ function msg(
 }
 
 describe('detectAntiPatterns', () => {
-  it('REPEATED_QUERY:用户连续 2 次问话术,老 K 没给', () => {
+  it('REPEATED_QUERY:用户连续 2 次问话术,老白没给', () => {
     const msgs = [
       msg('u1', 'user', '帮我编一句'),
       msg('k1', 'laoke', '等等,你先告诉我她什么风格'),
@@ -33,7 +33,7 @@ describe('detectAntiPatterns', () => {
     expect(out.some((p) => p.pattern === 'REPEATED_QUERY')).toBe(true)
   })
 
-  it('REPEATED_QUERY:第 2 次问之前老 K 给过话 → 不触发', () => {
+  it('REPEATED_QUERY:第 2 次问之前老白给过话 → 不触发', () => {
     const msgs = [
       msg('u1', 'user', '帮我编一句'),
       msg('k1', 'laoke', '"诶你在干嘛"\n\n短点不刻意'),
@@ -43,7 +43,7 @@ describe('detectAntiPatterns', () => {
     expect(out.find((p) => p.pattern === 'REPEATED_QUERY')).toBeUndefined()
   })
 
-  it('FRUSTRATION_IGNORED:用户说别问了,下一轮老 K 还反问', () => {
+  it('FRUSTRATION_IGNORED:用户说别问了,下一轮老白还反问', () => {
     const msgs = [
       msg('u1', 'user', '别问了直接给我'),
       msg('k1', 'laoke', '等等,她到底是什么状态啊?'),
@@ -52,7 +52,7 @@ describe('detectAntiPatterns', () => {
     expect(out.some((p) => p.pattern === 'FRUSTRATION_IGNORED')).toBe(true)
   })
 
-  it('FRUSTRATION_IGNORED:不耐烦后老 K 给了具体话 → 不触发', () => {
+  it('FRUSTRATION_IGNORED:不耐烦后老白给了具体话 → 不触发', () => {
     const msgs = [
       msg('u1', 'user', '行了直接给'),
       msg('k1', 'laoke', '"诶最近咋样"'),
@@ -61,7 +61,7 @@ describe('detectAntiPatterns', () => {
     expect(out.find((p) => p.pattern === 'FRUSTRATION_IGNORED')).toBeUndefined()
   })
 
-  it('LONG_SILENCE:老 K 给完话术 25h 后用户才回', () => {
+  it('LONG_SILENCE:老白给完话术 25h 后用户才回', () => {
     const msgs = [
       msg('k1', 'laoke', '"诶你在干嘛"', 0),
       msg('u1', 'user', '哦', 25 * 3600),
@@ -70,7 +70,7 @@ describe('detectAntiPatterns', () => {
     expect(out.some((p) => p.pattern === 'LONG_SILENCE')).toBe(true)
   })
 
-  it('FORMAL_TONE_DRIFT:老 K 连 3 条"我跟你说真的"开头', () => {
+  it('FORMAL_TONE_DRIFT:老白连 3 条"我跟你说真的"开头', () => {
     const msgs = [
       msg('k1', 'laoke', '我跟你说真的,这事我看是这样'),
       msg('u1', 'user', '嗯'),
@@ -82,7 +82,7 @@ describe('detectAntiPatterns', () => {
     expect(out.some((p) => p.pattern === 'FORMAL_TONE_DRIFT')).toBe(true)
   })
 
-  it('WALL_OF_TEXT:连 3 条老 K 超 400 字', () => {
+  it('WALL_OF_TEXT:连 3 条老白超 400 字', () => {
     const long = '哦' + 'x'.repeat(420)
     const msgs = [
       msg('k1', 'laoke', long),

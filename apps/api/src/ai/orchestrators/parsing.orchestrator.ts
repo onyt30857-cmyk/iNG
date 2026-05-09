@@ -1,6 +1,6 @@
 // PARSING 阶段 orchestrator(spec-005 §3.1)
 //
-// 拼装上下文 → 调 callClaude → 返回老 K 的开场+信号+定性+追问。
+// 拼装上下文 → 调 callClaude → 返回老白的开场+信号+定性+追问。
 //
 // 不直接推进状态机。状态机的 PARSING_DONE 事件由调用方(replay-state.service 或 SSE
 // 路由)在拿到本函数的 output 后自己发。这样 orchestrator 是纯计算 + IO,易测且无副作用。
@@ -28,7 +28,7 @@ export interface ParsingInput {
   user_id: string
   relationship_id: string
   session_id: string
-  /** 当前关系昵称(老 K 在输出中复述时用) */
+  /** 当前关系昵称(老白在输出中复述时用) */
   relationship_name: string
   /** 用户在 ENTRY 阶段写的简短描述 */
   entry_note: string
@@ -88,7 +88,7 @@ export async function runParsingStream(
 
 /**
  * 把上下文拼成 user message。结构对应 parsing.md §3 system prompt 末尾的注入点:
- *   # 你看到的关于这段关系的信息(老 K 已经知道的)
+ *   # 你看到的关于这段关系的信息(老白已经知道的)
  *   # 兄弟的语气特征
  *   # 当前对话内容(OCR 结果)
  *   # 兄弟在入口写的简短描述

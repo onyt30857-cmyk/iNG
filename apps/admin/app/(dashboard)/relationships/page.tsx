@@ -113,7 +113,7 @@ export default function RelationshipsPage() {
       <div>
         <h1 className="text-2xl font-semibold">关系视图</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {data ? `共 ${data.total} 段关系` : '加载中…'} · 按用户和老 K 之间的"段"展开,直接看哪段最活跃 / 哪段问题多
+          {data ? `共 ${data.total} 段关系` : '加载中…'} · 按用户和老白之间的"段"展开,直接看哪段最活跃 / 哪段问题多
         </p>
       </div>
 

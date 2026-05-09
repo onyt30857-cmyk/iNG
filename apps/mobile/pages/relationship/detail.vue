@@ -1,9 +1,9 @@
 <script setup lang="ts">
-// 关系档案 = "老 K 写给你的关于这段关系的一本书"(2026-05-04 调研后重定位)
+// 关系档案 = "老白写给你的关于这段关系的一本书"(2026-05-04 调研后重定位)
 //
 // 三个心理位置(她 / 我们 / 工具箱):
-//   - 她:对方画像(老 K 累积观察 + 你提醒老 K 的)
-//   - 我们:关系演变叙事(月度老 K 写的一段话 + 关键时刻卡)— 这是复盘的真正价值
+//   - 她:对方画像(老白累积观察 + 你提醒老白的)
+//   - 我们:关系演变叙事(月度老白写的一段话 + 关键时刻卡)— 这是复盘的真正价值
 //   - 工具箱:收藏的话术 + 方向(具象产物)
 //
 // 核心认知:用户珍视的是"被见证 + 叙事可读性",不是"成长曲线"或"健康度评分"
@@ -28,7 +28,7 @@ const id = ref('')
 
 onLoad((opts) => {
   id.value = (opts?.id as string) ?? ''
-  // 从 conversation.vue 顶部 ⋯ 跳过来时,带 tab=us 直接落到"我们"Tab(老 K 看到的)
+  // 从 conversation.vue 顶部 ⋯ 跳过来时,带 tab=us 直接落到"我们"Tab(老白看到的)
   const t = (opts?.tab as string) ?? ''
   if (t === 'her' || t === 'us' || t === 'toolbox') activeTab.value = t
 })
@@ -71,7 +71,7 @@ const lastTalkAgo = computed(() => {
 })
 
 // === Tab 切换 ===
-// 默认 'us'(我们):整页核心是关系演变 + "老 K 看到的",这是产品独有价值,
+// 默认 'us'(我们):整页核心是关系演变 + "老白看到的",这是产品独有价值,
 // "她"是档案、"工具箱"是收藏,都不该是 first impression。
 type Tab = 'her' | 'us' | 'toolbox'
 const activeTab = ref<Tab>('us')
@@ -91,10 +91,10 @@ const ageRangeLabel = computed(() => {
   return map[ar] ?? ar
 })
 
-// (spec-009 audit:删除原 hardcoded mock"老 K 看见的"。真信号在"我们"Tab verdict-card,
-//  抽取的 facts 在 Section 3"你告诉老 K 的"chips 里展示)
+// (spec-009 audit:删除原 hardcoded mock"老白看见的"。真信号在"我们"Tab verdict-card,
+//  抽取的 facts 在 Section 3"你告诉老白的"chips 里展示)
 
-// L2 你告诉老 K 的(key_facts + user_reminders 合并展示成 chip,带来源标记)
+// L2 你告诉老白的(key_facts + user_reminders 合并展示成 chip,带来源标记)
 interface ChipItem {
   text: string
   source: 'fact' | 'reminder'
@@ -227,7 +227,7 @@ const unknownPrompts = computed<string[]>(() => {
 })
 
 function jumpToConversationWithHint(_prompt: string) {
-  // M1 简化:跳到对话窗;M2 可让老 K 自动以 prompt 主动追问
+  // M1 简化:跳到对话窗;M2 可让老白自动以 prompt 主动追问
   uni.navigateTo({ url: `/pages/relationship/conversation?id=${id.value}` })
 }
 
@@ -314,7 +314,7 @@ async function extractFromConversation() {
       }
     }
     if (history.length === 0) {
-      await dialog.alert('还没素材', { body: '还没跟老 K 聊过她,先聊几句再来整理。' })
+      await dialog.alert('还没素材', { body: '还没跟老白聊过她,先聊几句再来整理。' })
       return
     }
     // 后端 seed-dev 已经为每段真 dev 关系建好记录,直接传当前 id 走真 ownership 写真档案
@@ -350,10 +350,10 @@ async function extractFromConversation() {
   }
 }
 
-// === Tab 2: "老 K 现在看到的"(spec-007 信号维度,社交化叙述版,不是 dashboard)===
+// === Tab 2: "老白现在看到的"(spec-007 信号维度,社交化叙述版,不是 dashboard)===
 const signal = computed<RelationshipSignalSnapshot>(() => signalsStore.getSignal(id.value))
 
-// 老 K 当下判断(替代 health 信号灯)
+// 老白当下判断(替代 health 信号灯)
 const laokeVerdict = computed(() => {
   const s = signal.value
   if (!s.has_enough_data) {
@@ -397,7 +397,7 @@ const laokeVerdict = computed(() => {
   }
 })
 
-// 5 维度老 K 口吻观察(不要进度条 / 数字 / score)
+// 5 维度老白口吻观察(不要进度条 / 数字 / score)
 function dimensionToObservation(label: string, d: SignalDimension): { icon: string; tone: 'up' | 'down' | 'flat'; text: string } | null {
   if (Math.abs(d.delta) < 10 && d.trend === 'flat') return null // 平稳的不说,只说有变化的
   const phrases: Record<string, { up: string; down: string }> = {
@@ -433,14 +433,14 @@ const laokeSignalObs = computed<LaokeObservation[]>(() => {
   return raw.filter((x): x is LaokeObservation => x !== null)
 })
 
-// 兴趣度老 K 口吻
+// 兴趣度老白口吻
 const laokeInterestNote = computed(() => {
   const s = signal.value
   if (!s.has_enough_data) return ''
   const d = s.interest.vs_baseline_pct
-  if (d < -25) return '老 K 觉得 — 她对你的兴趣这阵子比之前低,不是退了,是没在升温。'
-  if (d > 25) return '老 K 觉得 — 她对你的兴趣这阵子比之前高,有点松动了。'
-  return '老 K 觉得 — 兴趣度跟之前接近,稳着。'
+  if (d < -25) return '老白觉得 — 她对你的兴趣这阵子比之前低,不是退了,是没在升温。'
+  if (d > 25) return '老白觉得 — 她对你的兴趣这阵子比之前高,有点松动了。'
+  return '老白觉得 — 兴趣度跟之前接近,稳着。'
 })
 
 // === Tab 2 原:我们 - 关系演变叙事(Phase 2.5 LLM 化)===
@@ -479,15 +479,15 @@ async function regenerateInsights() {
   }
 }
 
-// 关键时刻(M1 mock,M2 接老 K 自动从对话流摘要)
+// 关键时刻(M1 mock,M2 接老白自动从对话流摘要)
 interface KeyMoment {
   id: string
   date: string  // ISO
-  title: string  // 老 K 给的简短标题
+  title: string  // 老白给的简短标题
   detail: string  // 1-2 句详细
 }
 // 倒序展示(最近在前):最近发生的事 = 当下最重要
-// M2 会加"老 K 标记的里程碑"权重(告白/第一次约会等可置顶)
+// M2 会加"老白标记的里程碑"权重(告白/第一次约会等可置顶)
 const keyMomentsRaw = ref<KeyMoment[]>([
   {
     id: 'km-1',
@@ -505,7 +505,7 @@ const keyMomentsRaw = ref<KeyMoment[]>([
     id: 'km-3',
     date: new Date(Date.now() - 3 * 86400_000).toISOString(),
     title: '已读不回那一次',
-    detail: '"先这样吧"那条。老 K 帮你看了,你忍住没追问。',
+    detail: '"先这样吧"那条。老白帮你看了,你忍住没追问。',
   },
   {
     id: 'km-4',
@@ -608,7 +608,7 @@ async function deleteIt() {
       </view>
     </view>
 
-    <!-- 改名底部 modal(复用 add-modal 视觉,跟"想到啥告诉老 K"那个 modal 同款)-->
+    <!-- 改名底部 modal(复用 add-modal 视觉,跟"想到啥告诉老白"那个 modal 同款)-->
     <view v-if="renameModalOpen" class="add-modal-overlay" @tap="closeRenameModal">
       <view class="add-modal-scrim"></view>
       <view class="add-modal" @tap.stop>
@@ -676,18 +676,18 @@ async function deleteIt() {
         </view>
       </view>
 
-      <!-- spec-009 audit:删除"老 K 看见的"section — 之前是 hardcoded mock,
-        且跟 Section 3"你告诉老 K 的"共享 key_facts 会重复显示,
+      <!-- spec-009 audit:删除"老白看见的"section — 之前是 hardcoded mock,
+        且跟 Section 3"你告诉老白的"共享 key_facts 会重复显示,
         真信号已在"我们"Tab 顶部 verdict-card 展示 -->
 
 
-      <!-- ===== Section 3: 你告诉老 K 的(L2 用户主动 chip + 自动抽取) ===== -->
+      <!-- ===== Section 3: 你告诉老白的(L2 用户主动 chip + 自动抽取) ===== -->
       <view class="section">
-        <text class="section-title">你告诉老 K 的</text>
+        <text class="section-title">你告诉老白的</text>
 
         <!-- spec-008 Phase 2.2 待确认区:low confidence 抽取的事实,用户 ✓ 后转入正式 chips -->
         <view v-if="pendingFacts.length > 0" class="pending-block">
-          <text class="pending-block-title">老 K 不太确定 · 你看准不准</text>
+          <text class="pending-block-title">老白不太确定 · 你看准不准</text>
           <view v-for="p in pendingFacts" :key="p.text" class="pending-card">
             <view class="pending-card-head">
               <text class="pending-tag">{{ KIND_LABEL[p.kind] || p.kind }}</text>
@@ -714,14 +714,14 @@ async function deleteIt() {
           </view>
         </view>
 
-        <!-- 主动告诉老 K 的入口卡(L2 核心收集机制) -->
+        <!-- 主动告诉老白的入口卡(L2 核心收集机制) -->
         <view class="add-knowledge" @tap="addToldFact">
           <view class="add-knowledge-left">
             <view class="add-knowledge-icon">
               <text class="add-knowledge-icon-text">+</text>
             </view>
             <view class="add-knowledge-text">
-              <text class="add-knowledge-title">想到啥都告诉老 K</text>
+              <text class="add-knowledge-title">想到啥都告诉老白</text>
               <text class="add-knowledge-sub">她最近在忙啥 · 她讨厌啥 · 她朋友圈最近发啥</text>
             </view>
           </view>
@@ -729,16 +729,16 @@ async function deleteIt() {
         </view>
 
         <view class="extract-row">
-          <text class="add-knowledge-tip">越多老 K 越懂她,反馈越准。</text>
+          <text class="add-knowledge-tip">越多老白越懂她,反馈越准。</text>
           <text class="extract-link" @tap="extractFromConversation">
             {{ extracting ? '整理中…' : '从对话里整理 ↺' }}
           </text>
         </view>
       </view>
 
-      <!-- ===== Section 4: 老 K 还想知道的(暴露未知项 — 关键创新) ===== -->
+      <!-- ===== Section 4: 老白还想知道的(暴露未知项 — 关键创新) ===== -->
       <view class="section">
-        <text class="section-title">老 K 还想知道的</text>
+        <text class="section-title">老白还想知道的</text>
         <view
           v-for="(p, i) in unknownPrompts"
           :key="i"
@@ -754,15 +754,15 @@ async function deleteIt() {
 
     <!-- ============ Tab 2: 我们(关系演变叙事 = 复盘的真正价值) ============ -->
     <view v-if="activeTab === 'us'" class="content">
-      <!-- 老 K 现在看到的(spec-007 信号,社交化叙述,不是 dashboard) -->
+      <!-- 老白现在看到的(spec-007 信号,社交化叙述,不是 dashboard) -->
       <view class="laoke-verdict-card" :class="`verdict-${laokeVerdict.tone}`">
         <view class="verdict-head">
-          <text class="verdict-tag">老 K 看到的</text>
+          <text class="verdict-tag">老白看到的</text>
           <text class="verdict-sub">{{ laokeVerdict.sub }}</text>
         </view>
         <text class="verdict-text">{{ laokeVerdict.text }}</text>
 
-        <!-- 老 K 的具体观察(不超过 4-5 条,没变化的不说) -->
+        <!-- 老白的具体观察(不超过 4-5 条,没变化的不说) -->
         <view v-if="laokeSignalObs.length > 0" class="observations">
           <view v-for="(o, idx) in laokeSignalObs" :key="idx" class="obs-row">
             <text :class="['obs-arrow', `arrow-${o.tone}`]">{{ o.icon }}</text>
@@ -770,20 +770,20 @@ async function deleteIt() {
           </view>
         </view>
 
-        <!-- 兴趣度老 K 口吻一句话 -->
+        <!-- 兴趣度老白口吻一句话 -->
         <text v-if="laokeInterestNote" class="interest-quote">{{ laokeInterestNote }}</text>
       </view>
 
-      <!-- 老 K 写的月度叙事(Phase 2.5 LLM 化) -->
+      <!-- 老白写的月度叙事(Phase 2.5 LLM 化) -->
       <view class="narrative" style="margin-top: 48rpx">
         <view class="narrative-head">
-          <text class="narrative-label">老 K 给你写的</text>
+          <text class="narrative-label">老白给你写的</text>
           <text class="narrative-regen" @tap="regenerateInsights">
-            {{ insightsLoading ? '生成中…' : (usNarrative ? '重新生成 ↺' : '让老 K 写一段 ↺') }}
+            {{ insightsLoading ? '生成中…' : (usNarrative ? '重新生成 ↺' : '让老白写一段 ↺') }}
           </text>
         </view>
         <text v-if="usNarrative" class="narrative-text">{{ usNarrative }}</text>
-        <text v-else class="narrative-empty">还没写过这段关系的叙事,点上面让老 K 写。</text>
+        <text v-else class="narrative-empty">还没写过这段关系的叙事,点上面让老白写。</text>
       </view>
 
       <!-- 关键时刻 -->
@@ -811,16 +811,16 @@ async function deleteIt() {
 
     <!-- ============ Tab 3: 工具箱 ============ -->
     <view v-if="activeTab === 'toolbox'" class="content">
-      <!-- spec-009 audit:收藏的老 K 一段话(对话流上点 ☆ 触发) -->
+      <!-- spec-009 audit:收藏的老白一段话(对话流上点 ☆ 触发) -->
       <view class="section">
         <text class="section-title">收藏的回复 ({{ savedQuotes.length }})</text>
         <view v-if="savedQuotes.length === 0" class="empty-line">
-          <text class="empty-line-text">和老 K 聊的时候,在他回复下面点 ☆ 收藏,这里能找到。</text>
+          <text class="empty-line-text">和老白聊的时候,在他回复下面点 ☆ 收藏,这里能找到。</text>
         </view>
         <view v-else>
           <view v-for="q in savedQuotes" :key="q.id" class="saved-card">
             <view class="saved-card-head">
-              <text class="saved-card-direction">老 K 说的</text>
+              <text class="saved-card-direction">老白说的</text>
               <view class="saved-card-unsave" @tap="unsaveQuote(q.id)">
                 <text class="saved-card-unsave-icon">★</text>
               </view>
@@ -837,7 +837,7 @@ async function deleteIt() {
       <view v-if="savedDrafts.length > 0" class="section">
         <text class="section-title">收藏的话术 ({{ savedDrafts.length }})</text>
         <view v-if="savedDrafts.length === 0" class="empty-line">
-          <text class="empty-line-text">和老 K 聊的时候,觉得哪句好用就点 ☆ 收藏。</text>
+          <text class="empty-line-text">和老白聊的时候,觉得哪句好用就点 ☆ 收藏。</text>
         </view>
         <view v-else>
           <view v-for="d in savedDrafts" :key="d.id" class="saved-card">
@@ -859,7 +859,7 @@ async function deleteIt() {
       <view v-if="savedPlannings.length > 0" class="section">
         <text class="section-title">收藏的方向 ({{ savedPlannings.length }})</text>
         <view v-if="savedPlannings.length === 0" class="empty-line">
-          <text class="empty-line-text">老 K 给的"做什么/为什么/红线/退路",觉得有用就点 ☆。</text>
+          <text class="empty-line-text">老白给的"做什么/为什么/红线/退路",觉得有用就点 ☆。</text>
         </view>
         <view v-else>
           <view v-for="p in savedPlannings" :key="p.id" class="saved-card">
@@ -882,7 +882,7 @@ async function deleteIt() {
       <view class="add-modal-scrim" @tap="closeAddModal"></view>
       <view class="add-modal">
         <view class="add-modal-handle"></view>
-        <text class="add-modal-title">告诉老 K 一件她的事</text>
+        <text class="add-modal-title">告诉老白一件她的事</text>
         <text class="add-modal-sub">越具体越好——她最近的一件小事 / 你刚发现的</text>
         <textarea
           class="add-modal-input"
@@ -900,7 +900,7 @@ async function deleteIt() {
             :class="['add-modal-confirm', !newChipText.trim() && 'disabled']"
             @tap="confirmAddChip"
           >
-            <text class="add-modal-confirm-text">告诉老 K</text>
+            <text class="add-modal-confirm-text">告诉老白</text>
           </view>
         </view>
       </view>
@@ -1051,7 +1051,7 @@ async function deleteIt() {
   letter-spacing: 1.5rpx;
   margin-bottom: 24rpx;
 }
-// "你告诉老 K 的" 区底部,tip 跟"从对话整理"链并排,跟整页低饱和调一致
+// "你告诉老白的" 区底部,tip 跟"从对话整理"链并排,跟整页低饱和调一致
 .extract-row {
   display: flex;
   flex-direction: row;
@@ -1071,7 +1071,7 @@ async function deleteIt() {
   &:active { opacity: 0.6; }
 }
 
-// === 老 K 引文(她 Tab) ===
+// === 老白引文(她 Tab) ===
 .quote {
   position: relative;
   padding-left: 28rpx;
@@ -1139,7 +1139,7 @@ async function deleteIt() {
   line-height: 1.5;
 }
 
-// === Chips(你告诉老 K 的) ===
+// === Chips(你告诉老白的) ===
 // === spec-008 Phase 2.2 待确认区 ===
 .pending-block {
   margin-bottom: 24rpx;
@@ -1259,7 +1259,7 @@ async function deleteIt() {
   color: $color-accent;
   line-height: 1;
 }
-// 主动告诉老 K(L2 核心入口,视觉权重更高)
+// 主动告诉老白(L2 核心入口,视觉权重更高)
 .add-knowledge {
   display: flex;
   flex-direction: row;
@@ -1361,7 +1361,7 @@ async function deleteIt() {
   flex-shrink: 0;
 }
 
-// === "老 K 现在看到的"卡(spec-007 信号社交化版,replace dashboard)===
+// === "老白现在看到的"卡(spec-007 信号社交化版,replace dashboard)===
 .laoke-verdict-card {
   background-color: $color-surface;
   border-radius: 28rpx;

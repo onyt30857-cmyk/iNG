@@ -22,11 +22,11 @@ function start() {
 
 <template>
   <view class="welcome">
-    <!-- 顶部老 K 标识 -->
+    <!-- 顶部老白标识 -->
     <view class="header">
       <view class="laoke-avatar">老</view>
       <view class="header-text">
-        <view class="laoke-name">老 K</view>
+        <view class="laoke-name">老白</view>
         <view class="laoke-tag">练爱 · 私聊</view>
       </view>
     </view>
@@ -38,7 +38,7 @@ function start() {
         class="bubble"
         :class="{ 'fade-in': visibleCount >= 1 }"
       >
-        嗨,我是<text class="strong">老 K</text>。
+        嗨,我是<text class="strong">老白</text>。
       </view>
       <view
         v-show="visibleCount >= 2"

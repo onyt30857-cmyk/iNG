@@ -158,7 +158,7 @@ export default function DislikesPage() {
             </div>
             {it.bubble_text && (
               <div className="text-sm">
-                <span className="text-muted-foreground text-xs mr-2">老 K 说:</span>
+                <span className="text-muted-foreground text-xs mr-2">老白说:</span>
                 <span className="line-clamp-2">{it.bubble_text}</span>
               </div>
             )}

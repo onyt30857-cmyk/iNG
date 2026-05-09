@@ -4,7 +4,7 @@
 // 合并到 relationship.basic_facts.key_facts。
 //
 // 标准:
-// - 只看用户说的话,不看老 K 的话
+// - 只看用户说的话,不看老白的话
 // - 必须 quote 一句具体的对话证据,无 quote 不收
 // - 不抽用户情绪 / 短期波动 / 推测句式
 // - 跟现有 key_facts 重复的不重复抽
@@ -52,7 +52,7 @@ export interface ExtractProfileResult {
   relationship: Relationship
 }
 
-const SYSTEM_PROMPT = `你是「老 K」的档案管理助手。兄弟把跟「{{name}}」的所有对话历史给了你,
+const SYSTEM_PROMPT = `你是「老白」的档案管理助手。兄弟把跟「{{name}}」的所有对话历史给了你,
 你的任务是从他说的话里(只看 user,不看 laoke)提取关于这位「{{name}}」的稳定事实。
 
 # 抽取范围
@@ -68,7 +68,7 @@ const SYSTEM_PROMPT = `你是「老 K」的档案管理助手。兄弟把跟「{
 - 用户自己的情绪/担心("我紧张""我怕她不喜欢我"——这是关于用户,不是关于她)
 - 短期波动("她今天没回我""昨天她生气了"——这是状态,不是档案)
 - 推测/猜测("她可能...""会不会是..."——不是事实)
-- 老 K 的判断/分析(只看 user 说的话)
+- 老白的判断/分析(只看 user 说的话)
 - 跟「现有档案」重复的事实(下面会列出已有事实,跳过)
 
 # 证据要求(关键)
@@ -134,7 +134,7 @@ function buildUserMessage(
     lines.push('(空)')
   } else {
     for (const m of history) {
-      const who = m.speaker === 'user' ? '兄弟' : '老 K'
+      const who = m.speaker === 'user' ? '兄弟' : '老白'
       lines.push(`${who}: ${m.text}`)
     }
   }
@@ -215,7 +215,7 @@ export async function extractRelationshipProfile(
       { role: 'user', content: buildUserMessage(input.history, existingFacts, rejectedFacts) },
     ],
     max_tokens: 1500,
-    skipPersonaCheck: true, // 抽取场景不是老 K 直接说话,不必跑 persona check
+    skipPersonaCheck: true, // 抽取场景不是老白直接说话,不必跑 persona check
   })
 
   let parsed: { facts: ExtractedFact[] }

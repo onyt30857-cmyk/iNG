@@ -1,4 +1,4 @@
-// 老 K 人格自检(CLAUDE.md §4 + parsing.md §5.3)
+// 老白人格自检(CLAUDE.md §4 + parsing.md §5.3)
 //
 // 扫描文本中是否含咨询师腔/报告体/网感词/PUA 倾向词/emoji。
 // 违规并不立即阻断 LLM 输出(避免用户看到半截再消失),而是记录到 prompt_feedback
@@ -117,7 +117,7 @@ export class PersonaViolationError extends Error {
     summary: string,
     public readonly violations: PersonaViolation[],
   ) {
-    super(`老 K 人格自检不通过: ${summary}`)
+    super(`老白人格自检不通过: ${summary}`)
     this.name = 'PersonaViolationError'
   }
 }

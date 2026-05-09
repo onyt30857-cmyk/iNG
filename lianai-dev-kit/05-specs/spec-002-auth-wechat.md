@@ -170,7 +170,7 @@
 - [ ] 登录后 storage 里有 token
 - [ ] 重启 App 仍然登录
 - [ ] 新用户进 onboarding,老用户进主页
-- [ ] 错误提示符合老 K 文案规范
+- [ ] 错误提示符合老白文案规范
 - [ ] 无 hardcode 配置
 - [ ] 测试覆盖核心 service
 

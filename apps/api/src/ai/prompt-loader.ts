@@ -1,4 +1,4 @@
-// 老 K prompt 加载器
+// 老白prompt 加载器
 //
 // 从 lianai-dev-kit/03-prompts/<name>.md 提取 §"System Prompt" 节里的 ``` fence 内容。
 // 5 个标准状态(parsing/reflecting/diagnosing/planning/drafting)结构一致:

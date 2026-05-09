@@ -1,9 +1,9 @@
 // Admin 行为指标聚合 service(spec-013 模块 D 后台聚合)
 //
 // 3 个核心 KPI(per spec-013 §4.D):
-// - 30 秒留存率:收到老 K 回复后 30 秒内继续打字的比例
+// - 30 秒留存率:收到老白回复后 30 秒内继续打字的比例
 // - 话术采纳率:drafted reply 被复制的比例(user_copied_draft / laoke_reply_received)
-// - 离开率:收到老 K 回复后 5 分钟内 user_left_app 的比例
+// - 离开率:收到老白回复后 5 分钟内 user_left_app 的比例
 
 import { prisma } from '../../lib/prisma.js'
 
@@ -40,7 +40,7 @@ export async function getBehaviorKpis(windowDays = 7) {
   return {
     window_days: windowDays,
     laoke_replies: replies,
-    // 留存率分母:收到老 K 回复总次数
+    // 留存率分母:收到老白回复总次数
     retention_30s_rate: replies > 0 ? typedAfter / replies : 0,
     leave_5min_rate: replies > 0 ? leftApp / replies : 0,
     draft_copy_rate: replies > 0 ? copiedDraft / replies : 0,

@@ -4,7 +4,7 @@
 // 这里不分阶段,LLM 看完整对话上下文 + 用户最新消息,自然回应。
 //
 // 输出纯文本(简化版,不分 type)。后续可升级为 JSON { type, content } 让前端渲染
-// 不同气泡(question / planning / drafts),但先把"用户发字 → 老 K 回字"链路打通。
+// 不同气泡(question / planning / drafts),但先把"用户发字 → 老白回字"链路打通。
 
 import { loadPrompt } from '../prompt-loader.js'
 import {
@@ -25,7 +25,7 @@ export interface ConversationTurnInput {
   user_id: string
   relationship_id: string
   session_id?: string
-  /** 关系名(给老 K 称呼用) */
+  /** 关系名(给老白称呼用) */
   relationship_name: string
   /** 对话历史(最近 20 条够了,再多 token 浪费) */
   history: ReadonlyArray<ConversationTurnHistoryItem>
@@ -33,18 +33,18 @@ export interface ConversationTurnInput {
   user_text: string
   /** 跨关系审计黑名单 */
   other_identifiers: ReadonlyArray<string>
-  /** spec-007 Phase 19.5:老 K"私下看到的"信号 brief(前端从 OCR 累积消息算出来,翻译成大白话) */
+  /** spec-007 Phase 19.5:老白"私下看到的"信号 brief(前端从 OCR 累积消息算出来,翻译成大白话) */
   signal_brief?: string
 }
 
-const TURN_SYSTEM_PROMPT_PREFIX = `你是「老K」——32 岁、过得不错的兄长型角色,详细人格见下面。
+const TURN_SYSTEM_PROMPT_PREFIX = `你是「老白」——32 岁、过得不错的兄长型角色,详细人格见下面。
 现在你在跟兄弟持续聊天,他刚说了一句新消息。
 
-# Layer 0 — 老 K 基线人格(默认基调,所有回应都先过这一层)
+# Layer 0 — 老白基线人格(默认基调,所有回应都先过这一层)
 
 你不是产品经理、不是 HR、不是客服、不是培训师。你是**兄弟**。
 跟哥们聊天,默认带 **30% 玩闹感**:能反问就反问,能自嘲就自嘲,能抖个机灵就抖。
-正式 / 礼貌 / 周到 / 道歉式 / 安抚式 — 这些是默认 LLM 的"安全模式",对老 K 是失败模式。
+正式 / 礼貌 / 周到 / 道歉式 / 安抚式 — 这些是默认 LLM 的"安全模式",对老白是失败模式。
 
 具体落地:
 - ❌ 不要"我跟你说真的" / "其实"开头(过度认真,装腔调)
@@ -279,8 +279,8 @@ export async function runConversationTurn(
   input: ConversationTurnInput,
   handlers: CallClaudeStreamHandlers,
 ): Promise<ConversationTurnOutput> {
-  // 加载老 K 完整人格(从 parsing.md 内核取,reflecting/diagnosing 那种结构感不要)
-  // M1 简化:用一个内嵌 prompt + 老 K 通用人格描述
+  // 加载老白完整人格(从 parsing.md 内核取,reflecting/diagnosing 那种结构感不要)
+  // M1 简化:用一个内嵌 prompt + 老白通用人格描述
   const personaIntro = await loadPrompt('parsing').catch(() => '')
   // 抽出 parsing.md 里的"你是谁 / 你绝对不说的话 / 你常说的话"段(简化:用整个 parsing prompt 但
   // 这里 system prompt 自己已经盖住了流程相关部分)
@@ -325,14 +325,14 @@ export function composeUserMessage(
   const lines: string[] = []
   lines.push(`# 关系\n你跟兄弟正在聊「${input.relationship_name}」这段关系。\n`)
 
-  // spec-007 Phase 19.5:老 K 的 inner state(他"私下看到的")
+  // spec-007 Phase 19.5:老白的 inner state(他"私下看到的")
   if (input.signal_brief && input.signal_brief.trim().length > 0) {
-    lines.push('# 你私下看到的(老 K 的 inner state,不是兄弟刚说的)')
+    lines.push('# 你私下看到的(老白的 inner state,不是兄弟刚说的)')
     lines.push(input.signal_brief.trim())
     lines.push('')
   }
 
-  // Phase 4.1 长期记忆:超过 80 条窗口的旧对话摘要(老 K 的"累积观察")
+  // Phase 4.1 长期记忆:超过 80 条窗口的旧对话摘要(老白的"累积观察")
   if (longTermMemory && longTermMemory.trim().length > 0) {
     lines.push('# 你跟兄弟更早聊过的累积观察(超过最近 80 条窗口的部分压缩成这段)')
     lines.push(longTermMemory.trim())
@@ -341,10 +341,10 @@ export function composeUserMessage(
 
   if (input.history.length > 0) {
     lines.push('# 之前的对话(最近的在最后,你能"翻找过去内容"全靠这段)')
-    // 从 20 → 80,让老 K 真有记忆。前端 history 已经把截图 OCR 内容内联了,你能看到截图里的话
+    // 从 20 → 80,让老白真有记忆。前端 history 已经把截图 OCR 内容内联了,你能看到截图里的话
     const recent = input.history.slice(-80)
     for (const m of recent) {
-      const who = m.speaker === 'user' ? '兄弟' : '你(老 K)'
+      const who = m.speaker === 'user' ? '兄弟' : '你(老白)'
       lines.push(`${who}: ${m.text}`)
     }
     lines.push('')

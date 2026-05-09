@@ -21,7 +21,7 @@ describe('prompt-loader', () => {
 ## 3. System Prompt(完整文本)
 
 \`\`\`
-你是老K。
+你是老白。
 说话直接但不冷。
 \`\`\`
 
@@ -29,7 +29,7 @@ describe('prompt-loader', () => {
 其他内容
 `
       const prompt = extractSystemPrompt(md, 'parsing')
-      expect(prompt).toBe('你是老K。\n说话直接但不冷。')
+      expect(prompt).toBe('你是老白。\n说话直接但不冷。')
     })
 
     it('容忍标题里的备注后缀(状态 A 完整版 / 完整文本)', () => {
@@ -69,7 +69,7 @@ interface X {}
   })
 
   describe('loadPrompt(真实文件)', () => {
-    it('加载 parsing 包含老 K 人格关键句', async () => {
+    it('加载 parsing 包含老白人格关键句', async () => {
       const prompt = await loadPrompt('parsing')
       expect(prompt).toMatch(/你是老 ?K/)
       expect(prompt.length).toBeGreaterThan(500)

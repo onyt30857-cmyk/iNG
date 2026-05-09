@@ -100,8 +100,8 @@ export default function FeedbackDashboardPage() {
             <section className="space-y-1">
               <h3 className="font-semibold">这页是干嘛的</h3>
               <p className="text-muted-foreground">
-                看用户对老 K 的评价。用户在 App 里点 👍 / 👎 / 写评论
-                ,这页把所有反馈汇总成趋势图,告诉你老 K 这周表现怎么样、问题集中在哪。
+                看用户对老白的评价。用户在 App 里点 👍 / 👎 / 写评论
+                ,这页把所有反馈汇总成趋势图,告诉你老白这周表现怎么样、问题集中在哪。
               </p>
             </section>
 
@@ -113,7 +113,7 @@ export default function FeedbackDashboardPage() {
                   今天比昨天高了 5% 就值得查;每天 5% 的差不多算稳定。
                 </Tip>
                 <Tip emoji="🎯" title="关系阶段分布">
-                  哪个阶段的关系吐槽最多?如果"暧昧"和"冲突"阶段差评特别集中,可能老 K
+                  哪个阶段的关系吐槽最多?如果"暧昧"和"冲突"阶段差评特别集中,可能老白
                   在这两种场景的指南需要重点改。
                 </Tip>
                 <Tip emoji="👥" title="高反馈用户 Top 10">
@@ -155,11 +155,11 @@ export default function FeedbackDashboardPage() {
                   </p>
                   <p className="text-muted-foreground">
                     <strong className="text-foreground">第 3 步</strong>:
-                    看 5-10 条 dislike → 找规律(比如"老 K 一直在重复用户原话""老 K 给的话术太正式")
+                    看 5-10 条 dislike → 找规律(比如"老白一直在重复用户原话""老白给的话术太正式")
                   </p>
                   <p className="text-muted-foreground">
                     <strong className="text-foreground">第 4 步</strong>:
-                    去 <Link href="/prompts" className="text-primary underline">/prompts</Link> 改老 K 说话方式 → 测试 → 上线
+                    去 <Link href="/prompts" className="text-primary underline">/prompts</Link> 改老白说话方式 → 测试 → 上线
                   </p>
                   <p className="text-muted-foreground">
                     <strong className="text-foreground">第 5 步</strong>:

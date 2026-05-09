@@ -165,7 +165,7 @@ export default function ConversationInspectorPage() {
               )}
               {overview.persona_fail_count > 0 && (
                 <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400 px-2.5 py-0.5 text-xs">
-                  <ShieldOff className="h-3 w-3 mr-1" /> 老 K 出格 {overview.persona_fail_count} 次
+                  <ShieldOff className="h-3 w-3 mr-1" /> 老白出格 {overview.persona_fail_count} 次
                 </span>
               )}
             </div>
@@ -181,7 +181,7 @@ export default function ConversationInspectorPage() {
           className="h-9 rounded-md border border-input bg-background px-3 text-sm"
         >
           <option value="all">全部消息</option>
-          <option value="laoke">只看老 K</option>
+          <option value="laoke">只看老白</option>
           <option value="user">只看用户</option>
           <option value="system">只看系统</option>
         </select>
@@ -232,7 +232,7 @@ export default function ConversationInspectorPage() {
                   >
                     <div className="flex items-start gap-2 text-xs text-muted-foreground mb-1">
                       <span className="shrink-0">
-                        {isLaoke ? '🤖 老 K' : isUser ? '👤 用户' : '⚙️ 系统'}
+                        {isLaoke ? '🤖 老白' : isUser ? '👤 用户' : '⚙️ 系统'}
                       </span>
                       <span className="ml-auto shrink-0">{formatDate(m.created_at)}</span>
                     </div>
@@ -295,7 +295,7 @@ export default function ConversationInspectorPage() {
                     <div className="flex items-center justify-between mb-2 text-xs text-muted-foreground">
                       <span>
                         {selected.role === 'LAOKE'
-                          ? '🤖 老 K'
+                          ? '🤖 老白'
                           : selected.role === 'USER' || selected.role === 'USER_SCREENSHOT'
                           ? '👤 用户'
                           : '⚙️ 系统'}{' '}
@@ -343,7 +343,7 @@ export default function ConversationInspectorPage() {
                           成本:¥{(selected.ai_metadata.cost_usd * 7.2).toFixed(4)}
                         </div>
                         <div>
-                          老 K persona:{' '}
+                          老白persona:{' '}
                           {selected.ai_metadata.persona_passed ? (
                             <span className="text-green-600">✓ 通过</span>
                           ) : (

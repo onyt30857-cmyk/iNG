@@ -23,7 +23,7 @@
 
 | Token | Hex | RGB | 用途 |
 |-------|-----|-----|------|
-| `--color-primary` | `#8B5CF6` | 139, 92, 246 | 主色,关键 CTA、老 K 角标 |
+| `--color-primary` | `#8B5CF6` | 139, 92, 246 | 主色,关键 CTA、老白角标 |
 | `--color-primary-hover` | `#7C3AED` | 124, 58, 237 | Hover 态 |
 | `--color-primary-deep` | `#6D28D9` | 109, 40, 217 | 强调元素 |
 | `--color-primary-light` | `#DDD6FE` | 221, 214, 254 | 选中态背景 |
@@ -76,7 +76,7 @@
 
 1. **80% 中性色 + 15% 主色 + 5% 语义色**——比例不能反
 2. 同一屏不超过 3 种主要色彩
-3. 深紫只在「关键 CTA」「老 K 角标」「重要徽标」三处出现
+3. 深紫只在「关键 CTA」「老白角标」「重要徽标」三处出现
 4. **绝不用粉色**
 5. **绝不用渐变填充大面积**
 
@@ -124,9 +124,9 @@ $font-feature-tabular: "tnum" 1;
 | `--weight-semibold` | 600 | 标题 |
 | `--weight-bold` | 700 | 大标题、Hero |
 
-### 3.4 老 K 说话特殊规格
+### 3.4 老白说话特殊规格
 
-老 K 的话比正文大半号:
+老白的话比正文大半号:
 
 ```scss
 .laoke-message {
@@ -276,7 +276,7 @@ $font-feature-tabular: "tnum" 1;
 
 ### 7.3 对话气泡 MessageBubble
 
-#### 老 K 气泡
+#### 老白气泡
 
 ```scss
 .message-laoke {
@@ -588,7 +588,7 @@ const TYPING_SPEED_MS = 30; // 每个字符 30ms
 // 段落之间停顿
 const PARAGRAPH_PAUSE_MS = 400;
 
-// 关键句子前停顿(让用户感受老 K 在斟酌)
+// 关键句子前停顿(让用户感受老白在斟酌)
 const KEY_SENTENCE_PAUSE_MS = 600;
 
 // 光标

@@ -5,7 +5,7 @@
 // 真订阅用户(Subscription ACTIVE)不限。
 //
 // 三类 counter:
-// - turn_count:conversation-turn(老 K 主回应)+ intent-classifier
+// - turn_count:conversation-turn(老白主回应)+ intent-classifier
 // - ocr_count:Claude vision OCR
 // - heavy_count:extract-profile / generate-insights / summarize / red-line LLM check 等
 

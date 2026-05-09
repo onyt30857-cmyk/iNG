@@ -103,7 +103,7 @@ export interface ConversationMessage {
   content: string | null
   screenshot_url: string | null
   created_at: Date
-  // 老 K 消息附带的调用 metadata(fuzzy 关联,可空)
+  // 老白消息附带的调用 metadata(fuzzy 关联,可空)
   ai_metadata: {
     model: string
     cost_usd: number
@@ -112,7 +112,7 @@ export interface ConversationMessage {
     input_tokens: number
     output_tokens: number
   } | null
-  // 用户反馈(对老 K 消息,fuzzy 关联,可多条)
+  // 用户反馈(对老白消息,fuzzy 关联,可多条)
   feedback: Array<{
     type: string
     note: string | null
@@ -236,7 +236,7 @@ export async function listRelationshipMessages(
 
   // 给每条 message 附 fuzzy 关联的 metadata
   const items: ConversationMessage[] = messages.map((m) => {
-    // 老 K 消息找最近的 ai_call_log(同 relationship_id + 时间最近,±90s)
+    // 老白消息找最近的 ai_call_log(同 relationship_id + 时间最近,±90s)
     let aiMetadata: ConversationMessage['ai_metadata'] = null
     if (m.role === 'LAOKE') {
       const matchCall = aiCalls
@@ -258,7 +258,7 @@ export async function listRelationshipMessages(
       }
     }
 
-    // 老 K 消息找该时间窗口内的反馈(可能多条)
+    // 老白消息找该时间窗口内的反馈(可能多条)
     const matchFeedbacks =
       m.role === 'LAOKE'
         ? feedbacks

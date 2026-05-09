@@ -365,7 +365,7 @@ function CallDetailDialog({
               {data.nearby_laoke_messages.length > 0 && (
                 <div>
                   <h3 className="text-xs font-medium mb-2 text-muted-foreground">
-                    同关系附近 1 分钟内老 K 输出({data.nearby_laoke_messages.length} 条)
+                    同关系附近 1 分钟内老白输出({data.nearby_laoke_messages.length} 条)
                   </h3>
                   <div className="space-y-2">
                     {data.nearby_laoke_messages.map((m) => (

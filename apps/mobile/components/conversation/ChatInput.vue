@@ -151,7 +151,7 @@ function confirmNoteAndPickImages() {
       <view class="quote-modal-card" @tap.stop>
         <view class="quote-modal-handle"></view>
         <text class="quote-modal-title">把她回的话粘进来</text>
-        <text class="quote-modal-sub">原话给老 K 看,他帮你想怎么接</text>
+        <text class="quote-modal-sub">原话给老白看,他帮你想怎么接</text>
         <textarea
           v-model="quoteText"
           class="quote-modal-input"
@@ -165,7 +165,7 @@ function confirmNoteAndPickImages() {
             <text class="quote-modal-cancel-text">取消</text>
           </view>
           <view class="quote-modal-confirm" @tap="confirmQuote">
-            <text class="quote-modal-confirm-text">发给老 K</text>
+            <text class="quote-modal-confirm-text">发给老白</text>
           </view>
         </view>
       </view>
@@ -187,7 +187,7 @@ function confirmNoteAndPickImages() {
           maxlength="200"
           :focus="noteModalOpen"
         />
-        <view class="note-hint">老 K 会用这句话给方向。空着也行。</view>
+        <view class="note-hint">老白会用这句话给方向。空着也行。</view>
         <view class="note-actions">
           <button class="note-btn note-btn-secondary" @tap="cancelNote">
             <text class="note-btn-text-secondary">取消</text>

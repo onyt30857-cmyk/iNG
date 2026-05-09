@@ -215,7 +215,7 @@ export async function getRelationshipHistory(
 }
 
 /**
- * 添加一条用户提醒("你提醒老 K 的"那一组)。
+ * 添加一条用户提醒("你提醒老白的"那一组)。
  * 用 raw JSON 操作:读出现有数组 → push → 写回。
  */
 export async function addUserReminder(

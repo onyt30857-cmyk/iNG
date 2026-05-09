@@ -77,7 +77,7 @@ export async function sessionRoutes(app: FastifyInstance): Promise<void> {
   })
 
   /**
-   * 触发 PARSING:同步调老 K(Anthropic Claude Sonnet 4),返回完整复盘文本。
+   * 触发 PARSING:同步调老白(Anthropic Claude Sonnet 4),返回完整复盘文本。
    *
    * 当前阶段(spec-004 OCR 还没实施):前端把对话消息列表直接放 body 传。
    * spec-004 实施后:messages 从数据库 messages 表读出,body 只保留 entry_note。
@@ -106,7 +106,7 @@ export async function sessionRoutes(app: FastifyInstance): Promise<void> {
 
   /**
    * 流式版 PARSING:用 chunked transfer encoding 推每个 text delta。
-   * 前端 fetch + ReadableStream 接收,体感"老 K 边想边说"。
+   * 前端 fetch + ReadableStream 接收,体感"老白边想边说"。
    *
    * Response:
    *   Content-Type: text/plain; charset=utf-8

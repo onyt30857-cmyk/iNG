@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // Onboarding 页(spec-018 O1 完全对话流定稿)
 // 流程:
-//   ① 老 K 招呼 → 用户输入昵称 →
-//   ② 老 K 应"行,XXX。" + "挑个让我认得你的样子" → 头像 grid 嵌入对话流卡片 →
+//   ① 老白招呼 → 用户输入昵称 →
+//   ② 老白应"行,XXX。" + "挑个让我认得你的样子" → 头像 grid 嵌入对话流卡片 →
 //   ③ 用户选 / 跳过 → PATCH /users/me → 进 /pages/home
 // 任一步失败 toast,不阻断 — 最坏情况用户再点一次
 
@@ -26,7 +26,7 @@ const nicknameValid = computed(() => nicknameLength.value >= 2 && nicknameLength
 // 头像
 const selectedAvatar = ref<string | null>(null)
 
-// 老 K 还在打字?(纯视觉提示)
+// 老白还在打字?(纯视觉提示)
 const laokeTyping = ref(true)
 
 function handleNicknameInput(e: { detail: { value: string } }) {
@@ -44,7 +44,7 @@ async function submitNickname() {
   // 进入下一阶段
   laokeTyping.value = true
   phase.value = 'choosing_avatar'
-  // 600ms 后老 K 应一句
+  // 600ms 后老白应一句
   setTimeout(() => {
     laokeTyping.value = false
   }, 600)
@@ -92,11 +92,11 @@ async function finish(skipAvatar: boolean) {
 
 <template>
   <view class="page">
-    <!-- 顶部老 K 标识 -->
+    <!-- 顶部老白标识 -->
     <view class="header">
       <view class="laoke-avatar">老</view>
       <view class="header-text">
-        <view class="laoke-name">老 K</view>
+        <view class="laoke-name">老白</view>
         <view class="laoke-tag">练爱 · 私聊</view>
       </view>
     </view>
@@ -104,17 +104,17 @@ async function finish(skipAvatar: boolean) {
     <!-- 对话流(view + overflow:auto 替代 scroll-view,
          避免 uni-app H5 的 scroll-view wrapper 让子元素 fit-content 失效)-->
     <view class="messages">
-      <view class="bubble">嗨,我是老 K。先告诉我,怎么叫你?</view>
+      <view class="bubble">嗨,我是老白。先告诉我,怎么叫你?</view>
 
       <!-- 用户已提交昵称(进入第二阶段)-->
       <view v-if="phase !== 'naming'" class="bubble user">{{ nickname.trim() }}</view>
 
-      <!-- 老 K 打字中(进入选头像阶段时短暂显示)-->
+      <!-- 老白打字中(进入选头像阶段时短暂显示)-->
       <view v-if="phase === 'choosing_avatar' && laokeTyping" class="bubble bubble-typing">
         <view class="dot"></view><view class="dot"></view><view class="dot"></view>
       </view>
 
-      <!-- 老 K 应一句 + 头像 grid 卡片 -->
+      <!-- 老白应一句 + 头像 grid 卡片 -->
       <template v-if="phase === 'choosing_avatar' && !laokeTyping || phase === 'submitting'">
         <view class="bubble">行,{{ nickname.trim() }}。</view>
         <view class="bubble">挑个让我认得你的样子 — 不挑也行,先用默认。</view>
@@ -149,7 +149,7 @@ async function finish(skipAvatar: boolean) {
         </view>
       </template>
 
-      <!-- 提交成功后老 K 收尾气泡(submit 后短暂显示再跳转)-->
+      <!-- 提交成功后老白收尾气泡(submit 后短暂显示再跳转)-->
       <view v-if="phase === 'submitting'" class="bubble closing">行,我们这就开始。</view>
 
       <!-- 滚动锚 -->

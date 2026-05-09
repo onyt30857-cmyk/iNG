@@ -52,7 +52,7 @@ Sam 反馈两个具体问题:
 | 客观背景(身份/年龄/职业/地点/认识方式) | 用户情绪/担心("我紧张") |
 | 稳定偏好(她爱/不爱什么) | 短期波动("她今天没回我") |
 | 重要他人(家人/前任/朋友,用户明确提到) | 推测句式("她可能...") |
-| 关系阶段事件(她生日、纪念日,用户明确提到) | 老 K 自己的判断 |
+| 关系阶段事件(她生日、纪念日,用户明确提到) | 老白自己的判断 |
 
 ### 4.3 质量验证(2026-05-06 实测)
 
@@ -62,14 +62,14 @@ Sam 反馈两个具体问题:
 - ❌ "我有点焦虑" → 用户情绪,正确忽略
 - ❌ "今天她又没回我" → 短期波动,正确忽略
 - ❌ "她可能就是不喜欢被催吧" → 推测句式,正确忽略
-- ❌ 老 K 说的话 → 全部忽略
+- ❌ 老白说的话 → 全部忽略
 
 可优化:case 拆分粒度("她是同事 / 在产品组"被拆成 2 条)— 后续 prompt 调整可合并。
 
 ## 5. 数据流
 
 ```
-用户在对话页跟老 K 聊小美的事
+用户在对话页跟老白聊小美的事
   → conversation 流里有 user_text 含"她在产品组" 等
   → 用户进 detail.vue "她"Tab,点"从对话里整理 ↺"
   → 前端收集所有 user_text + laoke_text → POST /v1/relationships/:id/extract-profile
@@ -102,7 +102,7 @@ apps/mobile/pages/relationship/detail.vue       # Hero 区头像/改名 + Sectio
 
 ## 7. 红线
 
-- ❌ 不抽用户情绪/担心 / 短期波动 / 推测句式 / 老 K 自己的话
+- ❌ 不抽用户情绪/担心 / 短期波动 / 推测句式 / 老白自己的话
 - ❌ 不在 prompt 里暴露其他关系档案(per-relationship 严格隔离,Layer 1 ownership 校验)
 - ❌ 不引入 embedding/vector 重武器(M1 简单字符串去重 + LLM 自己判重就够)
 
@@ -119,7 +119,7 @@ apps/mobile/pages/relationship/detail.vue       # Hero 区头像/改名 + Sectio
 
 - **Layer 2 / Layer 3 三层数据存储**(CLAUDE.md §5.3):
   - Layer 1 messages 表(全量)
-  - Layer 2 relationship_observations(老 K 观察,反复确认升级)
+  - Layer 2 relationship_observations(老白观察,反复确认升级)
   - Layer 3 profile_assertions(高频引用核心,精炼)
 - **schema strict 字段名 bug 修**:`basicFactsSchema` 用了 `.strict()` + 字段名不一致
   (spec-003 留下的,详见 spec-007 实测时发现)。改成更宽松或字段名一致

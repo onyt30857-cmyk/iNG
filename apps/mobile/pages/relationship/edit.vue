@@ -73,7 +73,7 @@ async function handleCreate() {
   const created = await store.create(input)
   if (created) {
     // 创建完直接进对话页(spec-006 单线程对话流是产品主场景),
-    // 不再先去 detail 页 — 用户填完信息当下就想跟老 K 聊,detail 页可后续从顶栏 ⋯ 进
+    // 不再先去 detail 页 — 用户填完信息当下就想跟老白聊,detail 页可后续从顶栏 ⋯ 进
     uni.redirectTo({ url: `/pages/relationship/conversation?id=${created.id}` })
   }
 }

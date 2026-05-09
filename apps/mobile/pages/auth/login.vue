@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 登录页 - spec-002
 // 设计原型: __design-preview__/spec-002/login.html(已 review 通过)
-// 文案: 04-design/pages.md §3 + design-system.md §9 老 K 风格
+// 文案: 04-design/pages.md §3 + design-system.md §9 老白风格
 
 import { ref } from 'vue'
 import { wechatLogin } from '../../api/auth.api'
@@ -13,7 +13,7 @@ const userStore = useUserStore()
 const state = ref<LoginState>('default')
 const errorMessage = ref('')
 
-// 不同状态对应的 toast 文案(老 K 风格,见 design-system.md §9)
+// 不同状态对应的 toast 文案(老白风格,见 design-system.md §9)
 const stateMessages: Record<Exclude<LoginState, 'default' | 'loading'>, { text: string; severity: 'warn' | 'danger' }> = {
   rejected: { text: '没事,你再想想。准备好了再点。', severity: 'warn' },
   network: { text: '网络好像不太行,你看看 wifi。', severity: 'danger' },
@@ -81,7 +81,7 @@ function openAgreement(_type: 'terms' | 'privacy') {
         <text class="brand-mark-text">练</text>
       </view>
       <text class="welcome">欢迎,陌生人</text>
-      <text class="subtitle">先认识一下。我是老 K,帮你看清局面、给你方向。</text>
+      <text class="subtitle">先认识一下。我是老白,帮你看清局面、给你方向。</text>
     </view>
 
     <!-- 底部 CTA 区 -->

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-// 老 K 进入对话页时的引导卡 - spec-007 Phase 19.6
+// 老白进入对话页时的引导卡 - spec-007 Phase 19.6
 //
-// 一行 inline,左色条 + 老 K 一句话 + ✕。点击主体 = emit click,✕ = emit dismiss。
+// 一行 inline,左色条 + 老白一句话 + ✕。点击主体 = emit click,✕ = emit dismiss。
 // 视觉跟 detail.vue verdict-card / list.vue briefing 同套。
 
 import type { ProactiveHint } from '../../utils/proactive-hint'

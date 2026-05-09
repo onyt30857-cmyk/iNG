@@ -32,7 +32,7 @@ import { errors } from '../../lib/error.js'
 export interface RunConversationTurnInput {
   user_text: string
   history: ConversationTurnHistoryItem[]
-  /** spec-007 Phase 19.5:老 K"私下看到的"信号 brief,可空 */
+  /** spec-007 Phase 19.5:老白"私下看到的"信号 brief,可空 */
   signal_brief?: string | null
 }
 

@@ -135,8 +135,8 @@ export default function LlmDashboardPage() {
             <section className="space-y-1">
               <h3 className="font-semibold">这页是干嘛的</h3>
               <p className="text-muted-foreground">
-                每次老 K 跟用户说话,系统都要去问 AI 模型(Claude)— 这页看
-                **AI 调用花了多少钱、有多稳定、老 K 像不像兄长**。简单说:产品的 AI 后勤面板。
+                每次老白跟用户说话,系统都要去问 AI 模型(Claude)— 这页看
+                **AI 调用花了多少钱、有多稳定、老白像不像兄长**。简单说:产品的 AI 后勤面板。
               </p>
             </section>
 
@@ -147,12 +147,12 @@ export default function LlmDashboardPage() {
                   调 AI 是要花钱的,显示的是美元(¥7.2 折一美元)。**每天 1-5 美元正常**,
                   超过 50 美元 / 天要查是不是某个用户在被滥用 — 看"成本 Top 10 用户"。
                 </Tip>
-                <Tip emoji="🎭" title="老 K Persona 通过率">
-                  系统每次老 K 说话,会扫一遍有没有"出格" — 比如说了"我建议从以下几个方面"这种机器感、
+                <Tip emoji="🎭" title="老白Persona 通过率">
+                  系统每次老白说话,会扫一遍有没有"出格" — 比如说了"我建议从以下几个方面"这种机器感、
                   说了"宝宝家人们"这种网感、咨询师腔。**健康值 ≥95%**,低了就该改 prompt。
                 </Tip>
                 <Tip emoji="⚡" title="延迟 P50 / P95 / P99">
-                  用户从发消息到看到老 K 回话的等待时间。
+                  用户从发消息到看到老白回话的等待时间。
                   P95 = 95% 用户在这秒数以内看到回话;P99 = 99% 用户。
                   **P95 &lt; 8 秒正常,&gt; 15 秒用户会等不及**。
                 </Tip>
@@ -167,7 +167,7 @@ export default function LlmDashboardPage() {
               <h3 className="font-semibold text-amber-700 dark:text-amber-500">看到这种立刻处理</h3>
               <div className="rounded-lg border border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 p-4 space-y-2">
                 <Tip emoji="🚨" title="顶部红色 banner: 跨关系数据泄漏">
-                  最严重 — 老 K 差点把别人(关系 A)的数据告诉了用户(关系 B)。
+                  最严重 — 老白差点把别人(关系 A)的数据告诉了用户(关系 B)。
                   系统拦下来了,但 prompt 有 bug 必须修。点 banner 直接跳到具体调用看详情。
                 </Tip>
                 <Tip emoji="📈" title="成本曲线突然飙升">
@@ -182,7 +182,7 @@ export default function LlmDashboardPage() {
             </section>
 
             <section className="space-y-3">
-              <h3 className="font-semibold">真实场景:老 K 说话像机器人怎么办?</h3>
+              <h3 className="font-semibold">真实场景:老白说话像机器人怎么办?</h3>
               <Card>
                 <CardContent className="p-4 text-xs space-y-2">
                   <p className="text-muted-foreground">
@@ -195,13 +195,13 @@ export default function LlmDashboardPage() {
                   </p>
                   <p className="text-muted-foreground">
                     <strong className="text-foreground">第 3 步</strong>:
-                    点几条 "查看",modal 里看老 K 原话 — 找规律(比如全是"我建议..."开头、
+                    点几条 "查看",modal 里看老白原话 — 找规律(比如全是"我建议..."开头、
                     全是"首先...其次..."列表)
                   </p>
                   <p className="text-muted-foreground">
                     <strong className="text-foreground">第 4 步</strong>:
                     去 <Link href="/prompts" className="text-primary underline">/prompts</Link>
-                    改老 K 说话方式,加段"不要说'我建议',直接给判断"
+                    改老白说话方式,加段"不要说'我建议',直接给判断"
                   </p>
                   <p className="text-muted-foreground">
                     <strong className="text-foreground">第 5 步</strong>:
@@ -228,7 +228,7 @@ export default function LlmDashboardPage() {
             <Kpi label="总调用" value={fmtNum(data.total_calls)} icon={<Activity className="h-4 w-4" />} />
             <Kpi label="总成本" value={fmtCost(data.total_cost_usd)} icon={<Zap className="h-4 w-4 text-amber-600" />} />
             <Kpi
-              label="老 K Persona 通过"
+              label="老白Persona 通过"
               value={formatPercent(data.persona_passed_rate)}
               icon={<ShieldOff className="h-4 w-4" />}
               tone={data.persona_passed_rate < 0.95 ? 'warn' : 'ok'}
@@ -273,7 +273,7 @@ export default function LlmDashboardPage() {
                   <BehaviorKpi
                     label="话术采纳率"
                     rate={behavior.draft_copy_rate}
-                    note="老 K 话术被复制"
+                    note="老白话术被复制"
                     good="high"
                   />
                   <BehaviorKpi
@@ -284,7 +284,7 @@ export default function LlmDashboardPage() {
                   />
                 </div>
                 <p className="text-xs text-muted-foreground mt-3">
-                  分母:{behavior.laoke_replies} 次老 K 流式完成事件
+                  分母:{behavior.laoke_replies} 次老白流式完成事件
                 </p>
               </CardContent>
             </Card>

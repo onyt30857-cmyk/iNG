@@ -30,7 +30,7 @@
 
 ### ✅ Phase 2 — 真实反馈打磨
 
-- Layer 0 老 K 基线人格(默认 30% 玩闹感,反客服腔)
+- Layer 0 老白基线人格(默认 30% 玩闹感,反客服腔)
 - 待确认区(low confidence facts → 灰区,用户 ✓ 转正)
 - 反例学习(用户拒掉的 fact → negative-example pool)
 - LLM 自动归类反馈(`pnpm analyze-feedback`)
@@ -39,7 +39,7 @@
 ### ✅ Phase 4 — 长期(高 ROI)
 
 - 长期记忆 LLM 摘要(超过 80 条窗口自动 Haiku 压缩)
-- 老 K 服务质量自查(5 类 anti-pattern auto-lint)
+- 老白服务质量自查(5 类 anti-pattern auto-lint)
 
 ### ✅ 付费墙 v0
 
@@ -57,7 +57,7 @@
 
 - design tokens 升级:墨青蓝 → 鲜活紫主色,暖米 → 浅冷灰背景
 - 圆角加大,阴影柔化
-- 老 K 头像换原创 SVG 简笔(戴眼镜兄长风,无版权)
+- 老白头像换原创 SVG 简笔(戴眼镜兄长风,无版权)
 - splash 启动页同步紫主题
 - 全站审计 + 死代码清理(RelationshipSignalCard 删除)
 
@@ -160,7 +160,7 @@ curl GET /v1/quota -H "Authorization: Bearer <token>"
 
 5. **pgvector 语义检索**:用户问"她上周说她要去考试是哪条聊的" — 真"翻找历史"
 6. **跨用户 prompt 自动改进**:每周聚合所有用户 dislike comments,LLM 出 prompt 改动建议清单
-7. **老 K 自查 worker 调度**:当前 detect 函数已写好但没接 cron,M2 BullMQ + 触发条件
+7. **老白自查 worker 调度**:当前 detect 函数已写好但没接 cron,M2 BullMQ + 触发条件
 
 ### 低 ROI(spec-011 再说)
 
@@ -174,7 +174,7 @@ curl GET /v1/quota -H "Authorization: Bearer <token>"
 按 CLAUDE.md §11:
 - ✅ 每段关系独立(Layer 1 ownership + 跨关系 audit + intent classifier 看 history)
 - ✅ 用户可彻底删除数据(`/v1/account/delete` + 30 天 cron 真删)
-- ✅ 老 K 该给就给(2026-05-06 修订三层规则)
+- ✅ 老白该给就给(2026-05-06 修订三层规则)
 - ✅ 红线触发立即停(red-line-guard 双层防御)
 - ✅ 付费墙温和(免费额度,不锁紧急功能)
 - ✅ AI 调用全量审计(audit_logs + moderation_logs 双表)
@@ -189,7 +189,7 @@ apps/api/src/
 │   ├── client.ts                       # 统一 LLM 调用(必经)
 │   ├── red-line-guard.ts               # 红线双层防御
 │   └── orchestrators/
-│       ├── conversation-turn.orchestrator.ts  # 老 K 主回应(7 层 prompt)
+│       ├── conversation-turn.orchestrator.ts  # 老白主回应(7 层 prompt)
 │       ├── intent-classifier.ts        # Haiku 8 意图 + 8 语气
 │       ├── long-term-memory.ts         # 超 80 条历史 Haiku 摘要
 │       ├── quality-self-check.ts       # 5 类 anti-pattern auto-lint
@@ -217,10 +217,10 @@ apps/mobile/
 ├── components/
 │   ├── AppDialog.vue                   # 全局产品级 dialog
 │   ├── conversation/
-│   │   ├── LaokeBubble.vue             # 老 K 三态气泡 + 反馈区 + 收藏 + 话术 chip
+│   │   ├── LaokeBubble.vue             # 老白三态气泡 + 反馈区 + 收藏 + 话术 chip
 │   │   ├── ChatInput.vue               # iMessage 风 + 转发她原话 modal
 │   │   └── ...
-│   ├── CrossRelationshipBriefing.vue   # 列表页老 K 整体势头卡
+│   ├── CrossRelationshipBriefing.vue   # 列表页老白整体势头卡
 │   └── RelationshipAvatar.vue
 ├── stores/                             # Pinia
 │   ├── conversation.ts                 # 对话流 + 实时反馈闭环
@@ -232,7 +232,7 @@ apps/mobile/
 └── utils/
     ├── history-serializer.ts           # 全类型 message → LLM history
     ├── signal-computer.ts              # 5 维度信号
-    ├── signal-to-brief.ts              # signal → 老 K 视角 brief
+    ├── signal-to-brief.ts              # signal → 老白视角 brief
     ├── delivery-signal.ts              # keyword 兜底反馈意图
     └── ...
 ```
@@ -244,7 +244,7 @@ apps/mobile/
 - **删 spec-005 状态机**:`commit f99f97f` — agentic 优先,用户体验
 - **§4 不替写 → 三层规则**:`commit 32b2ea2` — Sam 反馈"用户聊不超过 3 个来回就走"
 - **意图分类层**:`commit 44e0c8d` — 解决"陷入上一段话出不来"
-- **对方语气感知**:`commit 598c237` — Sam 反馈"老 K 不像真人"
+- **对方语气感知**:`commit 598c237` — Sam 反馈"老白不像真人"
 - **设计 token v2**:`commit 5fbfbd8` — Sam 上传约会 App 参考图
 - **匿名账户**:`commit 5cad4b0` — Sam "不要手机邮箱微信"
 - **付费墙 v0**:`commit ?` — CLAUDE.md §11 不变式
@@ -255,4 +255,4 @@ apps/mobile/
 - 永远经过 ai/client.ts(audit + cache + retry)
 - 永远 Layer 1 ownership 校验跨关系隔离
 - 永远 red-line-guard 兜底(prompt 不能保证 100%)
-- 永远尊重 Sam 拍板的"老 K 该给就给"原则,不回退到反问机器人
+- 永远尊重 Sam 拍板的"老白该给就给"原则,不回退到反问机器人

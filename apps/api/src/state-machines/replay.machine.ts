@@ -27,13 +27,13 @@ export interface ReplayContext {
 
   /** OCR 解析结果(spec-004) */
   parsing: unknown
-  /** REFLECTING 阶段的老 K 三个问题 */
+  /** REFLECTING 阶段的老白三个问题 */
   reflecting_questions: string[]
   /** REFLECTING 阶段用户三段答案 */
   reflection_answers: string[]
   /** 用户答案是否已被温和追问过(spec-005 §3.3,只追问一次) */
   short_answer_warned: boolean
-  /** DIAGNOSING 阶段老 K 看到的诊断结果 */
+  /** DIAGNOSING 阶段老白看到的诊断结果 */
   diagnosing: unknown
   /** 是否检测到危机信号(spec-005 §3.3) */
   crisis_detected: boolean

@@ -13,7 +13,7 @@ const ctx: AiCallContext = {
   scene: 'parsing',
 }
 
-const goodSystemPrompt = '你是老K。'
+const goodSystemPrompt = '你是老白。'
 const goodUserMessage = '我想和小雨聊聊'
 
 describe('ai/client - callClaude', () => {

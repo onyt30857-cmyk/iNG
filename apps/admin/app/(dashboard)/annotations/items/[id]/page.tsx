@@ -226,7 +226,7 @@ export default function AnnotationItemPage() {
                 id="note"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="老 K 哪儿没说对?"
+                placeholder="老白哪儿没说对?"
               />
             </div>
 

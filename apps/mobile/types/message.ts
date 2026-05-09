@@ -35,7 +35,7 @@ export interface SystemDividerMessage extends BaseMessage {
   label: string
 }
 
-// 老 K 文字气泡(包括 PARSING 输出 / 简短回应)
+// 老白文字气泡(包括 PARSING 输出 / 简短回应)
 // 状态:
 // - is_thinking=true:还没拿到第一个 chunk,气泡里只显示跳动 dot loader
 // - is_streaming=true:正在流式接收文字,文字末尾跟一个闪烁光标
@@ -47,7 +47,7 @@ export interface LaokeTextMessage extends BaseMessage {
   is_streaming?: boolean
 }
 
-// 老 K 提问(REFLECTING):带序号 1/3
+// 老白提问(REFLECTING):带序号 1/3
 export interface LaokeQuestionMessage extends BaseMessage {
   type: 'laoke_question'
   text: string
@@ -55,19 +55,19 @@ export interface LaokeQuestionMessage extends BaseMessage {
   total: number      // 通常 3
 }
 
-// 老 K 散文式诊断(DIAGNOSING):多段落,有的标记羞耻处理
+// 老白散文式诊断(DIAGNOSING):多段落,有的标记羞耻处理
 export interface LaokeDiagnosingMessage extends BaseMessage {
   type: 'laoke_diagnosing'
   paragraphs: DiagnosingParagraph[]
 }
 
-// 老 K 给方向(PLANNING):做什么/为什么/红线/退路
+// 老白给方向(PLANNING):做什么/为什么/红线/退路
 export interface LaokePlanningMessage extends BaseMessage {
   type: 'laoke_planning'
   content: PlanningContent
 }
 
-// 老 K 给三个方向的话术(DRAFTING):三张卡片
+// 老白给三个方向的话术(DRAFTING):三张卡片
 export interface LaokeDraftsMessage extends BaseMessage {
   type: 'laoke_drafts'
   intro: string  // "给你三个方向,你看哪个像你"
@@ -78,7 +78,7 @@ export interface LaokeDraftsMessage extends BaseMessage {
 export interface UserTextMessage extends BaseMessage {
   type: 'user_text'
   text: string
-  /** spec-009:用户标记这条是"她回的原话"转给老 K 看(否则是用户自己跟老 K 说的话) */
+  /** spec-009:用户标记这条是"她回的原话"转给老白看(否则是用户自己跟老白说的话) */
   is_other_quote?: boolean
 }
 

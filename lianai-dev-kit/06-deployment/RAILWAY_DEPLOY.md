@@ -193,7 +193,7 @@ Supabase Storage(看 SUPABASE_SETUP.md):
 - [ ] /v1/relationships 用 dev token 拿到 3 段关系
 - [ ] /v1/auth/anonymous 能创建匿名账户
 - [ ] /v1/auth/backup-code 生成备份码
-- [ ] /v1/conversations/:id/stream-turn 能流式回老 K
+- [ ] /v1/conversations/:id/stream-turn 能流式回老白
 - [ ] /v1/storage/avatar 上传头像 + driver=supabase(Supabase 配好后)
 - [ ] /v1/feedback 提交 + dump-feedback 能拉到
 - [ ] deletion-cron 启动(看 startup logs 有 "数据真删 cron 已启动")

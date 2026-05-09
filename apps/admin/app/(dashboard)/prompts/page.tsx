@@ -37,7 +37,7 @@ export default function PromptsListPage() {
         <div>
           <h1 className="text-2xl font-semibold">Prompt 工程台</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            管理老 K 的"说话方式" — 改完先小范围试,觉得 OK 再让所有用户用上
+            管理老白的"说话方式" — 改完先小范围试,觉得 OK 再让所有用户用上
           </p>
         </div>
         <Button asChild>
@@ -55,21 +55,21 @@ export default function PromptsListPage() {
             num="1"
             icon={<Sparkles className="h-5 w-5" />}
             title="改一版"
-            desc="把老 K 现在的说话指南拿来,改一改 — 比如让他少说点废话、多给点判断。"
+            desc="把老白现在的说话指南拿来,改一改 — 比如让他少说点废话、多给点判断。"
             color="blue"
           />
           <StepCard
             num="2"
             icon={<FlaskConical className="h-5 w-5" />}
             title="测一下"
-            desc="拿 20 条真实场景测新版老 K,系统自动打分(像不像兄长 / 准不准 / 帮不帮忙)。"
+            desc="拿 20 条真实场景测新版老白,系统自动打分(像不像兄长 / 准不准 / 帮不帮忙)。"
             color="purple"
           />
           <StepCard
             num="3"
             icon={<Rocket className="h-5 w-5" />}
             title="上线"
-            desc={`测试通过点一下"上线",真用户立刻用上新版老 K。`}
+            desc={`测试通过点一下"上线",真用户立刻用上新版老白。`}
             color="green"
           />
         </div>
@@ -83,11 +83,11 @@ export default function PromptsListPage() {
         </h2>
         <div className="rounded-lg border border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 p-5 space-y-3 text-sm">
           <Tip emoji="📌" title="先把现在线上用的版本备份进来">
-            这页**第一次进来是空的**。在改任何东西之前,先把当前老 K 用的版本完整复制进来当 v1。
+            这页**第一次进来是空的**。在改任何东西之前,先把当前老白用的版本完整复制进来当 v1。
             没有这个备份,以后改坏了想退回都退不了。
           </Tip>
           <Tip emoji="🏷️" title="名字必须跟开发那边对得上">
-            填名字的时候只能填这几个固定的:<code className="bg-background px-1.5 py-0.5 rounded text-xs">conversation_turn</code>(老 K 主对话)、
+            填名字的时候只能填这几个固定的:<code className="bg-background px-1.5 py-0.5 rounded text-xs">conversation_turn</code>(老白主对话)、
             <code className="bg-background px-1.5 py-0.5 rounded text-xs">parsing</code>(看截图)、
             <code className="bg-background px-1.5 py-0.5 rounded text-xs">ocr</code>、
             <code className="bg-background px-1.5 py-0.5 rounded text-xs">intent_classifier</code>。
@@ -113,15 +113,15 @@ export default function PromptsListPage() {
         <section className="rounded-lg border-2 border-primary/30 bg-primary/5 p-6 space-y-3">
           <div className="flex items-center gap-2">
             <ArrowRight className="h-5 w-5 text-primary" />
-            <h2 className="text-base font-semibold">现在第一件事:把老 K 当前的版本备份进来</h2>
+            <h2 className="text-base font-semibold">现在第一件事:把老白当前的版本备份进来</h2>
           </div>
           <p className="text-sm text-muted-foreground">
-            这页是空的,说明还没人备份过老 K 现在用的版本。**先做这件事,5 分钟搞定**:
+            这页是空的,说明还没人备份过老白现在用的版本。**先做这件事,5 分钟搞定**:
           </p>
           <ol className="space-y-2 text-sm">
             <li className="flex gap-3">
               <span className="font-semibold text-primary shrink-0 w-5">1.</span>
-              <span>找开发要 <code className="bg-background px-1.5 py-0.5 rounded text-xs">03-prompts/conversation_turn.md</code> 这个文件的内容(就是老 K 现在的"说话指南"原文)</span>
+              <span>找开发要 <code className="bg-background px-1.5 py-0.5 rounded text-xs">03-prompts/conversation_turn.md</code> 这个文件的内容(就是老白现在的"说话指南"原文)</span>
             </li>
             <li className="flex gap-3">
               <span className="font-semibold text-primary shrink-0 w-5">2.</span>
@@ -149,7 +149,7 @@ export default function PromptsListPage() {
 
       {/* === 真实场景示例 === */}
       <section>
-        <h2 className="text-base font-semibold mb-3">真实场景:怎么修"老 K 太啰嗦"这种问题</h2>
+        <h2 className="text-base font-semibold mb-3">真实场景:怎么修"老白太啰嗦"这种问题</h2>
         <Card>
           <CardContent className="p-5 space-y-4 text-sm">
             <ScenarioStep
@@ -158,7 +158,7 @@ export default function PromptsListPage() {
               desc={
                 <>
                   在 <Link href="/feedback/dislikes" className="text-primary underline">反馈 → 翻车现场</Link>{' '}
-                  看到很多用户吐槽"老 K 说话啰嗦,绕来绕去不给重点"。
+                  看到很多用户吐槽"老白说话啰嗦,绕来绕去不给重点"。
                 </>
               }
             />
@@ -168,7 +168,7 @@ export default function PromptsListPage() {
               desc={
                 <>
                   打开 <Link href="/annotations" className="text-primary underline">人工评分</Link>,
-                  抽 50 条最近对话亲自打分。发现"帮助度"那一项普遍低 — 确认是老 K 没好好给方向,只会和稀泥。
+                  抽 50 条最近对话亲自打分。发现"帮助度"那一项普遍低 — 确认是老白没好好给方向,只会和稀泥。
                 </>
               }
             />
@@ -193,7 +193,7 @@ export default function PromptsListPage() {
             <ScenarioStep
               num="5"
               title="上线"
-              desc='点 "部署" → 说明栏写"修复啰嗦,帮助度提升 +0.19" → 真用户立刻用上新版老 K。'
+              desc='点 "部署" → 说明栏写"修复啰嗦,帮助度提升 +0.19" → 真用户立刻用上新版老白。'
             />
             <ScenarioStep
               num="6"

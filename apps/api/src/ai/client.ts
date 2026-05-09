@@ -1,7 +1,7 @@
 // AI 调用统一封装(CLAUDE.md §5.4 强制)
 //
 // 所有 AI 调用必须经过这里,封装层负责:
-// - 自动 audit(prompt-audit:跨关系泄漏 / persona-check:老 K 输出违规)
+// - 自动 audit(prompt-audit:跨关系泄漏 / persona-check:老白输出违规)
 // - 监控(latency, tokens)
 // - 友好错误(API key 缺失、网络失败等)
 //
@@ -146,7 +146,7 @@ export async function callClaude(
     )
     throw new AppError({
       code: ErrorCodes.AI_CALL_FAILED,
-      message: '老 K 这边出了点意外,你重新试一下',
+      message: '老白这边出了点意外,你重新试一下',
       statusCode: 502,
       detail: err instanceof Error ? err.message : String(err),
     })
@@ -173,7 +173,7 @@ export async function callClaude(
         relationship_id: ctx.relationship_id,
         violations: persona_check.violations,
       },
-      '老 K 输出有违规词,prompt 需要打磨',
+      '老白输出有违规词,prompt 需要打磨',
     )
   }
 
@@ -223,7 +223,7 @@ export async function callClaude(
 
 /**
  * 流式版 callClaude:每个 text delta 通过 onChunk 推给调用方,完成后返回完整 result。
- * 用 Anthropic SDK 的 messages.stream API。前端在 chunk 来时立即展示,实现真"老 K 边想边说"。
+ * 用 Anthropic SDK 的 messages.stream API。前端在 chunk 来时立即展示,实现真"老白边想边说"。
  *
  * audit / persona check 路径跟同步版一致:
  *   pre-call: assertNoLeak  →  流式中 yield chunk  →  完成后 checkPersona(完整 text)
@@ -304,7 +304,7 @@ export async function callClaudeStream(
     )
     throw new AppError({
       code: ErrorCodes.AI_CALL_FAILED,
-      message: '老 K 这边出了点意外,你重新试一下',
+      message: '老白这边出了点意外,你重新试一下',
       statusCode: 502,
       detail: err instanceof Error ? err.message : String(err),
     })
@@ -451,7 +451,7 @@ export async function callClaudeVision(
     )
     throw new AppError({
       code: ErrorCodes.AI_CALL_FAILED,
-      message: '老 K 看图出了点意外,你重新试一下',
+      message: '老白看图出了点意外,你重新试一下',
       statusCode: 502,
       detail: err instanceof Error ? err.message : String(err),
     })

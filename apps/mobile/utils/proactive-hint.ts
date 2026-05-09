@@ -1,7 +1,7 @@
-// 老 K 进入对话页时的轻量引导卡 - spec-007 Phase 19.6
+// 老白进入对话页时的轻量引导卡 - spec-007 Phase 19.6
 //
-// 不让老 K 主动开口(违反 agentic),改成在输入框上方显示一行引导:
-//   "老 K 看到的:她这周回得比之前慢了——要不要跟我聊聊?"
+// 不让老白主动开口(违反 agentic),改成在输入框上方显示一行引导:
+//   "老白看到的:她这周回得比之前慢了——要不要跟我聊聊?"
 // 点击 → 自动发问 → 触发 turn(用户主导节奏)。✕ 关闭 → 今天不再显示。
 //
 // 触发条件:
@@ -12,7 +12,7 @@
 import type { RelationshipSignalSnapshot } from './signal-computer'
 
 export interface ProactiveHint {
-  /** 一句话提示文案,老 K 口吻 */
+  /** 一句话提示文案,老白口吻 */
   text: string
   /** 用户点击后,自动发出的 user_text(触发 turn 时用) */
   prompt_on_click: string
@@ -55,19 +55,19 @@ export function buildProactiveHint(
     case 'THRIVING':
       return {
         tone: 'good',
-        text: '老 K 看到她最近在升温——要不要听我说说?',
+        text: '老白看到她最近在升温——要不要听我说说?',
         prompt_on_click: '她最近什么状态,你怎么看?',
       }
     case 'COOLING':
       return {
         tone: 'warn',
-        text: '老 K 看到她在退——这事我有话跟你说。',
+        text: '老白看到她在退——这事我有话跟你说。',
         prompt_on_click: '她最近怎么了,你怎么看?',
       }
     case 'WITHDRAWING':
       return {
         tone: 'danger',
-        text: '老 K 看到她退得有点狠——咱聊聊。',
+        text: '老白看到她退得有点狠——咱聊聊。',
         prompt_on_click: '她退得有点狠,你怎么看?',
       }
     case 'INACTIVE':

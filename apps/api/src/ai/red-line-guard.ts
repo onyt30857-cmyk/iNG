@@ -213,7 +213,7 @@ export async function guardUserInput(
 }
 
 /**
- * 红线触发时的"老 K 拒绝回应"(替代 LLM 的回应,直接返给用户)。
+ * 红线触发时的"老白拒绝回应"(替代 LLM 的回应,直接返给用户)。
  * 不同 category 有不同语气:严重的(SELF_HARM)主动关怀,中度的(PUA)温和说不。
  */
 export function buildRefusalReply(category: RedLineCategory): string {

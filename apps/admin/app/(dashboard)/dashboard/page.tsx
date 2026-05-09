@@ -100,7 +100,7 @@ export default function DashboardPage() {
       text: (
         <>
           <strong>{data.llm_today.leak_hit_count} 次跨关系数据泄漏被拦截</strong> — 立刻去看!
-          这意味着老 K 差点把别人的关系数据告诉用户。
+          这意味着老白差点把别人的关系数据告诉用户。
         </>
       ),
       href: '/llm/calls?flag=has_leak',
@@ -130,7 +130,7 @@ export default function DashboardPage() {
       icon: <MessageSquareWarning className="h-4 w-4" />,
       text: (
         <>
-          老 K "出格" 比例 <strong>{((1 - data.llm_today.persona_passed_rate) * 100).toFixed(1)}%</strong>
+          老白"出格" 比例 <strong>{((1 - data.llm_today.persona_passed_rate) * 100).toFixed(1)}%</strong>
           (健康值 &lt;5%) — 可能要改改 prompt
         </>
       ),
@@ -221,7 +221,7 @@ export default function DashboardPage() {
                 ? formatBigNum(data.llm_today.total_calls)
                 : '—'
             }
-            subtext="老 K 被调用次数"
+            subtext="老白被调用次数"
             color="purple"
           />
           <KpiTile
@@ -267,7 +267,7 @@ export default function DashboardPage() {
           <Card>
             <CardContent className="p-5">
               <div className="text-xs text-muted-foreground flex items-center justify-between">
-                <span>老 K 像不像"兄长"</span>
+                <span>老白像不像"兄长"</span>
                 <ShieldOff className="h-4 w-4" />
               </div>
               <div className="text-2xl font-semibold mt-2">
@@ -348,7 +348,7 @@ export default function DashboardPage() {
             <Card className="hover:bg-muted/30 transition-colors cursor-pointer">
               <CardContent className="p-4 flex items-center justify-between">
                 <div>
-                  <div className="font-medium text-sm">改老 K 说话方式</div>
+                  <div className="font-medium text-sm">改老白说话方式</div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     管 prompt 版本 + 离线测试再上线
                   </div>
@@ -363,7 +363,7 @@ export default function DashboardPage() {
                 <div>
                   <div className="font-medium text-sm">每周亲自评 50 条对话</div>
                   <div className="text-xs text-muted-foreground mt-0.5">
-                    5 维评分,找出老 K 翻车规律
+                    5 维评分,找出老白翻车规律
                   </div>
                 </div>
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />

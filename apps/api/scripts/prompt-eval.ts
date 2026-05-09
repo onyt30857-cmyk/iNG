@@ -215,7 +215,7 @@ async function runOne(
   }
 
   const r = await runRealCall(name, input)
-  console.log('=== 老 K 输出 ===\n')
+  console.log('=== 老白输出 ===\n')
   console.log(r.text)
   console.log()
   console.log('─'.repeat(70))

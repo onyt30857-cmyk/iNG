@@ -177,7 +177,7 @@ export async function createDataset(input: {
 
 // ============== Eval Runner(同步,M2 上 BullMQ)==============
 
-const JUDGE_SYSTEM_PROMPT = `你是练爱产品的 QA 评估员。给一个老 K 的输出,从 5 维各打 0-1 分(0 = 完全失败,1 = 完美):
+const JUDGE_SYSTEM_PROMPT = `你是练爱产品的 QA 评估员。给一个老白的输出,从 5 维各打 0-1 分(0 = 完全失败,1 = 完美):
 
 - persona:是否像 32 岁兄长(不像咨询师/不像营销/不像机器/不堆"首先其次")
 - accuracy:对当前对话上下文的理解是否准确,有没有臆测
@@ -242,7 +242,7 @@ export async function runEval(input: {
   for (let i = 0; i < samples.length; i++) {
     const sample = samples[i]!
 
-    // 1. 用 prompt + sample.input 调老 K
+    // 1. 用 prompt + sample.input 调老白
     const userText =
       typeof sample.input.user_text === 'string'
         ? sample.input.user_text
@@ -280,7 +280,7 @@ export async function runEval(input: {
         messages: [
           {
             role: 'user',
-            content: `用户输入:\n${userText}\n\n老 K 输出:\n${outputText}\n\n按 5 维打分。`,
+            content: `用户输入:\n${userText}\n\n老白输出:\n${outputText}\n\n按 5 维打分。`,
           },
         ],
       })

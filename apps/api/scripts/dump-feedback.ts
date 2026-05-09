@@ -96,7 +96,7 @@ async function main(): Promise<void> {
     console.log(`${tag} ${date} · ${i.user_id} · rel=${i.relationship_id ?? '?'}`)
     if (i.bubble_text) {
       const bt = i.bubble_text.length > 200 ? i.bubble_text.slice(0, 200) + '...' : i.bubble_text
-      console.log(`  老 K: ${bt.replace(/\n/g, '\\n')}`)
+      console.log(`  老白: ${bt.replace(/\n/g, '\\n')}`)
     }
     if (i.feedback_note) {
       console.log(`  兄弟说: "${i.feedback_note}"`)

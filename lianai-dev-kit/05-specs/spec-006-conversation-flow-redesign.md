@@ -11,7 +11,7 @@
 Sam 实测后指出两个核心问题:
 
 1. **无记忆**:Pinia in-memory store,刷新/退出页就清空。用户回来发现"我们刚刚聊的全没了"
-2. **流程跳页突兀**:用户在 conversation 对话页跟老 K 聊得好好的,上传截图后被强制跳到 session.vue 走 wizard,体感像填表
+2. **流程跳页突兀**:用户在 conversation 对话页跟老白聊得好好的,上传截图后被强制跳到 session.vue 走 wizard,体感像填表
 
 竞品调研结果:Replika / Pi.ai / ChatGPT 关系 GPT / Character.AI / 小冰 **无一例外采用单线程持续对话**,分析/总结作为对话流里的特殊气泡涌现,**没有 wizard、没有跳页**。
 
@@ -79,7 +79,7 @@ OCR 上传的 blob URL 不进 localStorage(刷新失效),只持久化 OCR 后的
 ### 4.2 LLM meta prompt(替代 5 个 orchestrator 的固定 system prompt)
 
 ```
-你是老 K。给定完整对话上下文 + 兄弟最新消息,你判断现在该回什么:
+你是老白。给定完整对话上下文 + 兄弟最新消息,你判断现在该回什么:
 
 - 兄弟刚提了个新场景 → 回客观分析(laoke_text 或 laoke_diagnosing)
 - 你需要更多信息 → 反问(laoke_question)
@@ -148,12 +148,12 @@ OCR 上传的 blob URL 不进 localStorage(刷新失效),只持久化 OCR 后的
 ## 8. 验收
 
 - [ ] 退出 conversation 页再回来,所有消息保留(localStorage)
-- [ ] 上传截图 → OCR → 老 K 在对话流里直接回应,**不跳页**
-- [ ] 跟老 K 自由聊,他根据上下文出 text / question / 方向 / 话术 等不同气泡
+- [ ] 上传截图 → OCR → 老白在对话流里直接回应,**不跳页**
+- [ ] 跟老白自由聊,他根据上下文出 text / question / 方向 / 话术 等不同气泡
 - [ ] 不再有"现在第几步"的状态机心智
 
 ## 9. 心虚标注
 
 1. **agentic LLM 不稳定**:LLM 可能不按 prompt 规则输出 JSON,需要重试/降级
 2. **localStorage 容量上限**(浏览器 5-10MB):长期用 db 替代
-3. **多个 response 一次 turn 怎么排版**:可能要在前端做"老 K 思考中..." 气泡过渡
+3. **多个 response 一次 turn 怎么排版**:可能要在前端做"老白思考中..." 气泡过渡

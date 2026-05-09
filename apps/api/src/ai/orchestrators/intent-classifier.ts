@@ -1,7 +1,7 @@
 // Intent classifier - 在 Sonnet turn 之前跑一层 Haiku 分类用户意图
 //
 // 解决问题:Sonnet 看 history 容易"陷入上一段话出不来"(in-context learning 模仿
-// 老 K 之前反问的 pattern,即使用户已经在要话术也继续反问)。
+// 老白之前反问的 pattern,即使用户已经在要话术也继续反问)。
 //
 // 修法:每 turn 先用 Haiku(快/便宜)给用户当前消息打一个明确意图标签,
 // 把标签明确塞进 Sonnet 的 user message。Sonnet system prompt 写好"看到 X intent
@@ -15,14 +15,14 @@ export const USER_INTENTS = [
   'SHARE_CONTEXT', // 描述情况(她说了 X / 今天她跟我说...)
   'VENT', // 倾诉、抱怨、发泄(她又这样了真烦)
   'QUERY_FACT', // 问关于她的事实(她以前说过 X 吗 / 她不是说她不爱辣吗)
-  'DISAGREE', // 反驳老 K 上一条(我觉得不是这样 / 你说的不对)
+  'DISAGREE', // 反驳老白上一条(我觉得不是这样 / 你说的不对)
   'FRUSTRATED', // 不耐烦(说重点 / 别问了 / 行了我自己想 / 你倒是说啊)
   'SMALL_TALK', // 闲聊、短促回应(嗯 / 哦 / 好的 / 谢了)
 ] as const
 export type UserIntent = (typeof USER_INTENTS)[number]
 
-// 对方("她")最近一句话里透出的语气 — 关键决定老 K 给的话术应该接什么调
-// 只在用户"转发她原话给老 K 看"或 history 里能看到她最新一句时才填,否则 null
+// 对方("她")最近一句话里透出的语气 — 关键决定老白给的话术应该接什么调
+// 只在用户"转发她原话给老白看"或 history 里能看到她最新一句时才填,否则 null
 export const OTHER_TONES = [
   'PLAYFUL', // 调皮、玩味、带钩子("怎么这么久才想起我了呢?有啥好事吗?")
   'TEASING', // 撒娇/小埋怨("哼,你还知道找我啊"、"是不是又有事求我了")
@@ -62,16 +62,16 @@ const CLASSIFIER_SYSTEM_PROMPT = `你是练爱产品的意图分类器,给 Sonne
 - SHARE_CONTEXT — 描述情况(她说了 X / 今天发生了 Y)
 - VENT — 倾诉抱怨
 - QUERY_FACT — 问关于她的事实
-- DISAGREE — 反驳老 K 上一句
+- DISAGREE — 反驳老白上一句
 - FRUSTRATED — 不耐烦(含反讽:"行了我自己想吧")
 - SMALL_TALK — 闲聊短回应
 
 判断规则:
 - ASK_DRAFT 优先,哪怕拐弯("这样回行吗")
-- 兄弟刚发"[她回了:...]"+ 没明说要话术 → 也算 ASK_DRAFT(他粘对话明显是要老 K 帮接话)
+- 兄弟刚发"[她回了:...]"+ 没明说要话术 → 也算 ASK_DRAFT(他粘对话明显是要老白帮接话)
 - FRUSTRATED + ASK_DRAFT 常并存 → 主 ASK_DRAFT,secondary FRUSTRATED
 
-# 2. 对方语气(other_tone,关键 — 决定老 K 回应该接什么调)
+# 2. 对方语气(other_tone,关键 — 决定老白回应该接什么调)
 
 只在能看到她最新一句时填(用户用 [她回了:...] 包了她原话,
 或 history 里有 [<name>刚回了:...] 标记)。看不到就别填。
@@ -129,7 +129,7 @@ function buildClassifierUserMessage(input: ClassifyIntentInput): string {
     lines.push('# 之前对话(最近的在最后)')
     const recent = input.history.slice(-12)
     for (const m of recent) {
-      const who = m.speaker === 'user' ? '兄弟' : '老 K'
+      const who = m.speaker === 'user' ? '兄弟' : '老白'
       // 截断每条防 prompt 爆 token
       const text = m.text.length > 600 ? m.text.slice(0, 600) + '...' : m.text
       lines.push(`${who}: ${text}`)
@@ -178,7 +178,7 @@ export async function classifyUserIntent(input: ClassifyIntentInput): Promise<In
       messages: [{ role: 'user', content: buildClassifierUserMessage(input) }],
       max_tokens: 200,
       model: HAIKU_MODEL_ID,
-      skipPersonaCheck: true, // 不是老 K 角色,跳过
+      skipPersonaCheck: true, // 不是老白角色,跳过
     })
     return safeParseJson(result.text)
   } catch (e) {
@@ -255,7 +255,7 @@ export function buildIntentDirective(result: IntentResult | null): string {
   return lines.join('\n')
 }
 
-/** 对方语气 → 老 K 给的话术应该接什么调(关键产品差异化) */
+/** 对方语气 → 老白给的话术应该接什么调(关键产品差异化) */
 function buildToneDirective(tone: OtherTone): string {
   switch (tone) {
     case 'PLAYFUL':

@@ -159,7 +159,7 @@ export async function getItemForReview(itemId: string) {
   // 拉关联 AiCallLog
   const call = await prisma.aiCallLog.findUnique({ where: { call_id: item.call_id } })
 
-  // 拉同关系附近 1 分钟内的 LAOKE messages(看具体老 K 输出)
+  // 拉同关系附近 1 分钟内的 LAOKE messages(看具体老白输出)
   let nearbyMessages: Array<{
     id: string
     role: string

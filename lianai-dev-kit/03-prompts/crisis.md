@@ -65,7 +65,7 @@
 如果用户点"我现在没事,只是聊聊":
 - session 仍然标记 `crisis_triggered`
 - **不能进 DRAFTING**(只能继续聊到 PLANNING 然后 CLOSE)
-- 老 K 的回应风格变得更慢、更柔、更短
+- 老白的回应风格变得更慢、更柔、更短
 
 ### 2.2 Harm to other (想伤害对方)
 

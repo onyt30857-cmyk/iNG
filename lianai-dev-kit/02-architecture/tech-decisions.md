@@ -101,7 +101,7 @@
 
 ### 理由
 
-- pgvector 扩展可做语义检索(老 K 累积的观察可向量化,M2 启用)
+- pgvector 扩展可做语义检索(老白累积的观察可向量化,M2 启用)
 - JSON 字段支持比 MySQL 好(metadata 灵活存储)
 - 触发器和 stored function 强大(用于级联删除)
 - Prisma 对 PG 支持完美
@@ -207,7 +207,7 @@ export async function callClaude(opts: {
   // 1. 跨关系审计
   auditPromptContext(opts.prompt);
   
-  // 2. 注入老 K 人格
+  // 2. 注入老白人格
   const systemPrompt = buildSystemPrompt(opts.prompt);
   
   // 3. 实际调用
@@ -216,7 +216,7 @@ export async function callClaude(opts: {
   // 4. 内容审核
   const moderation = await moderateOutput(response);
   
-  // 5. 老 K 人格审计
+  // 5. 老白人格审计
   if (!assertPersona(response.text)) {
     Sentry.captureMessage('Persona check failed', {...});
   }
@@ -273,7 +273,7 @@ const client = new Anthropic({...});
 
 ### 背景
 
-老 K 累积的观察需要既能溯源(数据控制权)、又能高效组装(prompt 性能)。
+老白累积的观察需要既能溯源(数据控制权)、又能高效组装(prompt 性能)。
 
 ### 决策
 
@@ -347,7 +347,7 @@ const messages = [
   {
     role: "system",
     content: [
-      // 静态部分(老 K 人格、场景定义、few-shot)
+      // 静态部分(老白人格、场景定义、few-shot)
       { 
         type: "text", 
         text: SYSTEM_PROMPT_STATIC, 
@@ -565,7 +565,7 @@ const TEST_CASES = [
       { mustContain: "我跟你说真的" },
       // 必须不含
       { mustNotContain: ["我理解你的感受", "建议你"] },
-      // 老 K 人格审计
+      // 老白人格审计
       { passesPersonaCheck: true },
     ]
   }

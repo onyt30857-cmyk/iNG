@@ -582,7 +582,7 @@ DRAFTING 阶段的入口分流。
 
 ### POST /replay/:session_id/feedback
 
-用户对老 K 的某条输出反馈。
+用户对老白的某条输出反馈。
 
 **Request**:
 ```json

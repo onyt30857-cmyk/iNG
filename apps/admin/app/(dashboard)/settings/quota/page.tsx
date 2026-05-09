@@ -122,7 +122,7 @@ export default function QuotaSettingsPage() {
                   onChange={(e) => setTurnLimit(Number(e.target.value))}
                 />
                 <p className="text-xs text-muted-foreground">
-                  每用户每天最多跟老 K 说几次话。**建议 50** — 够普通用户每天 5-10 次完整复盘。
+                  每用户每天最多跟老白说几次话。**建议 50** — 够普通用户每天 5-10 次完整复盘。
                 </p>
               </div>
 

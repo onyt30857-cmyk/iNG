@@ -165,7 +165,7 @@ function parseOcrOutput(text: string): { messages: OcrMessage[]; warnings: strin
   } catch (e) {
     throw new AppError({
       code: ErrorCodes.AI_SERVICE_ERROR,
-      message: '老 K 这次没看清截图,你重新试一下',
+      message: '老白这次没看清截图,你重新试一下',
       detail:
         e instanceof JsonExtractError
           ? `JSON 提取失败: ${e.raw.slice(0, 200)}`
