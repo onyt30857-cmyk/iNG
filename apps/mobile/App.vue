@@ -61,6 +61,12 @@ onLaunch(async () => {
     console.log('[App] launch, restored user_id=', userStore.userId)
   }
 
+  // 2026-05-10 修需求 1:从服务器同步最新 user 覆盖本地缓存
+  // 必须在 onboarding 守卫(下方 isOnboarded 判断)之前完成,否则可能拿陈旧
+  // 的 onboarding_completed_at 错把已 onboarded 用户送回 welcome
+  // 失败静默(网络问题不阻塞冷启动,fallback 用本地缓存)
+  await userStore.syncFromServer()
+
   // 拉老白 profile(头像 / 身份介绍),admin 改了立即生效
   // 先 init 用 storage 缓存避免冷启动闪默认,再异步 fetch 拿最新
   const laokeStore = useLaokeStore()

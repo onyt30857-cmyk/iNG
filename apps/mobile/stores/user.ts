@@ -4,7 +4,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { storage, StorageKeys } from '../utils/storage'
-import { apiPost } from '../api/client'
+import { apiGet, apiPost } from '../api/client'
 import type { User } from '../types/user'
 
 export const useUserStore = defineStore('user', () => {
@@ -114,6 +114,23 @@ export const useUserStore = defineStore('user', () => {
     storage.set(StorageKeys.USER, next)
   }
 
+  /**
+   * 从服务器拉最新 user 覆盖本地缓存(2026-05-10 修需求 1)
+   * 用途:onLaunch 时确认 onboarding_completed_at 等字段跟服务器一致,
+   * 避免本地 storage 里 user 字段陈旧导致已 onboarded 用户被错误送回 welcome
+   *
+   * 失败处理:静默(网络问题不阻塞冷启动,继续用本地缓存)
+   */
+  async function syncFromServer(): Promise<void> {
+    if (!token.value) return
+    const res = await apiGet<User>('/users/me', { token: token.value })
+    if (!res.ok) {
+      console.warn('[user] syncFromServer failed:', res.error.message)
+      return
+    }
+    setUser(res.data)
+  }
+
   /** 是否走完 onboarding(spec-018)*/
   function isOnboarded(): boolean {
     return !!user.value?.onboarding_completed_at
@@ -132,6 +149,7 @@ export const useUserStore = defineStore('user', () => {
     isOnboarded,
     setAuth,
     setUser,
+    syncFromServer,
     updateTokens,
     logout,
   }
