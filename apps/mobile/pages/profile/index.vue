@@ -42,6 +42,21 @@ function goEditProfile() {
 
 async function onGenerateBackup() {
   if (generating.value) return
+
+  // 二次确认:重新生成会让旧码作废,避免用户拿旧码去恢复发现失败
+  // 前端不知道用户之前有没有生成过(hash 不返客户端),所以一律弹一次警告
+  const ok = await dialog.confirm('生成新备份码?', {
+    body: [
+      '生成新码后,**之前的旧码会作废** — 只有这次生成的最新码能恢复账户。',
+      '',
+      '如果你以前没生成过 → 直接生成。',
+      '如果以前生成过 → 把笔记里的旧码换成新的,旧的立刻没用了。',
+    ].join('\n'),
+    confirmText: '生成新码',
+    cancelText: '再想想',
+  })
+  if (!ok) return
+
   generating.value = true
   try {
     const code = await userStore.generateBackup()
@@ -49,7 +64,7 @@ async function onGenerateBackup() {
       await dialog.alert('生成失败', { body: '账户没初始化好,刷新一下试试' })
       return
     }
-    await dialog.alert('备份码生成成功', {
+    await dialog.alert('新备份码生成好了', {
       body: [
         '把下面这串码截图或抄下来:',
         '',
@@ -57,6 +72,7 @@ async function onGenerateBackup() {
         '',
         '用它可以在新设备恢复账户。',
         '系统不会再显示,丢了无法恢复。',
+        '⚠️ 之前生成过的旧码已作废,记得覆盖笔记里的旧记录。',
       ].join('\n'),
       confirmText: '我已经保存好了',
     })
