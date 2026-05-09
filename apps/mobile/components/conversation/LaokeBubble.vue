@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import type { FeedbackType } from '../../api/feedback.api'
 import { useConversationStore } from '../../stores/conversation'
+import LaokeAvatar from '../LaokeAvatar.vue'
 
 const props = defineProps<{
   text: string
@@ -167,21 +168,8 @@ async function onLongPress() {
 
 <template>
   <view class="row">
-    <view class="avatar" :class="{ 'avatar-pulse': isThinking || isStreaming }">
-      <!-- 老白默认头像:戴眼镜兄长简笔风,白 stroke + 紫底,无版权 -->
-      <svg class="avatar-icon" width="26" height="26" viewBox="0 0 24 24" fill="none">
-        <!-- 头(圆,留底部不闭合做下巴感) -->
-        <path d="M5 13 a7 7 0 1 1 14 0 v3 a3 3 0 0 1 -3 3 h-8 a3 3 0 0 1 -3 -3 z"
-          stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
-        <!-- 头发(一缕顶) -->
-        <path d="M7.5 9 Q 12 5.5 16.5 9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
-        <!-- 眼镜框(双圆 + 中桥) -->
-        <circle cx="9.3" cy="13" r="1.6" stroke="currentColor" stroke-width="1.2" />
-        <circle cx="14.7" cy="13" r="1.6" stroke="currentColor" stroke-width="1.2" />
-        <line x1="10.9" y1="13" x2="13.1" y2="13" stroke="currentColor" stroke-width="1.1" />
-        <!-- 平嘴(沉稳不油滑) -->
-        <line x1="10.5" y1="17" x2="13.5" y2="17" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
-      </svg>
+    <view class="avatar-wrap" :class="{ 'avatar-pulse': isThinking || isStreaming }">
+      <LaokeAvatar :size="44" />
     </view>
 
     <view class="bubble-wrap">
@@ -285,24 +273,11 @@ async function onLongPress() {
   to { opacity: 1; transform: translateY(0); }
 }
 
-.avatar {
-  width: 44rpx;
-  height: 44rpx;
-  border-radius: 50%;
-  // 双色系:老白头像浅紫底(从 $color-primary 改 $color-laoke-subtle,降视觉重量)
-  background-color: $color-laoke-subtle;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.avatar-wrap {
   flex-shrink: 0;
   margin-right: 16rpx;
   margin-top: 8rpx;
   position: relative;
-}
-.avatar-icon {
-  // 头像 SVG 简笔的描边色:从反白改为深紫(在浅紫底上读得清)
-  color: $color-laoke-deep;
-  display: block;
 }
 .avatar-pulse::before {
   content: '';

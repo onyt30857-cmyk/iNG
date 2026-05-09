@@ -10,6 +10,7 @@ import { ref, computed } from 'vue'
 import { updateProfile } from '../../api/user.api'
 import { useUserStore } from '../../stores/user'
 import { PRESET_AVATARS } from '../../utils/preset-avatars'
+import LaokeAvatar from '../../components/LaokeAvatar.vue'
 
 const userStore = useUserStore()
 
@@ -94,7 +95,7 @@ async function finish(skipAvatar: boolean) {
   <view class="page">
     <!-- 顶部老白标识 -->
     <view class="header">
-      <view class="laoke-avatar">老</view>
+      <LaokeAvatar :size="80" />
       <view class="header-text">
         <view class="laoke-name">老白</view>
         <view class="laoke-tag">练爱 · 私聊</view>
@@ -203,19 +204,6 @@ async function finish(skipAvatar: boolean) {
   background: $color-surface;
   border-bottom: 1rpx solid $color-divider;
   flex-shrink: 0;
-}
-.laoke-avatar {
-  width: 80rpx;
-  height: 80rpx;
-  border-radius: 50%;
-  background: $color-laoke;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-weight: $weight-semibold;
-  font-size: $font-body;
-  border: 3rpx solid $color-accent;
 }
 .header-text { flex: 1; }
 .laoke-name {

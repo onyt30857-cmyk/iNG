@@ -2,6 +2,7 @@
 // Welcome 屏(spec-018,Sam 选定 B 变体:对话气泡入门)
 // 3 个气泡渐次淡入 → 底部 CTA → /pages/onboarding/profile
 import { ref, onMounted } from 'vue'
+import LaokeAvatar from '../../components/LaokeAvatar.vue'
 
 const visibleCount = ref(0)
 
@@ -24,7 +25,7 @@ function start() {
   <view class="welcome">
     <!-- 顶部老白标识 -->
     <view class="header">
-      <view class="laoke-avatar">老</view>
+      <LaokeAvatar :size="80" />
       <view class="header-text">
         <view class="laoke-name">老白</view>
         <view class="laoke-tag">练爱 · 私聊</view>
@@ -79,19 +80,6 @@ function start() {
   padding: $space-3 $space-4 $space-3;
   background: $color-surface;
   border-bottom: 1rpx solid $color-divider;
-}
-.laoke-avatar {
-  width: 80rpx;
-  height: 80rpx;
-  border-radius: 50%;
-  background: $color-laoke;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-weight: $weight-semibold;
-  font-size: $font-body;
-  border: 3rpx solid $color-accent;
 }
 .header-text { flex: 1; }
 .laoke-name {
