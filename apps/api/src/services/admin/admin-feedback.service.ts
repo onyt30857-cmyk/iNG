@@ -260,6 +260,234 @@ export async function getFeedbackTrend(windowDays = 30): Promise<FeedbackTrendRe
   }
 }
 
+/**
+ * Scene 分粒度反馈分布(spec-021 P1-4)
+ *
+ * 反馈本身没有 scene 字段,通过 ai_call_logs 关联(用 relationship_id + 时间窗口
+ * fuzzy match,跟 admin-conversation 一致)
+ *
+ * 输出:每个 scene 的总反馈 / dislike / 占比
+ */
+export interface SceneFeedbackBreakdown {
+  scene: string
+  total: number
+  dislike: number
+  dislike_rate: number
+}
+
+export async function getSceneFeedbackBreakdown(
+  windowDays = 7,
+): Promise<SceneFeedbackBreakdown[]> {
+  const since = new Date(Date.now() - windowDays * 86400_000)
+
+  // 用 SQL fuzzy join 一次搞定:同 relationship_id + 时间 ±90s 的最近 ai_call_log
+  const rows = await prisma.$queryRaw<
+    Array<{ scene: string; total: bigint; dislike: bigint }>
+  >`
+    SELECT
+      a.scene,
+      COUNT(*)::bigint AS total,
+      COUNT(*) FILTER (WHERE pf.feedback_type = 'dislike')::bigint AS dislike
+    FROM prompt_feedback pf
+    JOIN LATERAL (
+      SELECT scene
+      FROM ai_call_logs
+      WHERE relationship_id = pf.relationship_id
+        AND created_at BETWEEN pf.created_at - INTERVAL '90 seconds'
+                           AND pf.created_at + INTERVAL '90 seconds'
+      ORDER BY ABS(EXTRACT(EPOCH FROM (created_at - pf.created_at)))
+      LIMIT 1
+    ) a ON true
+    WHERE pf.created_at > ${since}
+    GROUP BY a.scene
+    ORDER BY total DESC
+  `
+
+  return rows.map((r) => {
+    const total = Number(r.total)
+    const dislike = Number(r.dislike)
+    return {
+      scene: r.scene,
+      total,
+      dislike,
+      dislike_rate: total > 0 ? dislike / total : 0,
+    }
+  })
+}
+
+/**
+ * Prompt 版本对比(spec-021 P0-3)
+ *
+ * 设计:不改 PromptFeedback schema(避免 migration + 回填),
+ * 通过时间窗口推断 — 每个反馈的 created_at 落在哪个 PromptVersion 的 deployed
+ * 区间,就归属那个版本。
+ *
+ * 当前实现:focus 在 'conversation_turn' prompt 上(影响最大的主对话)
+ * 输出:每个 deployed 版本的 dislike 率 + 总反馈数,按部署时间排序
+ */
+export interface PromptVersionComparison {
+  prompt_name: string
+  versions: Array<{
+    version: number
+    deployed_at: string
+    rolled_back_at: string | null
+    /** 该版本生效期间总反馈数 */
+    feedback_total: number
+    feedback_dislike: number
+    /** 0-1 */
+    dislike_rate: number
+    /** 生效天数 */
+    active_days: number
+  }>
+}
+
+export async function getPromptVersionComparison(
+  promptName = 'conversation_turn',
+  windowDays = 90,
+): Promise<PromptVersionComparison> {
+  const since = new Date(Date.now() - windowDays * 86400_000)
+
+  // 拉所有 deployed 版本(按部署时间升序)
+  const versions = await prisma.promptVersion.findMany({
+    where: {
+      name: promptName,
+      deployed_at: { not: null },
+    },
+    orderBy: { deployed_at: 'asc' },
+    select: {
+      version: true,
+      deployed_at: true,
+      rolled_back_at: true,
+    },
+  })
+
+  if (versions.length === 0) {
+    return { prompt_name: promptName, versions: [] }
+  }
+
+  // 每个版本的生效区间 [deployed_at, 下一个版本的 deployed_at 或 rolled_back_at 或 now]
+  const now = new Date()
+  const intervals = versions.map((v, i) => {
+    const start = v.deployed_at!
+    const next = versions[i + 1]
+    const end = v.rolled_back_at ?? next?.deployed_at ?? now
+    return { version: v.version, start, end, rolled_back_at: v.rolled_back_at }
+  })
+
+  // 拉窗口内反馈,内存里按 created_at 落到对应区间
+  const feedbacks = await prisma.promptFeedback.findMany({
+    where: { created_at: { gt: since } },
+    select: { feedback_type: true, created_at: true },
+  })
+
+  const stats = new Map<number, { total: number; dislike: number }>()
+  for (const f of feedbacks) {
+    const t = f.created_at.getTime()
+    const interval = intervals.find((iv) => t >= iv.start.getTime() && t < iv.end.getTime())
+    if (!interval) continue
+    const s = stats.get(interval.version) ?? { total: 0, dislike: 0 }
+    s.total++
+    if (f.feedback_type === 'dislike') s.dislike++
+    stats.set(interval.version, s)
+  }
+
+  const result = intervals.map((iv) => {
+    const s = stats.get(iv.version) ?? { total: 0, dislike: 0 }
+    const activeDays = Math.max(1, Math.ceil((iv.end.getTime() - iv.start.getTime()) / 86400_000))
+    return {
+      version: iv.version,
+      deployed_at: iv.start.toISOString(),
+      rolled_back_at: iv.rolled_back_at?.toISOString() ?? null,
+      feedback_total: s.total,
+      feedback_dislike: s.dislike,
+      dislike_rate: s.total > 0 ? s.dislike / s.total : 0,
+      active_days: activeDays,
+    }
+  })
+
+  return { prompt_name: promptName, versions: result }
+}
+
+/**
+ * 翻车列表 CSV 导出(spec-021 P1-6)
+ * 跟 listDislikes 同样的 filter,但不分页,返字符串
+ */
+export async function exportDislikesCsv(filter: {
+  withinDays?: number
+  onlyWithComment?: boolean
+}): Promise<string> {
+  const within = filter.withinDays ?? 30
+  const since = new Date(Date.now() - within * 86400_000)
+
+  const where: import('@prisma/client').Prisma.PromptFeedbackWhereInput = {
+    feedback_type: filter.onlyWithComment
+      ? 'comment'
+      : { in: ['dislike', 'comment'] },
+    created_at: { gt: since },
+  }
+
+  const items = await prisma.promptFeedback.findMany({
+    where,
+    orderBy: { created_at: 'desc' },
+    take: 5000, // 安全上限
+    select: {
+      created_at: true,
+      feedback_type: true,
+      feedback_note: true,
+      bubble_text: true,
+      user_id: true,
+      relationship_id: true,
+    },
+  })
+
+  // 批量拉 user / relationship(避免 N+1)
+  const userIds = Array.from(new Set(items.map((it) => it.user_id)))
+  const relIds = Array.from(
+    new Set(items.map((it) => it.relationship_id).filter((x): x is string => !!x)),
+  )
+  const [users, rels] = await Promise.all([
+    userIds.length > 0
+      ? prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, nickname: true, admin_alias: true },
+        })
+      : [],
+    relIds.length > 0
+      ? prisma.relationship.findMany({
+          where: { id: { in: relIds } },
+          select: { id: true, name: true, stage: true },
+        })
+      : [],
+  ])
+  const userMap = new Map(users.map((u) => [u.id, u]))
+  const relMap = new Map(rels.map((r) => [r.id, r]))
+
+  // CSV: BOM 让 Excel 认 UTF-8 中文
+  const escape = (v: string | null | undefined): string => {
+    if (v === null || v === undefined) return ''
+    return `"${String(v).replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`
+  }
+
+  const header = ['时间', '反馈类型', '用户', '运营备注名', '关系名', '关系阶段', '老白回复(快照)', '用户吐槽内容']
+  const rows = items.map((it) => {
+    const user = userMap.get(it.user_id)
+    const rel = it.relationship_id ? relMap.get(it.relationship_id) : null
+    return [
+      escape(it.created_at.toISOString()),
+      escape(it.feedback_type),
+      escape(user?.nickname ?? '(未填昵称)'),
+      escape(user?.admin_alias ?? ''),
+      escape(rel?.name ?? ''),
+      escape(rel?.stage ?? ''),
+      escape(it.bubble_text ?? ''),
+      escape(it.feedback_note ?? ''),
+    ]
+  })
+
+  const csv = [header.map(escape).join(','), ...rows.map((r) => r.join(','))].join('\n')
+  return '﻿' + csv // BOM
+}
+
 export interface DislikeListFilter {
   page: number
   pageSize: number

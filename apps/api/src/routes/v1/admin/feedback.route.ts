@@ -13,6 +13,9 @@ import {
   listDislikes,
   getMessageContextForFeedback,
   getFeedbackTrend,
+  getPromptVersionComparison,
+  getSceneFeedbackBreakdown,
+  exportDislikesCsv,
 } from '../../../services/admin/admin-feedback.service.js'
 
 const dashboardQuerySchema = z.object({
@@ -51,11 +54,56 @@ export async function adminFeedbackRoutes(app: FastifyInstance): Promise<void> {
     return { ok: true, data: result }
   })
 
+  // GET /v1/admin/feedback/scene-breakdown — scene 分粒度(spec-021 P1-4)
+  app.get('/v1/admin/feedback/scene-breakdown', async (request) => {
+    const q = dashboardQuerySchema.parse(request.query)
+    const result = await getSceneFeedbackBreakdown(q.windowDays)
+    return { ok: true, data: result }
+  })
+
+  // GET /v1/admin/feedback/version-comparison — prompt 版本对比(spec-021 P0-3)
+  app.get('/v1/admin/feedback/version-comparison', async (request) => {
+    const q = z
+      .object({
+        promptName: z.string().default('conversation_turn'),
+        windowDays: z.coerce.number().int().min(1).max(365).default(90),
+      })
+      .parse(request.query)
+    const result = await getPromptVersionComparison(q.promptName, q.windowDays)
+    return { ok: true, data: result }
+  })
+
   // GET /v1/admin/feedback/dislikes — 翻车列表
   app.get('/v1/admin/feedback/dislikes', async (request) => {
     const q = dislikesQuerySchema.parse(request.query)
     const result = await listDislikes(q)
     return { ok: true, data: result }
+  })
+
+  // GET /v1/admin/feedback/dislikes/export.csv — CSV 导出(spec-021 P1-6)
+  app.get('/v1/admin/feedback/dislikes/export.csv', async (request, reply) => {
+    const q = z
+      .object({
+        withinDays: z.coerce.number().int().min(1).max(365).default(30),
+        onlyWithComment: z.coerce.boolean().default(false),
+      })
+      .parse(request.query)
+    const csv = await exportDislikesCsv(q)
+    void recordAdminAudit(
+      request.admin!.id,
+      {
+        action: 'export_feedback_csv',
+        target_type: 'prompt_feedback',
+        target_id: 'csv_export',
+        reason: `withinDays=${q.withinDays} onlyWithComment=${q.onlyWithComment}`,
+      },
+      request,
+    )
+    const filename = `feedback-dislikes-${new Date().toISOString().slice(0, 10)}.csv`
+    reply
+      .header('Content-Type', 'text/csv; charset=utf-8')
+      .header('Content-Disposition', `attachment; filename="${filename}"`)
+      .send(csv)
   })
 
   // GET /v1/admin/feedback/:feedbackId/context — 单条反馈的对话上下文

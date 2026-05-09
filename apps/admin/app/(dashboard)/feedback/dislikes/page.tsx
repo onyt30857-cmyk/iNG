@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Download } from 'lucide-react'
+import { auth } from '@/lib/auth'
+import { BASE } from '@/lib/api-client'
 import { adminGet } from '@/lib/api-client'
 import { formatRelative, formatDate } from '@/lib/format'
 import { Button } from '@/components/ui/button'
@@ -113,6 +115,33 @@ export default function DislikesPage() {
             />
             只看带 💬 的
           </label>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              // 用 fetch 拿 CSV(因为是 file download 不走 adminGet)
+              const token = auth.getAccessToken()
+              if (!token) return
+              const url = `${BASE}/v1/admin/feedback/dislikes/export.csv?withinDays=${withinDays}&onlyWithComment=${onlyComment}`
+              const res = await fetch(url, {
+                headers: { Authorization: `Bearer ${token}` },
+              })
+              if (!res.ok) {
+                alert('导出失败,刷新重试')
+                return
+              }
+              const blob = await res.blob()
+              const link = document.createElement('a')
+              link.href = URL.createObjectURL(blob)
+              link.download = `feedback-dislikes-${new Date().toISOString().slice(0, 10)}.csv`
+              link.click()
+              URL.revokeObjectURL(link.href)
+            }}
+            className="gap-1"
+          >
+            <Download className="h-3.5 w-3.5" />
+            导出 CSV
+          </Button>
         </div>
       </div>
 

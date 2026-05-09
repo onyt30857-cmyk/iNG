@@ -9,6 +9,9 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FeedbackTrendChart } from '@/components/dashboard/feedback-trend-chart'
+import { FeedbackAnomalyBanner } from '@/components/dashboard/feedback-anomaly-banner'
+import { FeedbackVersionComparison } from '@/components/dashboard/feedback-version-comparison'
+import { FeedbackSceneBreakdown } from '@/components/dashboard/feedback-scene-breakdown'
 
 interface FeedbackDashboard {
   window_days: number
@@ -173,8 +176,17 @@ export default function FeedbackDashboardPage() {
         )}
       </Card>
 
+      {/* 今日异常红条(spec-021 P1-5,只在异常时显示)*/}
+      <FeedbackAnomalyBanner />
+
       {/* 30 天 dislike 率趋势曲线(spec-021 P0-1)*/}
       <FeedbackTrendChart />
+
+      {/* Scene 分粒度 + Prompt 版本对比(spec-021 P1-4 + P0-3)*/}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <FeedbackSceneBreakdown windowDays={windowDays} />
+        <FeedbackVersionComparison />
+      </div>
 
       {errorMsg && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">

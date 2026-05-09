@@ -7,7 +7,7 @@
 
 import { auth } from './auth'
 
-const BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:3000'
+export const BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:3000'
 
 interface ApiSuccess<T> {
   ok: true
