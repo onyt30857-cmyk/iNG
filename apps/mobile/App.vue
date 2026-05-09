@@ -4,6 +4,7 @@ import { onLaunch, onShow, onHide } from '@dcloudio/uni-app'
 import { useUserStore } from './stores/user'
 import { useLaokeStore } from './stores/laoke'
 import { BASE_URL } from './api/client'
+import { storage, StorageKeys } from './utils/storage'
 
 // 2026-05-10 P1 监控:全局未捕获错误 → 上报后端 /v1/client-errors
 // 让 admin 能看到框架级 / vendor bundle / SSE 等绕过 client.ts 的失败
@@ -73,18 +74,21 @@ onLaunch(async () => {
   laokeStore.init()
   void laokeStore.fetch()
 
-  // spec-018 全局 onboarding 守卫:未走完 onboarding 强制跳 welcome
+  // spec-018 全局 onboarding 守卫:未走完 onboarding 强制跳引导页
   // 必须在 App 级,因为 uni-app H5 的 hash URL 可能直接跳到任意页(如 #/pages/home/index)
   // 绕过 splash 的检查。这里是最后一道防线。
-  // 例外:已经在 onboarding 流程内(welcome / profile)不跳,避免 reLaunch 自己。
+  // 例外:已经在 onboarding 流程内(intro / welcome / profile)不跳,避免 reLaunch 自己。
   if (!userStore.isOnboarded()) {
     const pages = getCurrentPages()
     const currentRoute = pages[pages.length - 1]?.route ?? ''
     const inOnboarding = currentRoute.startsWith('pages/onboarding/')
     const inSplash = currentRoute === 'pages/splash/index'
     if (!inOnboarding && !inSplash) {
-      console.log('[App] onboarding 未完成,强制跳 welcome (from:', currentRoute, ')')
-      uni.reLaunch({ url: '/pages/onboarding/welcome' })
+      // 第一次见面 → intro,看过了 → welcome(跟 splash 同分支逻辑,统一)
+      const introShown = !!storage.get<string>(StorageKeys.INTRO_SHOWN)
+      const target = introShown ? '/pages/onboarding/welcome' : '/pages/onboarding/intro'
+      console.log('[App] onboarding 未完成,强制跳', target, '(from:', currentRoute, ')')
+      uni.reLaunch({ url: target })
     }
   }
 })
