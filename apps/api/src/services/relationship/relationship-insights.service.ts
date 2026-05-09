@@ -114,7 +114,7 @@ export async function generateRelationshipInsights(
   const { checkAndIncrementQuota } = await import('../quota/quota.service.js')
   const quota = await checkAndIncrementQuota(userId, 'heavy')
   if (!quota.allowed) {
-    throw errors.freeQuotaExceeded('heavy', quota.used, quota.limit)
+    throw errors.freeQuotaExceeded('heavy', quota.points_used, quota.points_limit)
   }
 
   const keyFacts =

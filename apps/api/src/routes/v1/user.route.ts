@@ -12,6 +12,7 @@ import {
   toPublicProfile,
   updateProfile,
 } from '../../services/user/user.service.js'
+import { getPointsStatus } from '../../services/quota/quota.service.js'
 
 // 昵称:2-12 字(微信限制 16,我们更紧一点;空白 trim 后)
 const nicknameSchema = z
@@ -47,5 +48,11 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     const body = updateBodySchema.parse(request.body)
     const updated = await updateProfile(request.user!.id, body)
     return { ok: true, data: toPublicProfile(updated) }
+  })
+
+  // 积分状态(spec-019):前端"我的"页 + 对话流提醒用
+  app.get('/v1/users/me/points', async (request) => {
+    const status = await getPointsStatus(request.user!.id)
+    return { ok: true, data: status }
   })
 }

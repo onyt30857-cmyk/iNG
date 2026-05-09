@@ -529,6 +529,12 @@ model DailyUsage {
   ocr_count   Int @default(0) // OCR 截图分析次数
   heavy_count Int @default(0) // extract / generate-insights / summarize 等重操作
 
+  // spec-019:积分系统(单一货币替代 turn/ocr/heavy 三种独立上限)
+  // 1 turn = 5 / 1 ocr = 20 / 1 heavy = 30(POINTS_PER_ACTION 在 service 里)
+  // 主约束:points_used >= daily_free_points → 拒绝(订阅 bypass)
+  // 旧三个 counter 保留(运营审计 / 行为分析用),不再做硬上限
+  points_used Int @default(0)
+
   created_at DateTime @default(now()) @db.Timestamptz
   updated_at DateTime @updatedAt @db.Timestamptz
 
@@ -969,6 +975,11 @@ model SystemConfig {
   // 全局 bypass:true = 所有用户不限(M1 内测期默认开)
   // 上线后改 false 启用 limits;订阅用户始终 bypass(独立逻辑)
   quota_bypass_enabled Boolean @default(true)
+
+  // spec-019 积分系统:每日免费积分上限(替代 quota_turn/ocr/heavy 三个独立上限)
+  // 默认 100 = 20 句对话(5/句) 或 5 张截图(20/张) 或混合
+  // 实际扣分 = POINTS_PER_ACTION (turn=5 / ocr=20 / heavy=30,定义在 quota.service)
+  daily_free_points Int @default(100)
 
   // Anthropic 账户余额基准(spec-billing v1):
   // Anthropic 不提供"剩余余额"API,只有 cost_report 累计花费。

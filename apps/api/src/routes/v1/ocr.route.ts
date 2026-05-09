@@ -25,7 +25,7 @@ export async function ocrRoutes(app: FastifyInstance): Promise<void> {
     // ★ 付费墙 v0:OCR 配额
     const quota = await checkAndIncrementQuota(userId, 'ocr')
     if (!quota.allowed) {
-      throw errors.freeQuotaExceeded('ocr', quota.used, quota.limit)
+      throw errors.freeQuotaExceeded('ocr', quota.points_used, quota.points_limit)
     }
 
     const result = await runOcr({

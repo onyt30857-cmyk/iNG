@@ -11,6 +11,8 @@ export interface SystemConfig {
   quota_ocr: number
   quota_heavy: number
   quota_bypass_enabled: boolean
+  /** spec-019:每日免费积分上限(替代 quota_turn/ocr/heavy 三独立上限)*/
+  daily_free_points: number
   updated_by: string | null
   updated_at: Date
 }
@@ -43,6 +45,7 @@ export async function loadSystemConfig(): Promise<SystemConfig> {
     quota_ocr: row.quota_ocr,
     quota_heavy: row.quota_heavy,
     quota_bypass_enabled: row.quota_bypass_enabled,
+    daily_free_points: row.daily_free_points,
     updated_by: row.updated_by,
     updated_at: row.updated_at,
   }
@@ -62,6 +65,7 @@ export interface UpdateConfigInput {
   quota_ocr?: number
   quota_heavy?: number
   quota_bypass_enabled?: boolean
+  daily_free_points?: number
 }
 
 export async function updateSystemConfig(
@@ -77,6 +81,9 @@ export async function updateSystemConfig(
   }
   if (patch.quota_heavy !== undefined && patch.quota_heavy < 0) {
     throw new Error('quota_heavy 必须 ≥ 0')
+  }
+  if (patch.daily_free_points !== undefined && patch.daily_free_points < 0) {
+    throw new Error('daily_free_points 必须 ≥ 0')
   }
 
   const row = await prisma.systemConfig.upsert({
@@ -100,6 +107,7 @@ export async function updateSystemConfig(
     quota_ocr: row.quota_ocr,
     quota_heavy: row.quota_heavy,
     quota_bypass_enabled: row.quota_bypass_enabled,
+    daily_free_points: row.daily_free_points,
     updated_by: row.updated_by,
     updated_at: row.updated_at,
   }

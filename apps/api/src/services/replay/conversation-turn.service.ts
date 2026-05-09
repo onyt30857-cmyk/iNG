@@ -26,7 +26,7 @@ import {
   buildRefusalReply,
 } from '../../ai/red-line-guard.js'
 import { prisma } from '../../lib/prisma.js'
-import { checkAndIncrementQuota } from '../quota/quota.service.js'
+import { checkAndIncrementQuota, decrementPoints } from '../quota/quota.service.js'
 import { errors } from '../../lib/error.js'
 
 export interface RunConversationTurnInput {
@@ -50,10 +50,10 @@ export async function runConversationTurnForRelationship(
     .map((r) => r.name)
     .filter((n) => n.trim().length >= 2)
 
-  // ★ 付费墙 v0:免费层每日 turn 配额(订阅用户 bypass)
+  // ★ 付费墙 v1(spec-019 积分系统):每次 turn 扣 5 积分(订阅 / bypass 用户不扣)
   const quota = await checkAndIncrementQuota(userId, 'turn')
   if (!quota.allowed) {
-    throw errors.freeQuotaExceeded('turn', quota.used, quota.limit)
+    throw errors.freeQuotaExceeded('turn', quota.points_used, quota.points_limit)
   }
 
   // ★ 红线运行时拦截(spec-009):用户输入双层检测(关键词 + Haiku 二次确认)
@@ -85,6 +85,8 @@ export async function runConversationTurnForRelationship(
     // 流式回应预制拒绝文本
     const refusal = buildRefusalReply(v.category)
     handlers.onChunk(refusal)
+    // spec-019:红线触发 → 用户没获得服务,退积分
+    await decrementPoints(userId, 'turn').catch(() => {/* 退分失败不阻断 */})
     return {
       text: refusal,
       usage: { input_tokens: 0, output_tokens: 0 },

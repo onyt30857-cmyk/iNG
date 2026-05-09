@@ -20,10 +20,13 @@ import {
 } from '../../../services/anthropic-billing.service.js'
 
 const updateBodySchema = z.object({
+  // spec-019:积分系统取代 turn/ocr/heavy 三个独立上限
+  daily_free_points: z.number().int().min(0).max(10000).optional(),
+  quota_bypass_enabled: z.boolean().optional(),
+  // 兼容老接口(运营如果还想调旧字段),不再生效但允许传
   quota_turn: z.number().int().min(0).max(10000).optional(),
   quota_ocr: z.number().int().min(0).max(10000).optional(),
   quota_heavy: z.number().int().min(0).max(10000).optional(),
-  quota_bypass_enabled: z.boolean().optional(),
 })
 
 const billingBodySchema = z.object({
@@ -52,15 +55,11 @@ export async function adminSettingsRoutes(app: FastifyInstance): Promise<void> {
         target_type: 'system_config',
         target_id: 'global',
         before: {
-          quota_turn: before.quota_turn,
-          quota_ocr: before.quota_ocr,
-          quota_heavy: before.quota_heavy,
+          daily_free_points: before.daily_free_points,
           quota_bypass_enabled: before.quota_bypass_enabled,
         },
         after: {
-          quota_turn: after.quota_turn,
-          quota_ocr: after.quota_ocr,
-          quota_heavy: after.quota_heavy,
+          daily_free_points: after.daily_free_points,
           quota_bypass_enabled: after.quota_bypass_enabled,
         },
       },

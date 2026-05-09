@@ -183,7 +183,7 @@ export async function extractRelationshipProfile(
   const { checkAndIncrementQuota } = await import('../quota/quota.service.js')
   const quota = await checkAndIncrementQuota(userId, 'heavy')
   if (!quota.allowed) {
-    throw errors.freeQuotaExceeded('heavy', quota.used, quota.limit)
+    throw errors.freeQuotaExceeded('heavy', quota.points_used, quota.points_limit)
   }
 
   // 拿现有 key_facts(可能是 undefined)
