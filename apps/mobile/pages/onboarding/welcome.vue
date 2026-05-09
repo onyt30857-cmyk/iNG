@@ -19,15 +19,19 @@ const recoverModalOpen = ref(false)
 const recoverInput = ref('')
 const recovering = ref(false)
 
+// 2026-05-10:加 ready 守卫,sync 完成 + 确认未 onboarded 才渲染气泡内容。
+// 治"关掉重进闪一下 welcome"问题 — sync 期间整页隐藏,
+// 已 onboarded 用户直接跳走,3 气泡永远不暴露
+const ready = ref(false)
+
 onMounted(async () => {
-  // 2026-05-10 双保险守卫:已 onboarded 用户进 welcome → 立即跳 home
-  // 治"关掉重进还要重新取名"问题 — 防御 splash/App.vue 守卫被绕过的边界
   await userStore.syncFromServer()
   if (userStore.isOnboarded()) {
     console.log('[welcome] 已 onboarded,直接跳 home')
     uni.reLaunch({ url: '/pages/home/index' })
     return
   }
+  ready.value = true
 
   // 气泡分批出现:0ms / 800ms / 1600ms
   const delays = [200, 1000, 1800]
@@ -73,7 +77,9 @@ async function onConfirmRecover() {
 </script>
 
 <template>
-  <view class="welcome">
+  <!-- ready 之前显示纯背景(同 splash 视觉延续),避免冷启动闪 welcome 内容 -->
+  <view v-if="!ready" class="welcome-loading"></view>
+  <view v-else class="welcome">
     <!-- 顶部老白标识 -->
     <view class="header">
       <LaokeAvatar :size="80" />
@@ -153,6 +159,11 @@ async function onConfirmRecover() {
   background: $color-background;
   display: flex;
   flex-direction: column;
+}
+// sync 期间的兜底,跟 splash 同色不闪(2026-05-10)
+.welcome-loading {
+  min-height: 100vh;
+  background: $color-background;
 }
 
 .header {

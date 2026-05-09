@@ -14,16 +14,17 @@ import LaokeAvatar from '../../components/LaokeAvatar.vue'
 
 const userStore = useUserStore()
 
-// 2026-05-10 双重保险守卫:已 onboarded 用户进到本页 → 立即弹回 home
-// 治 Sam 反馈"已经有账户了,退出之后还是要问我名字"问题 — 防御 App.vue
-// 守卫被绕过(syncFromServer 失败 / 竞态 / 直链 hash URL)
-// 也顺便 sync 一次,拿最新 onboarding_completed_at
+// 2026-05-10 双保险守卫 + ready 隐藏内容防闪烁:
+// sync 完成确认未 onboarded 才渲染对话流,已 onboarded 直接跳走
+const ready = ref(false)
 onMounted(async () => {
   await userStore.syncFromServer()
   if (userStore.isOnboarded()) {
     console.log('[onboarding/profile] 已 onboarded,直接跳 home')
     uni.reLaunch({ url: '/pages/home/index' })
+    return
   }
+  ready.value = true
 })
 
 // 流程阶段
@@ -104,7 +105,9 @@ async function finish(skipAvatar: boolean) {
 </script>
 
 <template>
-  <view class="page">
+  <!-- ready 之前显示纯背景兜底,避免冷启动闪取名页 -->
+  <view v-if="!ready" class="page-loading"></view>
+  <view v-else class="page">
     <!-- 顶部老白标识 -->
     <view class="header">
       <LaokeAvatar :size="80" />
@@ -206,6 +209,11 @@ async function finish(skipAvatar: boolean) {
   background: $color-background;
   display: flex;
   flex-direction: column;
+}
+// sync 期间兜底,跟 splash/welcome 同色不闪(2026-05-10)
+.page-loading {
+  min-height: 100vh;
+  background: $color-background;
 }
 
 .header {
