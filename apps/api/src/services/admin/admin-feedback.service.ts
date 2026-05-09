@@ -162,6 +162,104 @@ export async function getFeedbackDashboard(
   }
 }
 
+/**
+ * 30 天趋势数据(spec-021 P0-1)
+ * 每天一个 bucket:总反馈 / dislike / dislike_rate / scene 分布
+ * 给前端画曲线用,看产品在好转还是恶化
+ */
+export interface FeedbackTrendDay {
+  /** YYYY-MM-DD */
+  date: string
+  total: number
+  like: number
+  dislike: number
+  comment: number
+  /** 0-1 */
+  dislike_rate: number
+}
+
+export interface FeedbackTrendResult {
+  days: FeedbackTrendDay[]
+  /** 整个窗口均值(给"今日异常"红条用)*/
+  avg_dislike_rate: number
+  /** 标准差(用于 1σ 判断异常)*/
+  stddev_dislike_rate: number
+}
+
+export async function getFeedbackTrend(windowDays = 30): Promise<FeedbackTrendResult> {
+  const now = new Date()
+  const since = new Date(now.getTime() - windowDays * 86400_000)
+
+  // 一次 SQL 按日聚合,避免 N+1
+  const rows = await prisma.$queryRaw<
+    Array<{
+      date: string
+      feedback_type: string
+      count: bigint
+    }>
+  >`
+    SELECT
+      to_char(created_at AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD') AS date,
+      feedback_type,
+      COUNT(*)::bigint AS count
+    FROM prompt_feedback
+    WHERE created_at > ${since}
+    GROUP BY 1, 2
+    ORDER BY 1 ASC
+  `
+
+  // 按 date 分组合并
+  const map = new Map<string, FeedbackTrendDay>()
+  for (const r of rows) {
+    const day = map.get(r.date) ?? {
+      date: r.date,
+      total: 0,
+      like: 0,
+      dislike: 0,
+      comment: 0,
+      dislike_rate: 0,
+    }
+    const n = Number(r.count)
+    day.total += n
+    if (r.feedback_type === 'like') day.like = n
+    else if (r.feedback_type === 'dislike') day.dislike = n
+    else if (r.feedback_type === 'comment') day.comment = n
+    map.set(r.date, day)
+  }
+
+  // 填充无反馈的日期(避免曲线断点)
+  const days: FeedbackTrendDay[] = []
+  for (let i = windowDays - 1; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 86400_000)
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const existing = map.get(dateStr)
+    if (existing) {
+      existing.dislike_rate = existing.total > 0 ? existing.dislike / existing.total : 0
+      days.push(existing)
+    } else {
+      days.push({ date: dateStr, total: 0, like: 0, dislike: 0, comment: 0, dislike_rate: 0 })
+    }
+  }
+
+  // 算均值 + 标准差(只看有反馈的天,避免 0 拉低)
+  const ratesWithData = days.filter((d) => d.total > 0).map((d) => d.dislike_rate)
+  const avg =
+    ratesWithData.length > 0
+      ? ratesWithData.reduce((s, x) => s + x, 0) / ratesWithData.length
+      : 0
+  const variance =
+    ratesWithData.length > 1
+      ? ratesWithData.reduce((s, x) => s + Math.pow(x - avg, 2), 0) / ratesWithData.length
+      : 0
+  const stddev = Math.sqrt(variance)
+
+  return {
+    days,
+    avg_dislike_rate: avg,
+    stddev_dislike_rate: stddev,
+  }
+}
+
 export interface DislikeListFilter {
   page: number
   pageSize: number

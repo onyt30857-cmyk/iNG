@@ -8,6 +8,7 @@ import { formatPercent } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { FeedbackTrendChart } from '@/components/dashboard/feedback-trend-chart'
 
 interface FeedbackDashboard {
   window_days: number
@@ -171,6 +172,9 @@ export default function FeedbackDashboardPage() {
           </CardContent>
         )}
       </Card>
+
+      {/* 30 天 dislike 率趋势曲线(spec-021 P0-1)*/}
+      <FeedbackTrendChart />
 
       {errorMsg && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">

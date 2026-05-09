@@ -12,10 +12,15 @@ import {
   getFeedbackDashboard,
   listDislikes,
   getMessageContextForFeedback,
+  getFeedbackTrend,
 } from '../../../services/admin/admin-feedback.service.js'
 
 const dashboardQuerySchema = z.object({
   windowDays: z.coerce.number().int().min(1).max(90).default(7),
+})
+
+const trendQuerySchema = z.object({
+  windowDays: z.coerce.number().int().min(7).max(90).default(30),
 })
 
 const dislikesQuerySchema = z.object({
@@ -37,6 +42,13 @@ export async function adminFeedbackRoutes(app: FastifyInstance): Promise<void> {
     const q = dashboardQuerySchema.parse(request.query)
     const dashboard = await getFeedbackDashboard(q.windowDays)
     return { ok: true, data: dashboard }
+  })
+
+  // GET /v1/admin/feedback/trend — 30 天 dislike 率曲线(spec-021 P0-1)
+  app.get('/v1/admin/feedback/trend', async (request) => {
+    const q = trendQuerySchema.parse(request.query)
+    const result = await getFeedbackTrend(q.windowDays)
+    return { ok: true, data: result }
   })
 
   // GET /v1/admin/feedback/dislikes — 翻车列表
