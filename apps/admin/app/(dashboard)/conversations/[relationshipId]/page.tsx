@@ -210,74 +210,142 @@ export default function ConversationInspectorPage() {
       {/* 左右栏 Inspector */}
       {!loading && messages.length > 0 && (
         <div className="grid gap-4 lg:grid-cols-[1fr_1fr] xl:grid-cols-[1fr_1.2fr]" style={{ minHeight: '600px' }}>
-          {/* 左:Timeline */}
+          {/* 左:微信式气泡 timeline(跟用户端 LaokeBubble 视觉对齐 — spec-022 fix)*/}
           <Card className="overflow-hidden flex flex-col" style={{ maxHeight: '80vh' }}>
-            <div className="overflow-y-auto flex-1 divide-y">
-              {visibleMessages.map((m) => {
+            <div
+              className="overflow-y-auto flex-1 px-4 py-4 space-y-3"
+              style={{ background: '#EDEDED' }}
+            >
+              {visibleMessages.map((m, idx) => {
                 const isSelected = selected?.id === m.id
                 const hasFeedback = m.feedback.length > 0
                 const hasRedLine = !!m.red_line
                 const personaFail = m.ai_metadata && !m.ai_metadata.persona_passed
                 const isLaoke = m.role === 'LAOKE'
                 const isUser = m.role === 'USER' || m.role === 'USER_SCREENSHOT'
+                const isSystem = !isLaoke && !isUser
+
+                // 跟上一条对比是否同角色 + 30s 内 → 不重复显示头像/时间
+                const prev = idx > 0 ? visibleMessages[idx - 1] : null
+                const sameAuthorAsPrev =
+                  prev &&
+                  prev.role === m.role &&
+                  Math.abs(new Date(m.created_at).getTime() - new Date(prev.created_at).getTime()) < 30_000
+
+                if (isSystem) {
+                  return (
+                    <div
+                      key={m.id}
+                      className="text-center text-xs text-muted-foreground py-2 cursor-pointer hover:text-foreground"
+                      onClick={() => setSelected(m)}
+                    >
+                      {m.content ?? '系统消息'}
+                    </div>
+                  )
+                }
 
                 return (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => setSelected(m)}
-                    className={`w-full text-left px-4 py-3 transition-colors ${
-                      isSelected ? 'bg-primary/10' : 'hover:bg-muted/30'
-                    }`}
-                  >
-                    <div className="flex items-start gap-2 text-xs text-muted-foreground mb-1">
-                      <span className="shrink-0">
-                        {isLaoke ? '🤖 老白' : isUser ? '👤 用户' : '⚙️ 系统'}
-                      </span>
-                      <span className="ml-auto shrink-0">{formatDate(m.created_at)}</span>
-                    </div>
-                    <div
-                      className={`text-sm line-clamp-2 ${
-                        isLaoke ? 'text-foreground' : isUser ? 'text-muted-foreground' : 'italic text-muted-foreground'
-                      }`}
-                    >
-                      {m.content ?? (m.screenshot_url ? '[截图]' : '(空消息)')}
-                    </div>
-                    {/* 标记 chips */}
-                    {(hasFeedback || hasRedLine || personaFail) && (
-                      <div className="flex gap-1 mt-1.5 flex-wrap">
-                        {m.feedback.map((f, i) => (
-                          <span
-                            key={i}
-                            className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                              f.type === 'dislike'
-                                ? 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400'
-                                : f.type === 'comment'
-                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400'
-                                : 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400'
-                            }`}
-                          >
-                            {f.type === 'dislike' ? '👎' : f.type === 'comment' ? '💬' : '👍'}
-                          </span>
-                        ))}
-                        {hasRedLine && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400">
-                            🚨 {m.red_line!.category ?? 'red'}
-                          </span>
-                        )}
-                        {personaFail && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
-                            🤖 出格
-                          </span>
-                        )}
+                  <div key={m.id}>
+                    {/* 时间分隔(每天首条)— 简化:只在跟上条间隔 > 5min 时显示 */}
+                    {(!prev || new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() > 5 * 60_000) && (
+                      <div className="text-center text-[10px] text-muted-foreground/70 py-1">
+                        {new Date(m.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                       </div>
                     )}
-                  </button>
+
+                    <div
+                      className={`flex items-end gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}
+                      onClick={() => setSelected(m)}
+                    >
+                      {/* 老白头像(同角色连续不重复显示)*/}
+                      {isLaoke && (
+                        <div className="w-8 h-8 shrink-0">
+                          {!sameAuthorAsPrev && (
+                            <div
+                              className="w-8 h-8 rounded-full flex items-center justify-center"
+                              style={{ background: '#EFEAFF' }}
+                            >
+                              <span style={{ fontSize: '14px', color: '#7C5CFF', fontWeight: 600 }}>老</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* 气泡 */}
+                      <div
+                        className={`max-w-[78%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap cursor-pointer transition-all ${
+                          isSelected ? 'ring-2 ring-amber-400 ring-offset-1' : 'hover:brightness-95'
+                        }`}
+                        style={
+                          isLaoke
+                            ? {
+                                background: '#FFFFFF',
+                                color: '#1F2433',
+                                borderLeft: '2px solid #9B82FF',
+                                borderRadius: '4px 12px 12px 12px',
+                                boxShadow: '0 1px 4px rgba(0,0,0,.04)',
+                              }
+                            : {
+                                background: '#95EC69',
+                                color: '#1F2433',
+                                borderRadius: '12px 4px 12px 12px',
+                                boxShadow: '0 1px 4px rgba(0,0,0,.04)',
+                              }
+                        }
+                      >
+                        {m.content ?? (m.screenshot_url ? '🖼 [截图]' : '(空消息)')}
+
+                        {/* 标记 chips 跟在气泡底部 */}
+                        {(hasFeedback || hasRedLine || personaFail) && (
+                          <div className="flex gap-1 mt-1.5 flex-wrap">
+                            {m.feedback.map((f, i) => (
+                              <span
+                                key={i}
+                                className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                                  f.type === 'dislike'
+                                    ? 'bg-red-100 text-red-700'
+                                    : f.type === 'comment'
+                                    ? 'bg-blue-100 text-blue-700'
+                                    : 'bg-green-100 text-green-700'
+                                }`}
+                              >
+                                {f.type === 'dislike' ? '👎' : f.type === 'comment' ? '💬' : '👍'}
+                              </span>
+                            ))}
+                            {hasRedLine && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">
+                                🚨 {m.red_line!.category ?? 'red'}
+                              </span>
+                            )}
+                            {personaFail && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                                🤖 出格
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 用户头像占位(连续同角色不显示)*/}
+                      {isUser && (
+                        <div className="w-8 h-8 shrink-0">
+                          {!sameAuthorAsPrev && (
+                            <div
+                              className="w-8 h-8 rounded-full flex items-center justify-center"
+                              style={{ background: '#D1FADF' }}
+                            >
+                              <span style={{ fontSize: '12px', color: '#06994B', fontWeight: 600 }}>你</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )
               })}
 
               {hasMore && (
-                <div className="p-3 text-center">
+                <div className="text-center pt-2">
                   <Button variant="outline" size="sm" onClick={loadMore}>
                     加载更早的消息 ↓
                   </Button>
