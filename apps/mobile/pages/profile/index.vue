@@ -1,11 +1,29 @@
 <script setup lang="ts">
-// 账户 / 设置页 — 备份码生成 + 恢复
-import { ref } from 'vue'
+// 账户 / 设置页 — 备份码生成 + 恢复 + 积分(spec-019)
+import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '../../stores/user'
+import { usePointsStore } from '../../stores/points'
 import { useAppDialog } from '../../composables/useAppDialog'
 
 const userStore = useUserStore()
+const pointsStore = usePointsStore()
 const dialog = useAppDialog()
+
+onMounted(() => {
+  void pointsStore.refresh(true)
+})
+
+const pointsDisplay = computed(() => {
+  const s = pointsStore.status
+  if (!s) return null
+  if (s.bypass) return { label: '内测期 · 无限用', detail: '系统 bypass 中', accent: false }
+  if (s.subscribed) return { label: '订阅中 · 无限用', detail: '感谢支持', accent: false }
+  return {
+    label: `${s.points_remaining} / ${s.points_limit}`,
+    detail: '明早 0:00 重置',
+    accent: s.points_remaining < 20,
+  }
+})
 
 const generating = ref(false)
 const recoverModalOpen = ref(false)
@@ -114,6 +132,19 @@ async function onConfirmRecover() {
             <text class="profile-meta">点击编辑 →</text>
           </view>
         </view>
+      </view>
+
+      <!-- 积分(spec-019)-->
+      <view class="section" v-if="pointsDisplay">
+        <text class="section-title">今日积分</text>
+        <view class="points-card" :class="{ 'points-low': pointsDisplay.accent }">
+          <view class="points-main">
+            <text class="points-label">今日剩余</text>
+            <text class="points-value">{{ pointsDisplay.label }}</text>
+          </view>
+          <text class="points-detail">{{ pointsDisplay.detail }}</text>
+        </view>
+        <text class="section-tip">说一句话 5 / 截图复盘 20 / 深度画像 30</text>
       </view>
 
       <!-- 当前账户信息 -->
@@ -269,6 +300,43 @@ async function onConfirmRecover() {
   align-items: center;
   gap: 24rpx;
   box-shadow: $shadow-sm;
+}
+
+/* 积分卡片(spec-019)*/
+.points-card {
+  background: $color-surface;
+  border-radius: 24rpx;
+  padding: 28rpx;
+  box-shadow: $shadow-sm;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+.points-card.points-low {
+  background: linear-gradient(135deg, #FFF8E6 0%, $color-surface 70%);
+  border: 1rpx solid $color-warning;
+}
+.points-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.points-label {
+  font-size: 28rpx;
+  color: $color-text-secondary;
+}
+.points-value {
+  font-size: 44rpx;
+  font-weight: $weight-semibold;
+  color: $color-text-primary;
+  font-feature-settings: "tnum" 1;
+}
+.points-card.points-low .points-value {
+  color: $color-warning;
+}
+.points-detail {
+  font-size: 24rpx;
+  color: $color-text-tertiary;
 }
 .profile-card:active { background: $color-surface-subtle; }
 .profile-avatar-wrap {
