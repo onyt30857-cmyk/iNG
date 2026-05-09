@@ -3,8 +3,54 @@
 import { onLaunch, onShow, onHide } from '@dcloudio/uni-app'
 import { useUserStore } from './stores/user'
 import { useLaokeStore } from './stores/laoke'
+import { BASE_URL } from './api/client'
+
+// 2026-05-10 P1 监控:全局未捕获错误 → 上报后端 /v1/client-errors
+// 让 admin 能看到框架级 / vendor bundle / SSE 等绕过 client.ts 的失败
+function installGlobalErrorReporter(): void {
+  if (typeof window === 'undefined') return // 原生环境不开
+  const send = (payload: { code: string; message: string; detail?: string }) => {
+    try {
+      uni.request({
+        url: `${BASE_URL}/client-errors`,
+        method: 'POST',
+        header: { 'Content-Type': 'application/json' },
+        data: {
+          path: window.location?.pathname ?? '/',
+          method: 'CLIENT',
+          code: payload.code,
+          message: payload.message.slice(0, 500),
+          detail: (payload.detail ?? '').slice(0, 2000),
+          ua: navigator?.userAgent,
+          url: window.location?.href ?? null,
+        },
+        timeout: 5_000,
+      })
+    } catch {
+      /* 上报失败也不能炸 */
+    }
+  }
+  window.addEventListener('error', (e) => {
+    send({
+      code: 'GLOBAL_ERROR',
+      message: e.message ?? String(e.error ?? 'unknown error'),
+      detail: e.error?.stack ?? `${e.filename}:${e.lineno}:${e.colno}`,
+    })
+  })
+  window.addEventListener('unhandledrejection', (e) => {
+    const reason = e.reason
+    send({
+      code: 'UNHANDLED_REJECTION',
+      message: reason instanceof Error ? reason.message : String(reason),
+      detail: reason instanceof Error ? reason.stack : undefined,
+    })
+  })
+}
 
 onLaunch(async () => {
+  // P1 监控:第一时间装全局错误上报,后续 init 报错也能捕获
+  installGlobalErrorReporter()
+
   // 启动时从 storage 恢复 token,如果没有就匿名注册(spec-002 v2,无手机/邮箱/微信)
   const userStore = useUserStore()
   userStore.init()

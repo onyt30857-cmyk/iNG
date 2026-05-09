@@ -44,7 +44,12 @@ interface RequestOptions {
   relationship_id?: string
   /** 内部用:标记本次请求是 401 后的 silent reauth 重试,避免无限循环 */
   _isReauthRetry?: boolean
+  /** 内部用:标记本次请求是网络失败 retry,避免无限循环 */
+  _isNetworkRetry?: boolean
 }
+
+/** 单次请求超时(ms)— 弱网下 15s 不响应就给 NW02,不让用户干等 60s */
+const REQUEST_TIMEOUT_MS = 15_000
 
 /**
  * Silent token refresh — 全局单飞(同一时间多个 401 共享一次 refresh)
@@ -141,7 +146,7 @@ async function handleRefreshFailed(): Promise<void> {
  *   refresh 失败或非 EXPIRED → 不重试,返回原 fail
  */
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<ApiResponse<T>> {
-  const { method = 'GET', data, token, relationship_id, _isReauthRetry } = options
+  const { method = 'GET', data, token, relationship_id, _isReauthRetry, _isNetworkRetry } = options
 
   const header: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -155,13 +160,16 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       method: method as 'GET' | 'POST' | 'PUT' | 'DELETE',
       data,
       header,
+      timeout: REQUEST_TIMEOUT_MS, // 2026-05-10:加 15s 超时上限,弱网不让用户干等
       success: (r) => resolve(r.data as ApiResponse<T>),
       fail: (err) => {
+        const msg = err.errMsg ?? ''
+        const isTimeout = msg.includes('timeout') || msg.includes('超时')
         resolve({
           ok: false,
           error: {
-            code: 'NETWORK_ERROR',
-            message: '网络好像不太行,你看看 wifi',
+            code: isTimeout ? 'NETWORK_TIMEOUT' : 'NETWORK_ERROR',
+            message: isTimeout ? '等响应等久了,可能在路上,稍等一下' : '网线在打盹,你看看 wifi',
             detail: err.errMsg,
           },
         })
@@ -186,7 +194,68 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     void handleRefreshFailed()
   }
 
+  // 2026-05-10:网络失败/超时 → GET 自动 retry 一次(治大多数偶发抖动)
+  // POST/PATCH/DELETE 不 retry,避免重复创建/双扣积分等副作用
+  if (
+    !res.ok &&
+    !_isNetworkRetry &&
+    method === 'GET' &&
+    (res.error.code === 'NETWORK_ERROR' || res.error.code === 'NETWORK_TIMEOUT')
+  ) {
+    // 等 800ms 让网络重连一下再重试
+    await new Promise((r) => setTimeout(r, 800))
+    return request<T>(path, { ...options, _isNetworkRetry: true })
+  }
+
+  // 上报客户端错误到后端(P1 监控,fire and forget)
+  if (!res.ok) {
+    void reportClientError({ path, method, code: res.error.code, message: res.error.message, detail: res.error.detail })
+  }
+
   return res
+}
+
+// =============== P1 客户端错误上报 ===============
+// 上报到后端 /v1/client-errors,admin 端"错误码字典"页可看真实失败流
+// fire and forget,自身失败不阻塞,1 分钟内同 path+code 只发一次
+
+const reportedRecently = new Map<string, number>()
+const REPORT_DEDUP_MS = 60_000
+
+async function reportClientError(payload: {
+  path: string
+  method: string
+  code: string
+  message: string
+  detail?: string
+}): Promise<void> {
+  const dedupKey = `${payload.path}|${payload.code}`
+  const now = Date.now()
+  const lastSent = reportedRecently.get(dedupKey)
+  if (lastSent && now - lastSent < REPORT_DEDUP_MS) return
+  reportedRecently.set(dedupKey, now)
+
+  try {
+    // 用 uni.request 直发,不走 request() 防递归
+    uni.request({
+      url: `${BASE_URL}/client-errors`,
+      method: 'POST',
+      header: { 'Content-Type': 'application/json' },
+      data: {
+        path: payload.path,
+        method: payload.method,
+        code: payload.code,
+        message: payload.message,
+        detail: payload.detail ?? null,
+        ua: typeof navigator !== 'undefined' ? navigator.userAgent : 'mobile',
+        url: typeof window !== 'undefined' ? window.location?.href : null,
+      },
+      timeout: 5_000,
+      // 不需要 success/fail handler,完全 fire-and-forget
+    })
+  } catch {
+    /* 上报失败不能再上报 */
+  }
 }
 
 // 快捷方法
