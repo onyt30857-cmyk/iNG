@@ -620,7 +620,14 @@ apps/mobile/
 7. **spec-005 vs spec-006**:本项目内 spec-005 是"6 状态机驱动复盘",spec-006 是"agentic 单流重构"— **代码实际跑的是 spec-006 路径**,XState 6 状态机仍保留作为内部参考(`state-machines/replay.machine.ts`),状态字段仍在 `Session.current_state` 持久化,但不再驱动主流程。
 8. **spec-014~027 未归档**:从 spec-014 起的多个运营 spec(用户标签 / 配额管理 / 老白档案 / 红线编辑器 / prompt 工程台 / 反馈聚类 / 产品迭代记录 / admin 用户管理升级等)代码已实施但 dev-kit 没归档为 markdown — 知识锁在 commit message 里。M1 上线前应补归档。
 
-这些不是缺陷,是 v1.0 的边界。开工后一定会修订。
+### M3 进行中的心虚(M3.0 拆完后删除对应条目)
+
+9. **死代码岛(spec-005 残留)**:`session.route.ts` + `replay-orchestrator.service.ts` + 5 个旧 orchestrator(parsing/reflecting/diagnosing/planning/drafting)+ `state-machines/replay.machine.ts` 共 ~2000 行 / 12 endpoints,代码层面 0 真实调用,但仍注册在 server.ts:107,公网可达。**M3.0 能力 2** 拆除,Step 2(抽 ParsingMessage 到 types.ts)已完成,Step 3-7 等 Sam 提供 Railway 30 天 `/v1/sessions/*` log 验证 0 调用后才能执行 + 1 周 staging 观察期。
+10. **Session.current_state 字段未删**:6 状态机时代字段,M3.0 W2-3 加 `@deprecated` 注释但保留(数据库不动),M4 再决定是否物理删字段。
+11. **老白人格漂移风险**:M3 三期累计加多个 prompt 段(M3.0 已加 `# 你的局限` / `# 你的脾气(温和拒绝)` / `# 特殊场景判断`),persona 总长涨了。需要持续 persona-check ≥95% + Sam 主观评估"看着像同一个老白"。M3.0 上线后 4 周观察期看 dislike 比例是否回升。
+12. **M3.0 testset 未跑**:能力 3-6 的 prompt 已部署,但 testset(`lianai-dev-kit-m3/04-TESTSET-M3.md` §3-§6)是产品语言测试,需要真 LLM 调用 + 人判断。Sam 用真实 mobile 跑 + 截图记录,M3.0 上线前必须达标。
+
+这些不是缺陷,是 v1.0 / M3 进行中的边界。开工后一定会修订。
 
 ---
 
@@ -634,6 +641,46 @@ apps/mobile/
 - **Mobile H5**(Vercel,project `i-ng-api`):**优先 git push 走 GitHub auto-deploy**,不要本地手动部署
 
 **铁律**:跑 `vercel deploy` 之前必须 `cat .vercel/project.json` 确认 project,没 link 不要直接 deploy。详见 deployment.md(教训档案有 2026-05-10 误创 h5 项目的事故记录)。
+
+---
+
+## 17. M3 工作纪律(M3 期间必遵守,M3 完成后合并到主原则)
+
+> 详见 `lianai-dev-kit-m3/05-CLAUDE-M3.md`。本节是关键守则的精简版。
+
+### 4 条新增原则(在第 3 节命名规范、第 5 节架构决策外补充)
+
+1. **出方案前必须先调研** — 任何"能不能做 / 怎么做"问题先 web search 全球最新方法,不凭训练数据直觉。
+2. **设计基于真实用户反馈,不基于"我们以为"** — 每个 M3 版本上线前做用户访谈(≥5 人),上线后 4 周收集 like/dislike + 关键反馈。
+3. **渐进式上线,不一锅端** — M3.0 / M3.1 / M3.2 各独立上线,每期上线后 4 周观察期数据稳定才启动下期。
+4. **测试集驱动,防止能力退化** — 每个新能力必须有标准 testset(`lianai-dev-kit-m3/04-TESTSET-M3.md`),prompt 改动后跑全套,通过率不达标的能力不能上线。
+
+### M3 期间禁止的事(违反 = 立刻停)
+
+- ❌ 大改 `LAOKE_CORE_PERSONA` 结构(只能加内容,不重构)
+- ❌ 改主对话路径(`conversation-turn.orchestrator.ts` 是主轴,M3 在它内部加 prompt 段落,不重构调用链)
+- ❌ 改数据库结构(M3.2 季度档案除外)
+- ❌ 加新外部依赖(Sonnet 4 + Gemini 2.5 Flash + Haiku-4.5 够用)
+- ❌ 引入新 LLM 调用(M3 全部基于现有 conversation-turn 路径)
+- ❌ 跳过 testset(每个能力都有,必须跑)
+- ❌ 一锅端上线(M3.0/1/2 必须分 3 次上线)
+
+### M3 路线图(上线节奏)
+
+```
+M3.0 (4-5 周): 基础修补       [当前 phase]
+  - M2 验收闭环
+  - 死代码岛拆除
+  - 老白局限性声明 + 温和拒绝 + 失败陪伴 + 健康使用
+
+M3.1 (5-6 周): 核心能力升级
+  - 老白演练她视角(SimTOM)+ 情绪温度 + 魅力 + 节奏管家
+
+M3.2 (6-8 周): 长期价值能力
+  - 季度档案 + 女性认知 + 让她想聊 + 长期视角 + 引导 + 情话 + 脾气剩余
+```
+
+每期独立上线 + 4 周观察期满才启动下期。**Phase 1 (M3.0) 启动时只读** `00-M3-MISSION.md` + `01-M3.0-SPEC.md` + `04-TESTSET-M3.md` 第 1-6 节,**不读** 02 / 03 / 04 其余测试。
 
 ---
 
