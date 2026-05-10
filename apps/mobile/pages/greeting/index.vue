@@ -26,7 +26,7 @@ function clearTimers() {
 
 function exitToHome() {
   clearTimers()
-  // 标记已显示,6h 内不重复
+  // 标记今日已问候(splash 端按"自然日"判,跨日才再问候)
   storage.set(StorageKeys.LAST_GREETING_SHOWN_AT, String(Date.now()))
   uni.reLaunch({ url: '/pages/home/index' })
 }

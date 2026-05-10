@@ -8,7 +8,7 @@
 
 ## 1. 背景 / 动机
 
-之前用户启动直接进主页,没有"老白第一次见你"的仪式。Sam 要求:新用户必须经过 intro(初见情感)→ welcome(进门承接)→ profile(取名)→ 主页;老用户冷启动 6h 后回归显示个性化 Haiku 问候,而不是冷冰冰的 splash → home。
+之前用户启动直接进主页,没有"老白第一次见你"的仪式。Sam 要求:新用户必须经过 intro(初见情感)→ welcome(进门承接)→ profile(取名)→ 主页;老用户跨自然日首次回归显示个性化 Haiku 问候,而不是冷冰冰的 splash → home。
 
 ## 2. 实施了什么
 
@@ -16,7 +16,7 @@
 - **前端 4 段流**:intro(老白 3 句打字机:共情→拉近→邀请,INTRO_SHOWN 永不重复)→ welcome(进门承接 3 句)→ profile(完全对话流取昵称 + 头像 grid)→ home
 - **8 预设头像**:DiceBear avataaars seed (Felix/Lily/Max/Luna/Oliver/Mia/Charlie/Zoe)
 - **个性化老白回归问候**(commit 00ebd5e):新页 /greeting,Haiku 实时生成 ≤25 字一句,5min 进程 cache,新手前 24h 走 fallback 模板,AI 失败静默不阻塞
-- **冷启动路由分支**(splash):未 onboarded → INTRO_SHOWN ? welcome : intro;已 onboarded + 距 LAST_GREETING_SHOWN_AT ≥ 6h → greeting;否则 home
+- **冷启动路由分支**(splash):未 onboarded → INTRO_SHOWN ? welcome : intro;已 onboarded + 跨自然日首次打开(本地时区 toDateString 比较)→ greeting;同日内已问候过 → home
 - **全局守卫**(App.vue):onLaunch 不管 hash URL 都强制重定向防绕过
 - **admin 空账户清理**:dry-run + 二次确认软删未 onboard 且无消息的注册超 N 天用户
 - **用户列表关系 chips + 关系扁平视图**(c71a034)
@@ -45,9 +45,9 @@
 
 - API: `PATCH /v1/users/me { nickname, avatar_url }` / `GET /v1/laoke/greeting`
 - Mobile: 全新用户启动 → 看到 intro 3 句 → welcome → profile → 主页
-- 验证:删 storage 重启 → 完整跑一遍 4 段;6h 后回归看到 Haiku 一句话
+- 验证:删 storage 重启 → 完整跑一遍 4 段;跨日后首次打开看到 Haiku 一句话
 
 ## 5. 已知遗留
 
 - intro 文案已选 D 方案(共情→拉近→邀请),后续不打算调
-- greeting 6h 触发节奏可调,看真实回归数据
+- greeting 触发节奏 2026-05-12 由 6h cooldown 改为"跨自然日首次"(每日首见仪式感优先于防疲劳);深夜跨日边界(22 点看完 + 凌晨 3 点回归会再问候一次)接受,如真扰民再考虑挪日切点到凌晨 4 点

@@ -11,9 +11,9 @@ import { apiGet } from '../../api/client'
 import { useUserStore } from '../../stores/user'
 import { storage, StorageKeys } from '../../utils/storage'
 
-// 6 小时内不重复触发回归问候页(防疲劳)
-const GREETING_COOLDOWN_MS = 6 * 3_600_000
-
+// 2026-05-12 改:跨自然日才再问候一次(每日首见仪式感),
+// 替代之前的 6h cooldown — 老白像兄长一样"今天见了一面就够了",
+// 不在同一天内反复打招呼套路化
 onMounted(async () => {
   apiGet<{ message: string }>('/hello').catch(() => { /* splash 不暴露网络问题 */ })
 
@@ -32,8 +32,8 @@ onMounted(async () => {
   // 决定下一站:
   // 未 onboarded + intro 没看过 → intro(老白首次见面 4.5s)
   // 未 onboarded + intro 看过 → welcome
-  // 已 onboarded + 距上次问候 ≥ 6h → greeting(老白个性化迎接)
-  // 已 onboarded + 6h 内已问候过 → 直接 home(防疲劳)
+  // 已 onboarded + 今天还没问候过 → greeting(老白个性化迎接)
+  // 已 onboarded + 今天已问候过 → 直接 home(每天打一次招呼就够了)
   if (!onboarded) {
     const introShown = !!storage.get<string>(StorageKeys.INTRO_SHOWN)
     uni.reLaunch({
@@ -42,12 +42,15 @@ onMounted(async () => {
     return
   }
 
-  const lastGreetingAt = Number(storage.get<string>(StorageKeys.LAST_GREETING_SHOWN_AT) ?? '0')
-  const since = Date.now() - lastGreetingAt
-  if (since >= GREETING_COOLDOWN_MS) {
+  // 跨自然日 = 重新打招呼。toDateString() 按用户本地时区切日,凌晨 0 点切。
+  // 边界:深夜 23:55 看完 + 凌晨 03:00 再开 = 跨日再问候一次,接受(深夜回归本就低频)
+  const lastTs = Number(storage.get<string>(StorageKeys.LAST_GREETING_SHOWN_AT) ?? '0')
+  const isNewDay =
+    lastTs === 0 || new Date(lastTs).toDateString() !== new Date().toDateString()
+  if (isNewDay) {
     uni.reLaunch({ url: '/pages/greeting/index' })
   } else {
-    console.log('[splash] greeting cooldown, skip — 距上次', Math.round(since / 60_000), '分钟')
+    console.log('[splash] today already greeted, skip → home')
     uni.reLaunch({ url: '/pages/home/index' })
   }
 })
