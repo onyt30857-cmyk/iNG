@@ -3,6 +3,7 @@
 import { onLaunch, onShow, onHide } from '@dcloudio/uni-app'
 import { useUserStore } from './stores/user'
 import { useLaokeStore } from './stores/laoke'
+import { useAppSettingsStore } from './stores/app-settings'
 import { BASE_URL } from './api/client'
 import { storage, StorageKeys } from './utils/storage'
 
@@ -73,6 +74,11 @@ onLaunch(async () => {
   const laokeStore = useLaokeStore()
   laokeStore.init()
   void laokeStore.fetch()
+
+  // 全局公开 settings(用户默认头像 fallback),同 pattern:storage 兜底 + 异步刷新
+  const appSettingsStore = useAppSettingsStore()
+  appSettingsStore.init()
+  void appSettingsStore.fetch()
 
   // spec-018 全局 onboarding 守卫:未走完 onboarding 强制跳引导页
   // 必须在 App 级,因为 uni-app H5 的 hash URL 可能直接跳到任意页(如 #/pages/home/index)

@@ -1156,6 +1156,10 @@ model SystemConfig {
   profile_assertions_limit         Int @default(20) // 取最高 priority 的多少条 assertion(5-50)
   observations_limit               Int @default(30) // 取最近多少条 observation(10-100)
 
+  // 2026-05-12:用户默认头像(没头像的用户 fallback 到这个 URL)
+  // 上传到 supabase 的 lianai-avatars/_default/ 路径,admin 可改可删
+  user_default_avatar_url          String? @db.Text
+
   updated_by String?
   updated_at DateTime @updatedAt @db.Timestamptz
 

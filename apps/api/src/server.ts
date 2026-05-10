@@ -41,6 +41,7 @@ import { adminProfileRoutes } from './routes/v1/admin/profile.route.js'
 import { reloadCache as reloadRedLineCache } from './services/admin/red-line-rules.service.js'
 import { behaviorRoutes } from './routes/v1/behavior.route.js'
 import { laokeRoutes } from './routes/v1/laoke.route.js'
+import { appSettingsRoutes } from './routes/v1/app-settings.route.js'
 import { clientErrorRoutes } from './routes/v1/client-errors.route.js'
 import { probeRoutes } from './routes/v1/probe.route.js'
 import { startDeletionCron } from './workers/deletion-cron.js'
@@ -111,6 +112,7 @@ async function buildApp() {
   await app.register(quotaRoutes)
   await app.register(storageRoutes)
   await app.register(laokeRoutes)
+  await app.register(appSettingsRoutes)
   await app.register(clientErrorRoutes)
 
   // Admin 后台(spec-011)

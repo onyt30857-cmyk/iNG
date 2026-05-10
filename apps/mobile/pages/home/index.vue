@@ -9,11 +9,16 @@ import { computed, onMounted, ref } from 'vue'
 import { apiGet } from '../../api/client'
 import { useRelationshipStore } from '../../stores/relationship'
 import { useUserStore } from '../../stores/user'
+import { useAppSettingsStore } from '../../stores/app-settings'
 import RelationshipCard from '../../components/RelationshipCard.vue'
 
 const store = useRelationshipStore()
 const userStore = useUserStore()
-const userAvatarUrl = computed(() => userStore.user?.avatar_url ?? null)
+const appSettings = useAppSettingsStore()
+// 没设头像 → admin 配的全局默认头像 → 都没就 null,模板里 fallback 默认 SVG
+const userAvatarUrl = computed(() =>
+  appSettings.resolveUserAvatar(userStore.user?.avatar_url),
+)
 
 onMounted(async () => {
   // 静默 ping 后端 + 拉关系列表

@@ -10,6 +10,33 @@
 import { prisma } from '../../lib/prisma.js'
 import { errors } from '../../lib/error.js'
 
+/** 拉用户默认头像 URL(没设过返 null) */
+export async function getUserDefaultAvatarUrl(): Promise<string | null> {
+  const row = await prisma.systemConfig.findUnique({
+    where: { id: 'global' },
+    select: { user_default_avatar_url: true },
+  })
+  return row?.user_default_avatar_url ?? null
+}
+
+/** admin 设置用户默认头像 URL(传 null = 删除回到 mobile 端 hardcode 默认) */
+export async function setUserDefaultAvatarUrl(
+  url: string | null,
+  operator: { adminId: string },
+): Promise<{ before: string | null; after: string | null }> {
+  const before = await getUserDefaultAvatarUrl()
+  await prisma.systemConfig.upsert({
+    where: { id: 'global' },
+    update: { user_default_avatar_url: url, updated_by: operator.adminId },
+    create: {
+      id: 'global',
+      user_default_avatar_url: url,
+      updated_by: operator.adminId,
+    },
+  })
+  return { before, after: url }
+}
+
 export interface DataFlowConfig {
   switches: {
     profile_assertions: boolean

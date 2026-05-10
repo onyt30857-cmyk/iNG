@@ -61,6 +61,7 @@ export const StorageKeys = {
   REFRESH_TOKEN: 'lianai.refresh_token',
   USER: 'lianai.user',
   LAOKE_PROFILE: 'lianai.laoke_profile',
+  APP_SETTINGS: 'lianai.app_settings',
   // 上次显示老白回归问候的时间戳(ms)— 6h 内不重复触发,避免疲劳
   LAST_GREETING_SHOWN_AT: 'lianai.last_greeting_shown_at',
   // 新用户首次见面 intro 页是否已经显示过(只一次)

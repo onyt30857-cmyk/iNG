@@ -3,11 +3,17 @@
 import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '../../stores/user'
 import { usePointsStore } from '../../stores/points'
+import { useAppSettingsStore } from '../../stores/app-settings'
 import { useAppDialog } from '../../composables/useAppDialog'
 
 const userStore = useUserStore()
 const pointsStore = usePointsStore()
+const appSettings = useAppSettingsStore()
 const dialog = useAppDialog()
+// 没设头像 → admin 配的全局默认头像 → 都没就 null,fallback 显示昵称首字
+const profileAvatarUrl = computed(() =>
+  appSettings.resolveUserAvatar(userStore.user?.avatar_url),
+)
 
 onMounted(() => {
   void pointsStore.refresh(true)
@@ -154,8 +160,8 @@ async function onConfirmRecover() {
         <view class="profile-card" @tap="goEditProfile">
           <view class="profile-avatar-wrap">
             <image
-              v-if="userStore.user?.avatar_url"
-              :src="userStore.user.avatar_url"
+              v-if="profileAvatarUrl"
+              :src="profileAvatarUrl"
               mode="aspectFill"
               class="profile-avatar"
             />

@@ -21,7 +21,11 @@ import {
 import {
   getDataFlowConfig,
   updateDataFlowConfig,
+  getUserDefaultAvatarUrl,
+  setUserDefaultAvatarUrl,
 } from '../../../services/admin/admin-data-flow.service.js'
+import { putAvatar } from '../../../services/storage/storage.service.js'
+import { invalidateAppSettingsCache } from '../app-settings.route.js'
 
 const updateBodySchema = z.object({
   // spec-019:积分系统取代 turn/ocr/heavy 三个独立上限
@@ -150,5 +154,65 @@ export async function adminSettingsRoutes(app: FastifyInstance): Promise<void> {
     const after = await updateDataFlowConfig(body, { adminId: request.admin!.id })
     // 注:updateDataFlowConfig 内部已落 admin_audit_logs(用 prisma 直接写)
     return { ok: true, data: after }
+  })
+
+  // === 2026-05-12 用户默认头像(没头像的用户 fallback) ===
+  // GET    /v1/admin/settings/user-default-avatar — 拉当前 URL
+  // POST   /v1/admin/settings/user-default-avatar  body { data_url } — 上传 + 设置
+  // DELETE /v1/admin/settings/user-default-avatar — 清空(回到 mobile hardcode 默认 SVG)
+  // 复用 putAvatar(),userId 用 '_default' 落到 lianai-avatars/_default/ 路径,
+  // cleanupOldAvatars 自动清掉旧的同路径文件。
+
+  const defaultAvatarBodySchema = z.object({
+    data_url: z.string().min(1).max(2_000_000),
+  })
+
+  app.get('/v1/admin/settings/user-default-avatar', async () => {
+    const url = await getUserDefaultAvatarUrl()
+    return { ok: true, data: { url } }
+  })
+
+  app.post('/v1/admin/settings/user-default-avatar', async (request) => {
+    const body = defaultAvatarBodySchema.parse(request.body)
+    const result = await putAvatar('_default', body.data_url)
+    const { before, after } = await setUserDefaultAvatarUrl(result.url, {
+      adminId: request.admin!.id,
+    })
+    invalidateAppSettingsCache()
+
+    void recordAdminAudit(
+      request.admin!.id,
+      {
+        action: 'update_user_default_avatar',
+        target_type: 'system_config',
+        target_id: 'global',
+        before: { url: before },
+        after: { url: after, driver: result.driver },
+      },
+      request,
+    )
+
+    return { ok: true, data: { url: after } }
+  })
+
+  app.delete('/v1/admin/settings/user-default-avatar', async (request) => {
+    const { before, after } = await setUserDefaultAvatarUrl(null, {
+      adminId: request.admin!.id,
+    })
+    invalidateAppSettingsCache()
+
+    void recordAdminAudit(
+      request.admin!.id,
+      {
+        action: 'remove_user_default_avatar',
+        target_type: 'system_config',
+        target_id: 'global',
+        before: { url: before },
+        after: { url: after },
+      },
+      request,
+    )
+
+    return { ok: true, data: { url: null } }
   })
 }
