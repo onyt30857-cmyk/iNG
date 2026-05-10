@@ -226,9 +226,13 @@ const unknownPrompts = computed<string[]>(() => {
   ]
 })
 
-function jumpToConversationWithHint(_prompt: string) {
-  // M1 简化:跳到对话窗;M2 可让老白自动以 prompt 主动追问
-  uni.navigateTo({ url: `/pages/relationship/conversation?id=${id.value}` })
+function jumpToConversationWithHint(prompt: string) {
+  // M3.0 (2026-05-11) 完整闭环:跳对话页 + 带 hint query
+  // conversation.vue onMounted 检测到 hint 后自动 appendUserText 触发一轮 turn,
+  // 老白用 # 你的局限 + 工作流程接住,不假装读心,引导兄弟去问她
+  uni.navigateTo({
+    url: `/pages/relationship/conversation?id=${id.value}&hint=${encodeURIComponent(prompt)}`,
+  })
 }
 
 function addToldFact() {

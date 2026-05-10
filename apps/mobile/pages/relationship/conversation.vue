@@ -36,9 +36,20 @@ const signalsStore = useRelationshipSignalsStore()
 
 const relationshipId = ref('')
 const relationship = ref<Relationship | null>(null)
+// M3.0 (2026-05-11)「老白还想知道的」闭环:detail 页点条目跳进来时带 ?hint=XXX
+// onMounted 加载完毕后自动以 hint 作为兄弟的话发出去,触发老白回应
+const pendingHint = ref<string | null>(null)
 
 onLoad((opts) => {
   relationshipId.value = (opts?.id as string) ?? ''
+  const rawHint = (opts?.hint as string | undefined) ?? ''
+  if (rawHint) {
+    try {
+      pendingHint.value = decodeURIComponent(rawHint)
+    } catch {
+      pendingHint.value = rawHint
+    }
+  }
 })
 
 onMounted(async () => {
@@ -46,6 +57,16 @@ onMounted(async () => {
   relationship.value = await relationshipStore.fetchOne(relationshipId.value)
   conversationStore.loadConversation(relationshipId.value)
   nextTick(() => scrollToBottom())
+
+  // hint 闭环:历史载入完成后再发,确保 LLM 能看到完整上下文
+  if (pendingHint.value) {
+    const hint = pendingHint.value
+    pendingHint.value = null
+    // 微小延迟让用户视觉上感受到"自己刚问了一句,老白接着说"
+    setTimeout(() => {
+      conversationStore.appendUserText(relationshipId.value, hint)
+    }, 250)
+  }
 })
 
 const messages = computed(() =>
