@@ -9,7 +9,7 @@ import { loadPrompt } from '../prompt-loader.js'
 import { callClaude, type AiCallContext, type CallClaudeResult } from '../client.js'
 import { extractJson, JsonExtractError } from '../json-extract.js'
 import { AppError, ErrorCodes } from '../../lib/error.js'
-import type { ParsingMessage } from './parsing.orchestrator.js'
+import type { ParsingMessage } from './types.js'
 
 export interface ReflectingInput {
   user_id: string

@@ -16,13 +16,10 @@ import {
   type CallClaudeResult,
   type CallClaudeStreamHandlers,
 } from '../client.js'
-
-export interface ParsingMessage {
-  speaker: 'user' | 'other'
-  text: string
-  /** 截图里看到的时间戳,可空。OCR 输出 null,zod schema .nullish() 接受 null + undefined */
-  timestamp?: string | null | undefined
-}
+// M3.0 能力 2(死代码岛拆除预备):ParsingMessage 抽到 ./types.ts,
+// 兄弟 orchestrator 直接从那里 import,parsing 删除时不连累其他人
+import type { ParsingMessage } from './types.js'
+export type { ParsingMessage }
 
 export interface ParsingInput {
   user_id: string

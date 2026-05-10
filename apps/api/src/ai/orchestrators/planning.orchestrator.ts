@@ -11,7 +11,7 @@ import {
   type CallClaudeResult,
   type CallClaudeStreamHandlers,
 } from '../client.js'
-import type { ParsingMessage } from './parsing.orchestrator.js'
+import type { ParsingMessage } from './types.js'
 import type { DiagnosingReflection } from './diagnosing.orchestrator.js'
 
 export interface PlanningInput {
