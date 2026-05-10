@@ -23,6 +23,8 @@ import {
   updateDataFlowConfig,
   getUserDefaultAvatarUrl,
   setUserDefaultAvatarUrl,
+  getUserPresetAvatarUrls,
+  setUserPresetAvatarUrls,
 } from '../../../services/admin/admin-data-flow.service.js'
 import { putAvatar } from '../../../services/storage/storage.service.js'
 import { invalidateAppSettingsCache } from '../app-settings.route.js'
@@ -214,5 +216,52 @@ export async function adminSettingsRoutes(app: FastifyInstance): Promise<void> {
     )
 
     return { ok: true, data: { url: null } }
+  })
+
+  // === 2026-05-13 用户可选预设头像列表 ===
+  // GET   /v1/admin/settings/user-preset-avatars        — 拉当前列表
+  // PATCH /v1/admin/settings/user-preset-avatars  body { urls } — 整体替换列表
+  // POST  /v1/admin/settings/user-preset-avatars/upload body { data_url } — 上传单张图,返回 URL 给 admin 加进列表
+  // 列表上限 16 张(8 是初值,允许扩到 16);单张图复用 putAvatar 1MB 上限
+
+  const presetAvatarsBodySchema = z.object({
+    urls: z.array(z.string().url().max(2_048)).max(16),
+  })
+  const presetAvatarUploadSchema = z.object({
+    data_url: z.string().min(1).max(2_000_000),
+  })
+
+  app.get('/v1/admin/settings/user-preset-avatars', async () => {
+    const urls = await getUserPresetAvatarUrls()
+    return { ok: true, data: { urls } }
+  })
+
+  app.patch('/v1/admin/settings/user-preset-avatars', async (request) => {
+    const body = presetAvatarsBodySchema.parse(request.body)
+    const { before, after } = await setUserPresetAvatarUrls(body.urls, {
+      adminId: request.admin!.id,
+    })
+    invalidateAppSettingsCache()
+
+    void recordAdminAudit(
+      request.admin!.id,
+      {
+        action: 'update_user_preset_avatars',
+        target_type: 'system_config',
+        target_id: 'global',
+        before: { count: before.length },
+        after: { count: after.length },
+      },
+      request,
+    )
+
+    return { ok: true, data: { urls: after } }
+  })
+
+  app.post('/v1/admin/settings/user-preset-avatars/upload', async (request) => {
+    const body = presetAvatarUploadSchema.parse(request.body)
+    const result = await putAvatar('_preset', body.data_url)
+    // 注:不修改列表,只返回 URL — 由 admin 前端拿到后调 PUT 替换列表
+    return { ok: true, data: { url: result.url, driver: result.driver } }
   })
 }

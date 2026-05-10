@@ -11,15 +11,19 @@ import { storage, StorageKeys } from '../utils/storage'
 
 interface AppSettingsPayload {
   user_default_avatar_url: string | null
+  user_preset_avatar_urls: string[]
 }
 
 export const useAppSettingsStore = defineStore('appSettings', () => {
   const userDefaultAvatarUrl = ref<string | null>(null)
+  // admin 配的预设头像列表 — 空数组表示走 mobile hardcode 8 张 fallback
+  const userPresetAvatarUrls = ref<string[]>([])
 
   function init(): void {
     const cached = storage.get<AppSettingsPayload>(StorageKeys.APP_SETTINGS)
     if (cached) {
       userDefaultAvatarUrl.value = cached.user_default_avatar_url
+      userPresetAvatarUrls.value = cached.user_preset_avatar_urls ?? []
     }
   }
 
@@ -30,6 +34,7 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
       return
     }
     userDefaultAvatarUrl.value = res.data.user_default_avatar_url
+    userPresetAvatarUrls.value = res.data.user_preset_avatar_urls ?? []
     storage.set(StorageKeys.APP_SETTINGS, res.data)
   }
 
@@ -49,6 +54,7 @@ export const useAppSettingsStore = defineStore('appSettings', () => {
 
   return {
     userDefaultAvatarUrl,
+    userPresetAvatarUrls,
     init,
     fetch,
     resolveUserAvatar,

@@ -9,7 +9,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { updateProfile } from '../../api/user.api'
 import { useUserStore } from '../../stores/user'
-import { PRESET_AVATARS } from '../../utils/preset-avatars'
+import { usePresetAvatars } from '../../utils/preset-avatars'
+
+// 改 admin 后台改了预设列表 → 这里自动跟着变(响应式)
+const presetAvatars = usePresetAvatars()
 import LaokeAvatar from '../../components/LaokeAvatar.vue'
 
 const userStore = useUserStore()
@@ -138,7 +141,7 @@ async function finish(skipAvatar: boolean) {
         <view class="avatar-card">
           <view class="avatar-grid">
             <view
-              v-for="url in PRESET_AVATARS"
+              v-for="url in presetAvatars"
               :key="url"
               class="avatar-item"
               :class="{ selected: selectedAvatar === url }"

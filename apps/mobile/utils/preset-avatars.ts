@@ -1,12 +1,13 @@
-// 预设头像(spec-018)
-// DiceBear 9.x avataaars,免费 + 公开 SVG URL
+// 预设头像(spec-018 + 2026-05-13 接 admin 后台)
 //
-// 强制 eyes + mouth 参数:avataaars 默认会随机出现"X 死人眼"/"哭脸"等丧表情,
-// 跟练爱"温和私聊"调性冲突。锁定为 default/happy/wink × smile/twinkle 几种安全表情。
-// seed 决定头型/发型/肤色/服装,这些字段不限制让 8 个头像视觉差异化。
+// 行为:
+// - admin 在后台配了预设列表 → 用 admin 配的(从 useAppSettingsStore 拿)
+// - 没配(空数组)→ fallback 到 hardcode 的 DiceBear 8 张(下方 FALLBACK_PRESET_AVATARS)
 //
-// 用 mouth/eyes 多值传(逗号分隔)→ DiceBear 按 seed 确定性挑选其中一个
-// 8 个表情多样但全部友好。
+// DiceBear 9.x avataaars 备注:免费 + 公开 SVG URL,锁 mouth/eyes 避免丧表情。
+
+import { computed, type ComputedRef } from 'vue'
+import { useAppSettingsStore } from '../stores/app-settings'
 
 const DICEBEAR_BASE = 'https://api.dicebear.com/9.x/avataaars/svg'
 const SAFE_PARAMS = 'mouth=smile,twinkle&eyes=default,happy,wink'
@@ -15,7 +16,8 @@ function preset(seed: string): string {
   return `${DICEBEAR_BASE}?seed=${seed}&${SAFE_PARAMS}`
 }
 
-export const PRESET_AVATARS: ReadonlyArray<string> = [
+/** Hardcode fallback,admin 没配预设时显示这 8 张 */
+export const FALLBACK_PRESET_AVATARS: ReadonlyArray<string> = [
   preset('Aneka'),
   preset('Lily'),
   preset('Max'),
@@ -26,7 +28,24 @@ export const PRESET_AVATARS: ReadonlyArray<string> = [
   preset('Zoe'),
 ]
 
+/**
+ * 拿当前生效的预设头像列表(响应式)。
+ * admin 配了 → admin 的;没配 → hardcode 8 张。
+ */
+export function usePresetAvatars(): ComputedRef<ReadonlyArray<string>> {
+  const store = useAppSettingsStore()
+  return computed(() =>
+    store.userPresetAvatarUrls.length > 0
+      ? store.userPresetAvatarUrls
+      : FALLBACK_PRESET_AVATARS,
+  )
+}
+
+/** 判断 url 是否是当前生效的预设头像之一(供 mobile 端逻辑判断"用户用的是不是默认") */
 export function isPresetAvatar(url: string | null): boolean {
   if (!url) return false
-  return PRESET_AVATARS.includes(url)
+  const store = useAppSettingsStore()
+  const list =
+    store.userPresetAvatarUrls.length > 0 ? store.userPresetAvatarUrls : FALLBACK_PRESET_AVATARS
+  return list.includes(url)
 }

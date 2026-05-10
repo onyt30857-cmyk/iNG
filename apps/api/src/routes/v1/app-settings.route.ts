@@ -11,6 +11,8 @@ const CACHE_TTL_MS = 5 * 60_000
 
 interface PublicAppSettings {
   user_default_avatar_url: string | null
+  /** 用户可选预设头像列表(空数组 → mobile 端 fallback 到 hardcode 8 张) */
+  user_preset_avatar_urls: string[]
 }
 
 let cache: { data: PublicAppSettings; expires_at: number } | null = null
@@ -28,11 +30,15 @@ export async function appSettingsRoutes(app: FastifyInstance): Promise<void> {
 
     const row = await prisma.systemConfig.findUnique({
       where: { id: 'global' },
-      select: { user_default_avatar_url: true },
+      select: {
+        user_default_avatar_url: true,
+        user_preset_avatar_urls: true,
+      },
     })
 
     const data: PublicAppSettings = {
       user_default_avatar_url: row?.user_default_avatar_url ?? null,
+      user_preset_avatar_urls: row?.user_preset_avatar_urls ?? [],
     }
     cache = { data, expires_at: now + CACHE_TTL_MS }
     return { ok: true, data }

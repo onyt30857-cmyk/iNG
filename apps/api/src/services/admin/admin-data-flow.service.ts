@@ -37,6 +37,33 @@ export async function setUserDefaultAvatarUrl(
   return { before, after: url }
 }
 
+/** 拉用户可选预设头像列表(没设过返空数组 → mobile fallback hardcode 8 张) */
+export async function getUserPresetAvatarUrls(): Promise<string[]> {
+  const row = await prisma.systemConfig.findUnique({
+    where: { id: 'global' },
+    select: { user_preset_avatar_urls: true },
+  })
+  return row?.user_preset_avatar_urls ?? []
+}
+
+/** admin 整体替换预设头像列表(传 [] = 清空,回到 mobile hardcode 8 张) */
+export async function setUserPresetAvatarUrls(
+  urls: string[],
+  operator: { adminId: string },
+): Promise<{ before: string[]; after: string[] }> {
+  const before = await getUserPresetAvatarUrls()
+  await prisma.systemConfig.upsert({
+    where: { id: 'global' },
+    update: { user_preset_avatar_urls: urls, updated_by: operator.adminId },
+    create: {
+      id: 'global',
+      user_preset_avatar_urls: urls,
+      updated_by: operator.adminId,
+    },
+  })
+  return { before, after: urls }
+}
+
 export interface DataFlowConfig {
   switches: {
     profile_assertions: boolean

@@ -347,6 +347,7 @@ export default function UsersListPage() {
         </Button>
 
         <DefaultAvatarDialog />
+        <PresetAvatarsDialog />
       </div>
 
       {/* 高级筛选 panel */}
@@ -851,6 +852,214 @@ function DefaultAvatarDialog() {
             </div>
             <p className="text-xs text-muted-foreground">上限 1MB,建议 256×256 jpeg/png</p>
           </div>
+        </div>
+
+        {errorMsg && (
+          <div className="text-sm text-red-600 flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" /> {errorMsg}
+          </div>
+        )}
+        {savedAt && (
+          <div className="text-sm text-green-600 flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4" /> 已更新
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// 2026-05-13:用户预设头像列表(注册 / 编辑时给用户挑的那 N 张)
+// 跟「默认头像」(单张 fallback)区分:这是用户主动选择的"菜单";那是 fallback
+// 列表上限 16,空列表 = mobile 端 fallback 到 hardcode 的 DiceBear 8 张
+function PresetAvatarsDialog() {
+  const [open, setOpen] = useState(false)
+  const [urls, setUrls] = useState<string[]>([])
+  const [loading, setLoading] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [savedAt, setSavedAt] = useState<number | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const replaceIndexRef = useRef<number | null>(null) // null = 新增,数字 = 替换该 index
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    setLoading(true)
+    setErrorMsg(null)
+    adminGet<{ urls: string[] }>('/v1/admin/settings/user-preset-avatars').then((res) => {
+      if (cancelled) return
+      setLoading(false)
+      if (res.ok) setUrls(res.data.urls)
+      else setErrorMsg(res.error.message)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [open])
+
+  async function persist(next: string[]): Promise<boolean> {
+    setBusy(true)
+    setErrorMsg(null)
+    const res = await adminFetch<{ urls: string[] }>('/v1/admin/settings/user-preset-avatars', {
+      method: 'PATCH',
+      body: { urls: next },
+    })
+    setBusy(false)
+    if (res.ok) {
+      setUrls(res.data.urls)
+      setSavedAt(Date.now())
+      setTimeout(() => setSavedAt(null), 3000)
+      return true
+    }
+    setErrorMsg(res.error.message)
+    return false
+  }
+
+  async function uploadOne(dataUrl: string): Promise<string | null> {
+    const res = await adminFetch<{ url: string }>(
+      '/v1/admin/settings/user-preset-avatars/upload',
+      { method: 'POST', body: { data_url: dataUrl } },
+    )
+    if (res.ok) return res.data.url
+    setErrorMsg(res.error.message)
+    return null
+  }
+
+  async function onFileChosen(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    const idx = replaceIndexRef.current
+    replaceIndexRef.current = null
+    if (!file) return
+    if (file.size > 1 * 1024 * 1024) {
+      setErrorMsg('图片太大,请压到 1MB 以内(建议 256x256 jpeg)')
+      return
+    }
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+    setBusy(true)
+    setErrorMsg(null)
+    const url = await uploadOne(dataUrl)
+    if (!url) {
+      setBusy(false)
+      return
+    }
+    const next = idx === null ? [...urls, url] : urls.map((u, i) => (i === idx ? url : u))
+    await persist(next)
+    setBusy(false)
+  }
+
+  function startReplace(idx: number) {
+    replaceIndexRef.current = idx
+    fileInputRef.current?.click()
+  }
+  function startAdd() {
+    if (urls.length >= 16) {
+      setErrorMsg('最多 16 张,先删一张再加')
+      return
+    }
+    replaceIndexRef.current = null
+    fileInputRef.current?.click()
+  }
+  async function removeAt(idx: number) {
+    if (!window.confirm('删掉这张预设头像?用户列表里立刻消失。')) return
+    const next = urls.filter((_, i) => i !== idx)
+    await persist(next)
+  }
+  async function clearAll() {
+    if (!window.confirm('清空全部预设?清空后,用户挑头像看到的是 mobile hardcode 的 8 张 DiceBear。'))
+      return
+    await persist([])
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-1">
+          <ImageIcon className="h-3.5 w-3.5" />
+          预设头像
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>用户预设头像</DialogTitle>
+          <DialogDescription>
+            用户注册 / 编辑头像时挑的那组。空列表 → mobile 端 fallback 到内置 8 张 DiceBear。
+            最多 16 张,改了 5 分钟内全量生效。
+          </DialogDescription>
+        </DialogHeader>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={onFileChosen}
+        />
+
+        {loading ? (
+          <div className="py-8 text-center text-sm text-muted-foreground">加载中…</div>
+        ) : (
+          <div className="grid grid-cols-4 sm:grid-cols-6 gap-3 py-2">
+            {urls.map((u, i) => (
+              <div key={`${u}-${i}`} className="relative group">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={u}
+                  alt=""
+                  className="aspect-square w-full rounded-md object-cover border"
+                />
+                <div className="absolute inset-0 hidden group-hover:flex flex-col items-center justify-center gap-1 bg-black/70 rounded-md text-[10px] text-white">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => startReplace(i)}
+                    className="hover:underline disabled:opacity-50"
+                  >
+                    替换
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => removeAt(i)}
+                    className="text-red-300 hover:underline disabled:opacity-50"
+                  >
+                    删除
+                  </button>
+                </div>
+              </div>
+            ))}
+            {urls.length < 16 && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={startAdd}
+                className="aspect-square w-full rounded-md border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:bg-muted/50 hover:border-muted-foreground/60 disabled:opacity-50"
+              >
+                <span className="text-2xl leading-none">+</span>
+                <span className="text-[10px]">加一张</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+          <span>共 {urls.length} / 16 张 · 单张 ≤ 1MB · 建议 256×256 jpeg/png</span>
+          {urls.length > 0 && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={clearAll}
+              className="text-destructive hover:underline disabled:opacity-50"
+            >
+              清空全部
+            </button>
+          )}
         </div>
 
         {errorMsg && (

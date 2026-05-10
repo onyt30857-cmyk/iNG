@@ -3,7 +3,10 @@
 import { ref, computed } from 'vue'
 import { useUserStore } from '../../stores/user'
 import { updateProfile } from '../../api/user.api'
-import { PRESET_AVATARS } from '../../utils/preset-avatars'
+import { usePresetAvatars } from '../../utils/preset-avatars'
+
+// admin 后台改了预设列表 → 这里自动跟着变
+const presetAvatars = usePresetAvatars()
 
 const userStore = useUserStore()
 
@@ -78,7 +81,7 @@ async function save() {
       </view>
       <view class="avatar-grid">
         <view
-          v-for="url in PRESET_AVATARS"
+          v-for="url in presetAvatars"
           :key="url"
           class="avatar-item"
           :class="{ selected: selectedAvatar === url }"

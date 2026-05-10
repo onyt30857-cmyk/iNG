@@ -1160,6 +1160,11 @@ model SystemConfig {
   // 上传到 supabase 的 lianai-avatars/_default/ 路径,admin 可改可删
   user_default_avatar_url          String? @db.Text
 
+  // 2026-05-13:用户可选预设头像列表(注册 / 编辑时给用户挑的那 N 张)
+  // 空数组 → mobile fallback 到 hardcode 的 DiceBear 8 张;非空 → 走 admin 配的这组
+  // 上传到 supabase 的 lianai-avatars/_preset/ 路径
+  user_preset_avatar_urls          String[] @default([])
+
   updated_by String?
   updated_at DateTime @updatedAt @db.Timestamptz
 
