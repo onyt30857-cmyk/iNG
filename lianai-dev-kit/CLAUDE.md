@@ -622,7 +622,7 @@ apps/mobile/
 
 ### M3 进行中的心虚(M3.0 拆完后删除对应条目)
 
-9. **死代码岛(spec-005 残留)**:`session.route.ts` + `replay-orchestrator.service.ts` + 5 个旧 orchestrator(parsing/reflecting/diagnosing/planning/drafting)+ `state-machines/replay.machine.ts` 共 ~2000 行 / 12 endpoints,代码层面 0 真实调用,但仍注册在 server.ts:107,公网可达。**M3.0 能力 2** 拆除,Step 2(抽 ParsingMessage 到 types.ts)已完成,Step 3-7 等 Sam 提供 Railway 30 天 `/v1/sessions/*` log 验证 0 调用后才能执行 + 1 周 staging 观察期。
+9. **死代码岛(spec-005 残留)**:`session.route.ts` + `replay-orchestrator.service.ts` + 5 个旧 orchestrator(parsing/reflecting/diagnosing/planning/drafting)+ `state-machines/replay.machine.ts` 共 ~2000 行 / 12 endpoints。**M3.0 能力 2** 拆除进度:Step 2(ParsingMessage 抽到 types.ts)+ Step 3(server.ts 注释 register sessionRoutes,关闭公网入口)已完成。前置条件综合判断:mobile 是 H5(刷新即升级 / 无未升级版本)+ native 未打包(`appid: ""`)+ Railway log 窗口 0 调用 + 代码 0 真实引用 = 实际风险 ≈ 0。1 周观察期无报错后,Step 4 删 10 个文件。出问题取消 server.ts:107 注释即可恢复(import 仍保留)。
 10. **Session.current_state 字段未删**:6 状态机时代字段,M3.0 W2-3 加 `@deprecated` 注释但保留(数据库不动),M4 再决定是否物理删字段。
 11. **老白人格漂移风险**:M3 三期累计加多个 prompt 段(M3.0 已加 `# 你的局限` / `# 你的脾气(温和拒绝)` / `# 特殊场景判断`),persona 总长涨了。需要持续 persona-check ≥95% + Sam 主观评估"看着像同一个老白"。M3.0 上线后 4 周观察期看 dislike 比例是否回升。
 12. **M3.0 testset 未跑**:能力 3-6 的 prompt 已部署,但 testset(`lianai-dev-kit-m3/04-TESTSET-M3.md` §3-§6)是产品语言测试,需要真 LLM 调用 + 人判断。Sam 用真实 mobile 跑 + 截图记录,M3.0 上线前必须达标。
