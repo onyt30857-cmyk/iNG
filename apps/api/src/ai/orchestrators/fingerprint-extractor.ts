@@ -24,7 +24,7 @@ import { prisma } from '../../lib/prisma.js'
 
 const HAIKU_MODEL_ID = 'claude-haiku-4-5'
 
-const TRIGGER_INTERVAL = 20 // 每 N 条 user 消息触发一次
+const DEFAULT_TRIGGER_INTERVAL = 20 // 默认每 N 条触发(可被 SystemConfig.fingerprint_extraction_interval 覆盖)
 const MIN_SAMPLES = 30 // 累计 < 30 条直接跳过(样本不够抽不出风格)
 const SAMPLE_SIZE = 30 // 取最近 N 条作 Haiku 输入
 
@@ -117,8 +117,23 @@ export function safeParseJson(raw: string): Fingerprint {
 export async function runFingerprintExtractor(
   input: ExtractFingerprintInput,
 ): Promise<void> {
-  const ENABLED = true // M2-000 hardcode,task 5 接通 SystemConfig.fingerprintExtractorEnabled
-  if (!ENABLED) return
+  // 配置开关 + 触发间隔(SystemConfig)。失败用默认值
+  let triggerInterval = DEFAULT_TRIGGER_INTERVAL
+  try {
+    const cfg = await prisma.systemConfig.findUnique({
+      where: { id: 'global' },
+      select: {
+        fingerprint_extractor_enabled: true,
+        fingerprint_extraction_interval: true,
+      },
+    })
+    if (cfg && cfg.fingerprint_extractor_enabled === false) return
+    if (cfg && cfg.fingerprint_extraction_interval > 0) {
+      triggerInterval = cfg.fingerprint_extraction_interval
+    }
+  } catch {
+    /* 配置失败默认继续 */
+  }
 
   // 1. 先查用户所有未删除关系的 id 列表(Message 表无 @relation 反向到 Relationship,
   //    用 relationship_id IN (...) 的两步查询代替 join)
@@ -151,9 +166,9 @@ export async function runFingerprintExtractor(
     return
   }
 
-  // 2. 触发条件:>= MIN_SAMPLES 且 % TRIGGER_INTERVAL === 0
+  // 2. 触发条件:>= MIN_SAMPLES 且 % triggerInterval === 0
   if (userMessageCount < MIN_SAMPLES) return
-  if (userMessageCount % TRIGGER_INTERVAL !== 0) return
+  if (userMessageCount % triggerInterval !== 0) return
 
   // 3. 取最近 SAMPLE_SIZE 条 USER messages(跨关系)
   let samples: SampleMessage[]

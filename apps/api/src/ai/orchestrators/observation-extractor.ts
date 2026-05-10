@@ -126,9 +126,17 @@ export function safeParseJson(raw: string): { observations: ExtractedObservation
 export async function runObservationExtractor(
   input: ExtractObservationInput,
 ): Promise<void> {
-  // M2-000 暂用 hardcode 开关,task 5 接通 SystemConfig.observationExtractorEnabled
-  const ENABLED = true
-  if (!ENABLED) return
+  // 配置开关:SystemConfig.observation_extractor_enabled (默认 true)
+  // 配置查询失败默认继续抽,不阻塞
+  try {
+    const cfg = await prisma.systemConfig.findUnique({
+      where: { id: 'global' },
+      select: { observation_extractor_enabled: true },
+    })
+    if (cfg && cfg.observation_extractor_enabled === false) return
+  } catch {
+    /* 配置失败默认继续 */
+  }
 
   const ctx: AiCallContext = {
     user_id: input.userId,

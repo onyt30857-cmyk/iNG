@@ -1134,6 +1134,12 @@ model SystemConfig {
   anthropic_credit_updated_by   String?
   anthropic_credit_updated_at   DateTime? @db.Timestamptz
 
+  // spec-m2-000 任务 5 (2026-05-12):数据生产端开关 + 节奏配置
+  // 让运营在 admin 后台调"老白每轮抽不抽 observation"/"用户多少条触发 fingerprint"
+  observation_extractor_enabled   Boolean @default(true)
+  fingerprint_extractor_enabled   Boolean @default(true)
+  fingerprint_extraction_interval Int     @default(20) // 每 N 条 user 消息触发一次
+
   updated_by String?
   updated_at DateTime @updatedAt @db.Timestamptz
 
