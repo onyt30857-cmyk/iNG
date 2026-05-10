@@ -6,13 +6,13 @@
 // 输出纯文本(简化版,不分 type)。后续可升级为 JSON { type, content } 让前端渲染
 // 不同气泡(question / planning / drafts),但先把"用户发字 → 老白回字"链路打通。
 
-import { loadPrompt } from '../prompt-loader.js'
 import {
   callClaudeStream,
   type AiCallContext,
   type CallClaudeResult,
   type CallClaudeStreamHandlers,
 } from '../client.js'
+import { loadLaokePersona } from '../laoke-persona-loader.js'
 import { summarizeOldHistory } from './long-term-memory.js'
 
 /** 简化的对话历史(从前端传过来),只看 type + text 维度 */
@@ -331,15 +331,17 @@ export async function runConversationTurn(
   input: ConversationTurnInput,
   handlers: CallClaudeStreamHandlers,
 ): Promise<ConversationTurnOutput> {
-  // 加载老白完整人格(从 parsing.md 内核取,reflecting/diagnosing 那种结构感不要)
-  // M1 简化:用一个内嵌 prompt + 老白通用人格描述
-  const personaIntro = await loadPrompt('parsing').catch(() => '')
-  // 抽出 parsing.md 里的"你是谁 / 你绝对不说的话 / 你常说的话"段(简化:用整个 parsing prompt 但
-  // 这里 system prompt 自己已经盖住了流程相关部分)
+  // spec-m2-002 任务 2(2026-05-12):
+  // 替代之前的 loadPrompt('parsing').slice(0, 1500) 暴力截断
+  //   - 截断点不可控,可能切到 PARSING 任务说明污染当前任务
+  //   - cache miss 时人格不稳定
+  // 现在:loadLaokePersona() 取代码硬编码 CORE + admin LaokePersona 表合并扩展
+  //   - 失败降级 CORE-only,不阻塞主流程
+  const persona = await loadLaokePersona()
   const systemPrompt =
     TURN_SYSTEM_PROMPT_PREFIX +
-    '# 人格(从 parsing.md 内核继承)\n' +
-    personaIntro.slice(0, 1500)
+    '# 老白人格(产品的灵魂,任何时候都要守住)\n\n' +
+    persona.text
 
   const ctx: AiCallContext = {
     user_id: input.user_id,
