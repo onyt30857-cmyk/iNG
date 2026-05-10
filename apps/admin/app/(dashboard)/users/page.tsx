@@ -1,8 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Search, Trash2, Download, SlidersHorizontal } from 'lucide-react'
+import {
+  Search,
+  Trash2,
+  Download,
+  SlidersHorizontal,
+  ImageIcon,
+  AlertTriangle,
+  CheckCircle2,
+} from 'lucide-react'
 import { adminFetch, adminGet, BASE } from '@/lib/api-client'
 import { auth } from '@/lib/auth'
 import { formatDate, formatRelative } from '@/lib/format'
@@ -17,6 +25,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 
 interface UserItem {
   id: string
@@ -329,6 +345,8 @@ export default function UsersListPage() {
           <Trash2 className="h-3.5 w-3.5" />
           清理空账户
         </Button>
+
+        <DefaultAvatarDialog />
       </div>
 
       {/* 高级筛选 panel */}
@@ -690,6 +708,163 @@ export default function UsersListPage() {
         </div>
       )}
     </div>
+  )
+}
+
+// 2026-05-12:用户默认头像 Dialog — 全局兜底,所有没头像的用户 mobile 端 fallback
+// 入口放用户列表工具栏(语义上是"对所有用户生效的展示规则",跟"清理空账户"同级)
+function DefaultAvatarDialog() {
+  const [open, setOpen] = useState(false)
+  const [url, setUrl] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [savedAt, setSavedAt] = useState<number | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // 只有打开 dialog 才拉(避免打开列表页就 GET 一次)
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    setLoading(true)
+    setErrorMsg(null)
+    adminGet<{ url: string | null }>('/v1/admin/settings/user-default-avatar').then((res) => {
+      if (cancelled) return
+      setLoading(false)
+      if (res.ok) setUrl(res.data.url)
+      else setErrorMsg(res.error.message)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [open])
+
+  async function onFileChosen(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (file.size > 1 * 1024 * 1024) {
+      setErrorMsg('图片太大,请压到 1MB 以内(建议 256x256 jpeg)')
+      return
+    }
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+    setBusy(true)
+    setErrorMsg(null)
+    const res = await adminFetch<{ url: string | null }>(
+      '/v1/admin/settings/user-default-avatar',
+      { method: 'POST', body: { data_url: dataUrl } },
+    )
+    setBusy(false)
+    if (res.ok) {
+      setUrl(res.data.url)
+      setSavedAt(Date.now())
+      setTimeout(() => setSavedAt(null), 3000)
+    } else {
+      setErrorMsg(res.error.message)
+    }
+  }
+
+  async function onRemove() {
+    if (!window.confirm('清空默认头像?清空后,没头像的用户回到 mobile 端 hardcode 默认 SVG。')) return
+    setBusy(true)
+    setErrorMsg(null)
+    const res = await adminFetch<{ url: string | null }>(
+      '/v1/admin/settings/user-default-avatar',
+      { method: 'DELETE' },
+    )
+    setBusy(false)
+    if (res.ok) {
+      setUrl(null)
+      setSavedAt(Date.now())
+      setTimeout(() => setSavedAt(null), 3000)
+    } else {
+      setErrorMsg(res.error.message)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-1">
+          <ImageIcon className="h-3.5 w-3.5" />
+          默认头像
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>用户默认头像</DialogTitle>
+          <DialogDescription>
+            没设头像的用户,mobile 端会显示这张图。不设置就回到 hardcode 的默认 SVG。
+            改了 5 分钟内全量生效。
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex items-center gap-4 py-2">
+          {loading ? (
+            <div className="h-20 w-20 rounded-full bg-muted animate-pulse" />
+          ) : url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={url}
+              alt="默认头像"
+              className="h-20 w-20 rounded-full object-cover border"
+            />
+          ) : (
+            <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center text-xs text-muted-foreground border">
+              未设置
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={onFileChosen}
+            />
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                disabled={busy || loading}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {url ? '替换' : '上传'}
+              </Button>
+              {url && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  onClick={onRemove}
+                >
+                  清空
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">上限 1MB,建议 256×256 jpeg/png</p>
+          </div>
+        </div>
+
+        {errorMsg && (
+          <div className="text-sm text-red-600 flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" /> {errorMsg}
+          </div>
+        )}
+        {savedAt && (
+          <div className="text-sm text-green-600 flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4" /> 已更新
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }
 
