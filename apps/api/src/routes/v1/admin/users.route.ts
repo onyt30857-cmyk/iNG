@@ -25,7 +25,9 @@ import {
   addUserNote,
   deleteUserNote,
   cleanupEmptyUsers,
+  setUserAvatar,
 } from '../../../services/admin/admin-user.service.js'
+import { putAvatar } from '../../../services/storage/storage.service.js'
 import {
   listUserTags,
   addManualTag,
@@ -226,6 +228,50 @@ export async function adminUserRoutes(app: FastifyInstance): Promise<void> {
   })
 
   // ============== spec-014 用户颗粒度管理 ==============
+
+  // POST /v1/admin/users/:id/avatar — 替换 / 添加用户头像 (2026-05-12)
+  // body: { data_url: base64 data URL }
+  // 后端 putAvatar 校验 1MB 上限 + 自动清旧
+  app.post('/v1/admin/users/:id/avatar', async (request) => {
+    const { id } = idParamsSchema.parse(request.params)
+    const body = z.object({ data_url: z.string().min(1).max(2_000_000) }).parse(request.body)
+    const result = await putAvatar(id, body.data_url)
+    const update = await setUserAvatar(id, result.url)
+
+    void recordAdminAudit(
+      request.admin!.id,
+      {
+        action: 'update_user_avatar',
+        target_type: 'user',
+        target_id: id,
+        before: { avatar_url: update.before },
+        after: { avatar_url: update.after, driver: result.driver },
+      },
+      request,
+    )
+
+    return { ok: true, data: { avatar_url: update.after } }
+  })
+
+  // DELETE /v1/admin/users/:id/avatar — 删除头像(mobile 端 fallback 默认 SVG)
+  app.delete('/v1/admin/users/:id/avatar', async (request) => {
+    const { id } = idParamsSchema.parse(request.params)
+    const update = await setUserAvatar(id, null)
+
+    void recordAdminAudit(
+      request.admin!.id,
+      {
+        action: 'remove_user_avatar',
+        target_type: 'user',
+        target_id: id,
+        before: { avatar_url: update.before },
+        after: { avatar_url: null },
+      },
+      request,
+    )
+
+    return { ok: true, data: { avatar_url: null } }
+  })
 
   // PATCH /v1/admin/users/:id/alias — 更新 admin 别名(用户不可见)
   app.patch('/v1/admin/users/:id/alias', async (request) => {

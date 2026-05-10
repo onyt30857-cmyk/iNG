@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import {
@@ -188,12 +188,11 @@ export default function UserDetailPage() {
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div className="flex items-center gap-3">
-              {u.avatar_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={u.avatar_url} alt="" className="h-12 w-12 rounded-full object-cover" />
-              ) : (
-                <div className="h-12 w-12 rounded-full bg-muted" />
-              )}
+              <UserAvatarEditor
+                userId={u.id}
+                avatarUrl={u.avatar_url}
+                onChanged={reload}
+              />
               <div>
                 <div className="font-medium">{u.nickname ?? '未填昵称'}</div>
                 <div className="text-xs text-muted-foreground">
@@ -552,6 +551,97 @@ function GrantTempUnlimitedDialog({ userId, onGranted }: { userId: string; onGra
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// =============== 头像管理组件(2026-05-12) ===============
+// admin 替换 / 删除某用户头像 — 改了立即生效(mobile 端下次拉 user 看到新头像)
+
+function UserAvatarEditor({
+  userId,
+  avatarUrl,
+  onChanged,
+}: {
+  userId: string
+  avatarUrl: string | null
+  onChanged: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  async function onFileChosen(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // reset input(允许重选同一文件)
+    if (!file) return
+    if (file.size > 1 * 1024 * 1024) {
+      alert('图片太大,请压到 1MB 以内(建议 256x256 jpeg)')
+      return
+    }
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+    setBusy(true)
+    const res = await adminFetch(`/v1/admin/users/${userId}/avatar`, {
+      method: 'POST',
+      body: { data_url: dataUrl },
+    })
+    setBusy(false)
+    if (res.ok) onChanged()
+    else alert(`上传失败:${res.error.message}`)
+  }
+
+  async function onRemove() {
+    if (!window.confirm('删除这个用户的头像?(mobile 端会显示默认 SVG)')) return
+    setBusy(true)
+    const res = await adminFetch(`/v1/admin/users/${userId}/avatar`, { method: 'DELETE' })
+    setBusy(false)
+    if (res.ok) onChanged()
+    else alert(`删除失败:${res.error.message}`)
+  }
+
+  return (
+    <div className="relative group">
+      {avatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={avatarUrl} alt="" className="h-12 w-12 rounded-full object-cover" />
+      ) : (
+        <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center text-xs text-muted-foreground">
+          无
+        </div>
+      )}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={onFileChosen}
+      />
+      <div className="absolute inset-0 hidden group-hover:flex flex-col items-center justify-center gap-1 bg-black/60 rounded-full text-[9px] text-white">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => fileInputRef.current?.click()}
+          className="hover:underline disabled:opacity-50"
+          title={avatarUrl ? '替换头像' : '添加头像'}
+        >
+          {avatarUrl ? '替换' : '添加'}
+        </button>
+        {avatarUrl && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onRemove}
+            className="text-red-300 hover:underline disabled:opacity-50"
+            title="删除头像"
+          >
+            删除
+          </button>
+        )}
+      </div>
+    </div>
   )
 }
 

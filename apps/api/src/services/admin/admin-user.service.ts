@@ -674,6 +674,29 @@ export async function getUserQuotaForAdmin(userId: string) {
  * 更新 admin 别名 — 用户不可见,只在 admin 后台展示
  * 传 null/empty string 等于清空别名
  */
+/**
+ * admin 替换 / 删除某用户的头像 (2026-05-12)
+ * 上传逻辑在 route 层调 putAvatar(),本函数只负责写库 + 返回 before/after 给 route 落审计
+ */
+export async function setUserAvatar(userId: string, avatarUrl: string | null) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, avatar_url: true },
+  })
+  if (!user) throw errors.notFound('用户不存在')
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { avatar_url: avatarUrl },
+  })
+
+  return {
+    user_id: userId,
+    before: user.avatar_url,
+    after: avatarUrl,
+  }
+}
+
 export async function updateAdminAlias(userId: string, alias: string | null) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
