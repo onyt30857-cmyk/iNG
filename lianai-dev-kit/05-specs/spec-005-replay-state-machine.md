@@ -1,5 +1,13 @@
 # spec-005: 复盘状态机
 
+> ## ⚠️ SUPERSEDED 2026-05-10
+>
+> 本 spec 描述的"6 状态机驱动复盘"在代码里**已被 spec-006 agentic 单流取代**。
+>
+> XState 状态机文件(`apps/api/src/state-machines/replay.machine.ts`)和 `Session.current_state` 字段仍存在作为历史参考,但**不再驱动主对话流**。新的"老白对话"走 spec-006 的 `apps/api/src/services/replay/conversation-turn.service.ts` + spec-009 的意图分类(8 意图 8 语气)。
+>
+> 接手新功能,不要照本 spec 实施。读 spec-006 / spec-009 才是 truth。
+
 > 创建日期: 2026-05
 > 对应:Week 4-5
 > 依赖:spec-001、spec-002、spec-003、spec-004

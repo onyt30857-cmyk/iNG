@@ -2,6 +2,8 @@
 
 > M1 阶段所有页面的详细规格。
 > 实施时按页面顺序对照本文档。
+>
+> ⚠️ **2026-05-10 校准**:本文档是 M1 早期规划稿。**实际运行的页面以 `apps/mobile/pages.json` + `apps/admin/app/(dashboard)/` 为准**。spec-018 onboarding 流程已演化为 splash + intro + welcome + profile 4 页;新增了 greeting(老白个性化回归问候)/auth 等页;admin 后台已增至 13 个页面。设计师按本文档画原型时请同时核对真实代码目录。
 
 ---
 

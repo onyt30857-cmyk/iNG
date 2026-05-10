@@ -29,14 +29,14 @@ M1 阶段目标:12 周内上线一个能用的版本。
 - **路由**: uni-app 自带
 
 ### 后端
-- **运行时**: Node.js 20+ LTS
+- **运行时**: Node.js 22(M1 实际,Dockerfile commit 875187e 升级;CLAUDE 宪法原写 20+ LTS)
 - **框架**: Fastify 4.x
 - **语言**: TypeScript(strict 模式)
 - **ORM**: Prisma 5.x
-- **数据库**: PostgreSQL 16(必须含 pgvector 扩展)
-- **缓存**: Redis 7
-- **队列**: BullMQ
-- **对象存储**: 阿里云 OSS
+- **数据库**: PostgreSQL 16(M1 暂未启用 pgvector,M2 接语义检索时再开)
+- **缓存**: Redis 7(已装 ioredis 但 M1 暂未真用)
+- **队列**: setInterval cron(M1 实际,见 `apps/api/src/workers/`);BullMQ 已装但**M2 才接通**
+- **对象存储**: **Supabase Storage**(M1 实际,见 `apps/api/src/lib/supabase.ts`);阿里云 OSS 是 M2 备选
 
 ### AI 模型(锁定)
 | 任务 | 模型 | 模型 ID |
@@ -45,7 +45,7 @@ M1 阶段目标:12 周内上线一个能用的版本。
 | 截图理解(OCR)| **Claude Sonnet 4 vision** | `claude-sonnet-4-20250514` |
 | 意图分类 | Gemini 2.5 Flash | `gemini-2.5-flash` |
 | 异步画像提取 | Gemini 2.5 Flash | `gemini-2.5-flash` |
-| 中文内容审核 | 阿里云内容安全 | (使用阿里云 SDK) |
+| 中文内容审核 | **关键词正则 + Claude Haiku 4.5 二次确认** | `red-line-guard.ts`(M1 实际);阿里云内容安全 SDK 是 M2 合规升级 |
 
 **OCR 模型决策(2026-05-05 Sam 拍板)**:OCR 改用 Claude Sonnet 4 vision,不再走 Gemini。原因:
 1. 简化技术栈(只一个 LLM 供应商)+ 简化付费(只一个 API key)
@@ -191,11 +191,13 @@ M1 阶段目标:12 周内上线一个能用的版本。
 
 用户可同时维护多段关系,但 AI 必须严格隔离:
 
-**Layer 1 - API 层**:每次 AI 调用必须显式带 `relationship_id` 参数,后端校验当前用户对该 `relationship_id` 有权限。
+**Layer 1 - API 层**(M1 已实施):每次 AI 调用必须显式带 `relationship_id` 参数,后端 service 强制 `where: { user_id, relationship_id }` 校验。
 
-**Layer 2 - Prisma 中间件**:数据库查询自动注入 `relationship_id` 过滤器,代码层即使忘记加 where 条件也不会跨关系。
+**Layer 2 - Prisma 中间件**(**M1 未实施,M2 补**):本来设计是 `prisma.$use` 自动注入 `relationship_id` 过滤器,M1 阶段降级靠 service 层手动 where 约束 + Layer 1/3 兜底。见 §15 心虚 #5。
 
-**Layer 3 - Prompt 审计**:每次构造 prompt 后,用 `auditPromptContext()` 函数扫描 prompt 文本,确认未泄漏其他关系名/特征。
+**Layer 3 - Prompt 审计**(M1 已实施):每次构造 prompt 后,`apps/api/src/ai/prompt-audit.ts` 的 `assertNoLeak()` 扫描 prompt 输入,确认未泄漏其他关系名/特征。
+
+**Layer 3.5 - 输出端审计**(**M1 未实施**):spec-010 设计稿原本要在 LLM 流式输出完成后再扫一遍 message_blocks 是否提到非当前 `relationship_id` 的人名,目前没独立实现(persona-check 只校验老白人格)。proactive 路径如真激活需要补这层。
 
 **绝对不做**:
 - ❌ 帮用户管理"如何不被发现"——触发立即拒绝
@@ -236,9 +238,11 @@ Layer 3: profile_assertions 表 (高频引用的核心,精炼)
 - 自动加 `relationship_id` 隔离
 - 自动 prompt cache(静态部分)
 - 自动 retry(网络故障)
-- 自动审计(`auditPromptContext`)
+- 自动审计(`assertNoLeak` from `prompt-audit.ts`)
 - 自动监控(latency, tokens, cost)
-- 自动落库(`audit_logs` 表)
+- 自动落库 **`AiCallLog` 表**(M1 实际表名;原文档误写 `audit_logs`,实际 `audit_logs` 是 admin 操作审计 `AdminAuditLog`)
+
+业务层不直接调 `client.callClaude`,而是经过 `apps/api/src/ai/orchestrators/<scene>.orchestrator.ts`(spec-006~009 引入)— 每种场景(parsing / reflecting / diagnosing / planning / drafting / ocr / intent-classifier / long-term-memory / quality-self-check / conversation-turn)各一个 orchestrator,内部走 `client.callClaude()`。
 
 绝对不允许直接 `import { Anthropic } from '@anthropic-ai/sdk'` 后裸调用。
 
@@ -258,7 +262,7 @@ ENTRY → PARSING → REFLECTING → DIAGNOSING → PLANNING → DRAFTING → CL
 
 ### 5.6 异步 Profile Updater
 
-每次会话 CLOSED 后,异步触发(BullMQ):
+每次会话 CLOSED 后,异步触发:
 
 1. 提取本次会话的"老白观察"→ 写入 `relationship_observations`
 2. 检测重复模式 → 升级为 `profile_assertions`
@@ -266,6 +270,8 @@ ENTRY → PARSING → REFLECTING → DIAGNOSING → PLANNING → DRAFTING → CL
 4. 检测危险信号 → 触发主动关怀(M2)
 
 不在主请求路径执行,因为耗时 5-30 秒,会拖慢用户体验。
+
+**M1 实施降级**(2026-05-10 校准):BullMQ 已装但**未真正接通**,所有 worker 走 `setInterval` cron(见 `apps/api/src/workers/{cleanup-dev-seed-on-boot,deletion-cron,feedback-clustering-cron}.ts`)。Profile 抽取目前是**同步调用** `services/relationship/profile-extraction.service.ts`,M2 升级 BullMQ 时再异步化。
 
 ---
 
@@ -436,7 +442,7 @@ $text-primary: #0F172A;
 3. **老白该给就给,但不"替写"**(2026-05-06 修订):见 §4「关于'给具体话术'」三层规则。默认 80% 场景必须直给具体可发的句子,不反复反问。给的形态是 1-2 句具体话 + 一句为什么 + 一句"按你口气调",不是模板话术铺货
 4. **红线触发立即停**:7 个红线任意触发,跳出当前流程,不进入 CLOSED
 5. **付费墙温和**:不锁紧急功能,免费层至少能完整体验 3 次复盘
-6. **AI 调用全量审计**:所有 AI 调用记录到 `audit_logs`,可追溯
+6. **AI 调用全量审计**:所有 AI 调用记录到 `AiCallLog` 表(原文档误写 `audit_logs`),可追溯
 
 ---
 
@@ -457,81 +463,146 @@ $text-primary: #0F172A;
 
 ---
 
-## 13. 文件结构(后端)
+## 13. 文件结构(后端 — 2026-05-10 校准实际目录)
 
 ```
 apps/api/
 ├── src/
 │   ├── ai/
 │   │   ├── client.ts                # AI 调用统一封装(必须经过)
-│   │   ├── audit.ts                 # auditPromptContext 函数
-│   │   ├── prompt-cache.ts          # prompt cache 工具
-│   │   └── persona-check.ts         # assertPersona 函数
+│   │   ├── prompt-audit.ts          # assertNoLeak 跨关系泄漏审计
+│   │   ├── persona-check.ts         # 老白人格违规检测
+│   │   ├── prompt-loader.ts         # DB → inline default-prompts.ts → throw
+│   │   ├── default-prompts.ts       # 5 scene 内置默认 prompt(spec-027 inline)
+│   │   ├── red-line-guard.ts        # 7 红线 keyword 正则 + Haiku 二次确认
+│   │   ├── call-log.ts              # AiCallLog 落库
+│   │   ├── json-extract.ts          # 流式 JSON tolerant 解析
+│   │   └── orchestrators/           # spec-006~009 引入,每场景一个
+│   │       ├── conversation-turn.orchestrator.ts
+│   │       ├── parsing.orchestrator.ts
+│   │       ├── reflecting.orchestrator.ts
+│   │       ├── diagnosing.orchestrator.ts
+│   │       ├── planning.orchestrator.ts
+│   │       ├── drafting.orchestrator.ts
+│   │       ├── ocr.orchestrator.ts
+│   │       ├── intent-classifier.ts
+│   │       ├── long-term-memory.ts
+│   │       └── quality-self-check.ts
 │   ├── services/
-│   │   ├── user-service.ts
-│   │   ├── relationship-service.ts
-│   │   ├── replay-service.ts
-│   │   ├── profile-updater.ts       # 异步画像更新
-│   │   └── ...
+│   │   ├── account/                 # 账号注销 30d 真删
+│   │   ├── admin/                   # 14+ 个 admin service(用户/标签/反馈聚类/老白档案/红线/prompt/...)
+│   │   ├── auth/                    # backup-code 生成 / 恢复
+│   │   ├── feedback/                # 用户 like/dislike + 实时 prompt 调整
+│   │   ├── laoke/                   # greeting 个性化问候(spec-greeting)
+│   │   ├── quota/                   # 积分配额(spec-019)
+│   │   ├── relationship/            # 关系 CRUD + 信号 + 画像抽取
+│   │   ├── replay/                  # 6 状态复盘流程(spec-005/006 混合)
+│   │   ├── session/                 # 会话管理
+│   │   ├── storage/                 # Supabase Storage
+│   │   ├── user/                    # 用户 CRUD
+│   │   └── anthropic-billing.service.ts  # Anthropic 余额监控告警
 │   ├── routes/
-│   │   ├── auth.ts
-│   │   ├── relationship.ts
-│   │   ├── replay.ts
-│   │   └── ...
-│   ├── middlewares/
+│   │   └── v1/
+│   │       ├── auth.route.ts        # 微信登录 / 匿名 / backup-code 恢复
+│   │       ├── user.route.ts        # /v1/users/me 等
+│   │       ├── relationship.route.ts
+│   │       ├── conversation.route.ts # spec-006 主对话流(替代旧 replay.ts)
+│   │       ├── session.route.ts     # spec-005 残留(渐废)
+│   │       ├── ocr.route.ts
+│   │       ├── feedback.route.ts
+│   │       ├── account.route.ts
+│   │       ├── quota.route.ts
+│   │       ├── storage.route.ts
+│   │       ├── behavior.route.ts    # 行为埋点上报
+│   │       ├── client-errors.route.ts # mobile 错误上报
+│   │       ├── laoke.route.ts       # public profile + greeting
+│   │       └── admin/               # admin 子路由(用户/反馈/llm/prompt/...)
+│   ├── middleware/                  # 注意单数,不是 middlewares
 │   │   ├── auth.ts                  # JWT 校验
-│   │   ├── relationship-isolation.ts # Prisma 中间件
-│   │   └── error-handler.ts
+│   │   ├── admin-auth.ts            # admin JWT 校验
+│   │   ├── error-handler.ts
+│   │   └── request-log.ts
+│   ├── lib/                         # prisma / supabase / jwt / logger / error 工具
 │   ├── utils/
-│   │   ├── error.ts                 # AppError 类
-│   │   └── logger.ts
-│   ├── workers/                     # BullMQ workers
-│   │   ├── profile-updater.worker.ts
-│   │   └── pattern-detector.worker.ts
+│   ├── workers/                     # M1 setInterval cron(M2 升 BullMQ)
+│   │   ├── cleanup-dev-seed-on-boot.ts
+│   │   ├── deletion-cron.ts
+│   │   └── feedback-clustering-cron.ts
 │   ├── state-machines/
-│   │   └── replay.machine.ts        # XState 复盘状态机
-│   └── server.ts                    # Fastify 入口
+│   │   └── replay.machine.ts        # XState 6 状态机(spec-005 内部参考,渐废)
+│   ├── config/
+│   └── server.ts                    # Fastify 入口 + 路由注册
 ├── prisma/
-│   ├── schema.prisma
-│   └── migrations/
+│   ├── schema.prisma                # 30+ models
+│   └── migrations/                  # 16+ migrations
 └── package.json
 ```
 
-## 14. 文件结构(前端)
+## 14. 文件结构(前端 — 2026-05-10 校准实际目录)
 
 ```
 apps/mobile/
+├── App.vue                          # onLaunch 守卫 + 全局错误上报
+├── main.ts
+├── pages.json                       # 路由注册
+├── manifest.json                    # uni-app 配置
 ├── pages/
-│   ├── index/
-│   │   └── index.vue                # 主页(Tab 1)
+│   ├── splash/index.vue             # 入口品牌页 1.5s + 路由分支
+│   ├── home/index.vue               # 关系列表主页(深夜好,{昵称})
+│   ├── greeting/index.vue           # 老白个性化回归问候(Haiku 实时生成)
+│   ├── onboarding/
+│   │   ├── intro.vue                # 新用户首次见面 4.5s 三句打字机
+│   │   ├── welcome.vue              # 进门 + 隐私承诺
+│   │   └── profile.vue              # 取昵称 + 头像
 │   ├── relationship/
-│   │   ├── list.vue                 # 关系列表(Tab 2)
-│   │   ├── detail.vue
-│   │   └── edit.vue
-│   ├── replay/
-│   │   ├── entry.vue                # 复盘入口(底部抽屉)
-│   │   └── session.vue              # 复盘进行中(状态机驱动)
+│   │   ├── list.vue / detail.vue / edit.vue / conversation.vue
+│   │   └── (无 new.vue,新建复用 edit.vue)
 │   ├── profile/
-│   │   └── index.vue                # 我的(Tab 3)
-│   └── ...
+│   │   ├── index.vue                # 我的(账户 / 备份码 / 注销)
+│   │   └── edit.vue                 # 编辑昵称头像
+│   └── auth/login.vue
 ├── components/
-│   ├── ReplyCard.vue                # 话术卡片(核心组件)
-│   ├── MessageBubble.vue            # 对话气泡
+│   ├── LaokeAvatar.vue              # 默认 SVG 头像(带 url prop 自动从 store 读)
 │   ├── RelationshipCard.vue
-│   └── ...
+│   ├── AppDialog.vue                # 全局产品级 dialog
+│   ├── CrossRelationshipBriefing.vue # 多关系横向 briefing
+│   └── conversation/                # 对话流组件
+│       ├── ChatInput.vue            # 截图 + 文字 + + 按钮(defineExpose 给 starter chips 调)
+│       ├── LaokeBubble.vue          # 老白气泡(头像 + 文字 + 长按菜单)
+│       ├── LaokeQuestionBubble.vue
+│       ├── LaokeDiagnosingBubble.vue
+│       ├── LaokePlanningBubble.vue
+│       ├── LaokeDraftsBubble.vue    # 替代旧 ReplyCard
+│       ├── LaokeProactiveHint.vue   # 主动开口提示
+│       ├── ScreenshotBubble.vue     # 截图气泡
+│       ├── StarterChips.vue         # 新关系冷启动 2 个动作引导
+│       ├── SystemDivider.vue        # 时间分割线
+│       └── UserBubble.vue           # 用户气泡(顶部带昵称)
 ├── stores/                          # Pinia
-│   ├── user.ts
+│   ├── user.ts                      # token + user + syncFromServer
 │   ├── relationship.ts
-│   └── replay.ts
-├── api/                             # API 调用封装
-│   ├── client.ts
-│   └── ...
+│   ├── conversation.ts              # 单 thread 对话流
+│   ├── relationship-signals.ts
+│   ├── points.ts                    # 积分配额
+│   ├── laoke.ts                     # 老白 profile(头像 / 身份介绍)
+│   └── app-dialog.ts
+├── api/                             # API 调用封装(uni.request)
+│   ├── client.ts                    # request + apiGet/apiPost + retry + 全局错误上报
+│   ├── auth.ts / user.ts / relationship.ts / conversation.ts (含 SSE) / feedback.ts / points.ts
 ├── utils/
-│   └── ...
+│   ├── storage.ts                   # uni storage 包装 + StorageKeys
+│   ├── error-codes.ts               # ERROR_DICT(跟 admin /errors 同步)
+│   ├── behavior-tracker.ts          # 行为埋点
+│   ├── signal-computer.ts
+│   ├── cross-relationship-judgment.ts
+│   ├── avatar-image.ts
+│   └── preset-avatars.ts
+├── composables/
+│   └── useAppDialog.ts              # alert / confirm
 ├── styles/
-│   ├── tokens.scss                  # design tokens
-│   └── dark.scss                    # 暗色模式
-└── pages.json
+│   └── tokens.scss                  # design tokens(暗色通过 prefers-color-scheme,不需要独立 dark.scss)
+└── types/
+    ├── user.ts / relationship.ts / message.ts
 ```
 
 ---
@@ -541,12 +612,28 @@ apps/mobile/
 我必须诚实告诉 Claude:
 
 1. **AI 模型 ID 可能过期**:`claude-sonnet-4-20250514` 这个 ID 是占位符。实施时确认 Anthropic API 当前提供的最新 Sonnet 模型 ID。
-2. **Prompt 需要打磨**:`03-prompts/` 下的所有 prompt 是 v1.0 设计稿,真实输出质量需要 30+ 测试 case 反复打磨。
-3. **uni-app x 兼容性**:某些复杂动效可能在 uni-app x 编译产物中要降级。第一周脚手架就要测出来。
-4. **Profile Updater 的提取算法**:抽取"老白观察"的具体 prompt 设计,需要在 M1 阶段反复迭代。
-5. **多关系隔离的 Prisma 中间件**:实施时可能遇到 ORM 限制,可能需要降级到"必须显式传 relationshipId"的 service 层约束。
+2. **Prompt 需要打磨**:`03-prompts/` 下的所有 prompt 是 v1.0 设计稿,真实输出质量需要 30+ 测试 case 反复打磨。**M1 实际运行**:prompt 通过 admin 写入 DB → fallback 到 `apps/api/src/ai/default-prompts.ts` inline 常量(spec-027 修复 Railway 不带 dev-kit 文件的问题);`03-prompts/.md` 是设计稿,运行时不直接 readFile。
+3. **uni-app x 兼容性**:某些复杂动效可能在 uni-app x 编译产物中要降级。第一周脚手架就要测出来。**2026-05-04 实测**:dcloud `@dcloudio/vite-plugin-uni` 命令行模式编译的是 vue3(编译器 5.08),不是 uni-app x;H5 端 vue3 = x 行为,但 iOS/Android 原生需 HBuilderX 内置 x 编译器(CLI 暂未提供)。
+4. **Profile Updater 的提取算法**:抽取"老白观察"的具体 prompt 设计,需要在 M1 阶段反复迭代。**M1 实际**:Profile 抽取走同步路径(spec-013 + spec-021),`profile-extraction.service.ts` 在主请求路径完成。BullMQ 异步化是 M2。
+5. **多关系隔离的 Prisma 中间件**(已确认降级到 service 层):**M1 未实施 `prisma.$use`**,Layer 2 实际靠 service 层强制 `where: { user_id, relationship_id }` + Layer 1(API) + Layer 3(prompt-audit)三层兜底。M2 补 ORM 中间件。
+6. **Layer 3.5 输出端审计**(spec-010 设计):**M1 未实施**。LLM 流式输出后没有"再扫一遍 message_blocks 是否提到非当前 relationship_id 人名"的独立逻辑。proactive 路径如真激活需补这层,M2 P1。
+7. **spec-005 vs spec-006**:本项目内 spec-005 是"6 状态机驱动复盘",spec-006 是"agentic 单流重构"— **代码实际跑的是 spec-006 路径**,XState 6 状态机仍保留作为内部参考(`state-machines/replay.machine.ts`),状态字段仍在 `Session.current_state` 持久化,但不再驱动主流程。
+8. **spec-014~027 未归档**:从 spec-014 起的多个运营 spec(用户标签 / 配额管理 / 老白档案 / 红线编辑器 / prompt 工程台 / 反馈聚类 / 产品迭代记录 / admin 用户管理升级等)代码已实施但 dev-kit 没归档为 markdown — 知识锁在 commit message 里。M1 上线前应补归档。
 
 这些不是缺陷,是 v1.0 的边界。开工后一定会修订。
+
+---
+
+## 16. 部署运维
+
+部署任何服务前必读:**`06-workflow/deployment.md`**(服务清单、命令、踩过的坑)。
+
+3 个核心服务:
+- **后端**(Railway):`git push origin main` 自动部署
+- **Admin**(Vercel,project `lianai-admin`):`cd apps/admin && vercel deploy --prod --yes`
+- **Mobile H5**(Vercel,project `i-ng-api`):**优先 git push 走 GitHub auto-deploy**,不要本地手动部署
+
+**铁律**:跑 `vercel deploy` 之前必须 `cat .vercel/project.json` 确认 project,没 link 不要直接 deploy。详见 deployment.md(教训档案有 2026-05-10 误创 h5 项目的事故记录)。
 
 ---
 
