@@ -1144,6 +1144,18 @@ model SystemConfig {
   long_term_memory_threshold     Int @default(30) // 对话超过 N 条才启动摘要
   long_term_memory_window_size   Int @default(80) // 最近 N 条原文进 prompt,更早的压缩
 
+  // spec-m2-004 任务 1 (2026-05-12):数据流开关 + 可调参数
+  // 让运营在 admin 后台控制"老白每次回复时看到什么数据"
+  enable_profile_assertions       Boolean @default(true) // 关掉 → 老白看不到她的稳定特征
+  enable_relationship_observations Boolean @default(true) // 关掉 → 老白记不住自己以前怎么想
+  enable_user_language_fingerprint Boolean @default(true) // 关掉 → 话术可能不像兄弟会说的
+  enable_long_term_memory          Boolean @default(true) // 关掉 → 对话超 30 条后早期细节丢失
+  enable_emotion_recognition       Boolean @default(true) // 关掉 → 老白只看历史不看当下(M2 暂未独立开关化,留接口)
+
+  history_window_size              Int @default(80) // 老白每次看最近多少条对话(30-200)
+  profile_assertions_limit         Int @default(20) // 取最高 priority 的多少条 assertion(5-50)
+  observations_limit               Int @default(30) // 取最近多少条 observation(10-100)
+
   updated_by String?
   updated_at DateTime @updatedAt @db.Timestamptz
 

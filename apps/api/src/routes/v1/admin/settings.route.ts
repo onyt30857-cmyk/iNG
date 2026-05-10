@@ -18,6 +18,10 @@ import {
   updateCreditBaseline,
   invalidateCache as invalidateBillingCache,
 } from '../../../services/anthropic-billing.service.js'
+import {
+  getDataFlowConfig,
+  updateDataFlowConfig,
+} from '../../../services/admin/admin-data-flow.service.js'
 
 const updateBodySchema = z.object({
   // spec-019:积分系统取代 turn/ocr/heavy 三个独立上限
@@ -105,6 +109,46 @@ export async function adminSettingsRoutes(app: FastifyInstance): Promise<void> {
       request,
     )
 
+    return { ok: true, data: after }
+  })
+
+  // === spec-m2-004 数据流配置 ===
+  // GET /v1/admin/settings/data-flow  - 拉当前配置
+  // PATCH /v1/admin/settings/data-flow - 改开关 / 参数(立即生效)
+
+  app.get('/v1/admin/settings/data-flow', async () => {
+    const config = await getDataFlowConfig()
+    return { ok: true, data: config }
+  })
+
+  const dataFlowBodySchema = z.object({
+    switches: z
+      .object({
+        profile_assertions: z.boolean().optional(),
+        observations: z.boolean().optional(),
+        language_fingerprint: z.boolean().optional(),
+        long_term_memory: z.boolean().optional(),
+        emotion_recognition: z.boolean().optional(),
+        observation_extractor: z.boolean().optional(),
+        fingerprint_extractor: z.boolean().optional(),
+      })
+      .optional(),
+    params: z
+      .object({
+        history_window_size: z.number().int().min(30).max(200).optional(),
+        long_term_memory_threshold: z.number().int().min(20).max(100).optional(),
+        long_term_memory_window_size: z.number().int().min(30).max(200).optional(),
+        profile_assertions_limit: z.number().int().min(5).max(50).optional(),
+        observations_limit: z.number().int().min(10).max(100).optional(),
+        fingerprint_extraction_interval: z.number().int().min(5).max(100).optional(),
+      })
+      .optional(),
+  })
+
+  app.patch('/v1/admin/settings/data-flow', async (request) => {
+    const body = dataFlowBodySchema.parse(request.body)
+    const after = await updateDataFlowConfig(body, { adminId: request.admin!.id })
+    // 注:updateDataFlowConfig 内部已落 admin_audit_logs(用 prisma 直接写)
     return { ok: true, data: after }
   })
 }

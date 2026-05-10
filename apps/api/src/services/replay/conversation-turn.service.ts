@@ -42,36 +42,71 @@ export async function runConversationTurnForRelationship(
   input: RunConversationTurnInput,
   handlers: CallClaudeStreamHandlers,
 ): Promise<ConversationTurnOutput> {
-  // ★ Layer 1 ownership 校验 + 一并查 spec-m2-001 需要的画像数据
+  // ★ Layer 1 ownership 校验 + spec-m2-001 画像数据 + spec-m2-004 配置开关
   const current = await getRelationshipById(userId, relationshipId)
+
+  // spec-m2-004:读 SystemConfig 决定查哪些数据 + 各 limit
+  // 失败用默认值(全开,推荐 limit)
+  let cfg = {
+    enableProfileAssertions: true,
+    enableRelationshipObservations: true,
+    enableUserLanguageFingerprint: true,
+    profileAssertionsLimit: 20,
+    observationsLimit: 30,
+  }
+  try {
+    const row = await prisma.systemConfig.findUnique({
+      where: { id: 'global' },
+      select: {
+        enable_profile_assertions: true,
+        enable_relationship_observations: true,
+        enable_user_language_fingerprint: true,
+        profile_assertions_limit: true,
+        observations_limit: true,
+      },
+    })
+    if (row) {
+      cfg = {
+        enableProfileAssertions: row.enable_profile_assertions,
+        enableRelationshipObservations: row.enable_relationship_observations,
+        enableUserLanguageFingerprint: row.enable_user_language_fingerprint,
+        profileAssertionsLimit: row.profile_assertions_limit,
+        observationsLimit: row.observations_limit,
+      }
+    }
+  } catch {
+    /* 配置失败默认全开,不阻塞 */
+  }
+
   const [others, profileAssertions, recentObservations, languageFingerprint] =
     await Promise.all([
       listRelationships(userId),
-      // spec-m2-001:她的稳定特征(高 priority 优先)
-      prisma.profileAssertion.findMany({
-        where: { relationship_id: relationshipId, deleted_at: null },
-        orderBy: [
-          { priority: 'desc' },
-          { confidence: 'desc' },
-          { updated_at: 'desc' },
-        ],
-        take: 20,
-        select: { assertion_text: true, confidence: true },
-      }),
-      // spec-m2-001:老白对她的观察(三类 type 全取 — realtime/fact_extracted/backfill)
-      prisma.relationshipObservation.findMany({
-        where: { relationship_id: relationshipId, deleted_at: null },
-        orderBy: { created_at: 'desc' },
-        take: 30,
-        select: {
-          observation_text: true,
-          observation_type: true,
-        },
-      }),
-      // spec-m2-001:兄弟的语气指纹(user 维度跨关系)
-      prisma.userLanguageFingerprint.findUnique({
-        where: { user_id: userId },
-      }),
+      // spec-m2-001:她的稳定特征(高 priority 优先);开关关闭返空
+      cfg.enableProfileAssertions
+        ? prisma.profileAssertion.findMany({
+            where: { relationship_id: relationshipId, deleted_at: null },
+            orderBy: [
+              { priority: 'desc' },
+              { confidence: 'desc' },
+              { updated_at: 'desc' },
+            ],
+            take: cfg.profileAssertionsLimit,
+            select: { assertion_text: true, confidence: true },
+          })
+        : Promise.resolve<Array<{ assertion_text: string; confidence: number }>>([]),
+      // spec-m2-001:老白对她的观察(三类 type 全取);开关关闭返空
+      cfg.enableRelationshipObservations
+        ? prisma.relationshipObservation.findMany({
+            where: { relationship_id: relationshipId, deleted_at: null },
+            orderBy: { created_at: 'desc' },
+            take: cfg.observationsLimit,
+            select: { observation_text: true, observation_type: true },
+          })
+        : Promise.resolve<Array<{ observation_text: string; observation_type: string }>>([]),
+      // spec-m2-001:兄弟的语气指纹;开关关闭返 null
+      cfg.enableUserLanguageFingerprint
+        ? prisma.userLanguageFingerprint.findUnique({ where: { user_id: userId } })
+        : Promise.resolve(null),
     ])
   const otherIdentifiers = others
     .filter((r) => r.id !== current.id)
