@@ -12,6 +12,7 @@ import {
   FileCode2,
   ClipboardCheck,
   Settings,
+  Settings2,
   Wallet,
   Heart,
   Menu,
@@ -77,6 +78,7 @@ const NAV_GROUPS: NavGroup[] = [
     hint: '全局配置 + 工具',
     items: [
       { href: '/settings/quota', label: '系统配置', icon: Settings },
+      { href: '/settings/data-flow', label: '数据流配置', icon: Settings2 },
       { href: '/settings/billing', label: 'Claude 余额', icon: Wallet },
       { href: '/changelog', label: '迭代记录', icon: History },
       { href: '/errors', label: '错误码字典', icon: AlertCircle },
