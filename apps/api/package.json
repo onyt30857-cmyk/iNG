@@ -20,7 +20,8 @@
     "seed-admin": "tsx --env-file=.env scripts/seed-admin.ts",
     "reset-admin-password": "tsx --env-file=.env scripts/reset-admin-password.ts",
     "dump-feedback": "tsx --env-file=.env scripts/dump-feedback.ts",
-    "analyze-feedback": "tsx --env-file=.env scripts/analyze-feedback.ts"
+    "analyze-feedback": "tsx --env-file=.env scripts/analyze-feedback.ts",
+    "backfill-profile-tables": "tsx --env-file=.env scripts/backfill-profile-tables.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",
