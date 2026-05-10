@@ -15,6 +15,7 @@ import { requireAuth } from '../../middleware/auth.js'
 import { conversationTurnSchema } from '../../schemas/conversation.schema.js'
 import { runConversationTurnForRelationship } from '../../services/replay/conversation-turn.service.js'
 import { runObservationExtractor } from '../../ai/orchestrators/observation-extractor.js'
+import { runFingerprintExtractor } from '../../ai/orchestrators/fingerprint-extractor.js'
 import { prisma } from '../../lib/prisma.js'
 import { config } from '../../config/index.js'
 import { estimateCostUsd } from '../../ai/call-log.js'
@@ -174,6 +175,14 @@ export async function conversationRoutes(app: FastifyInstance): Promise<void> {
               { speaker: 'laoke', text: laokeText },
             ],
           })
+        })
+      }
+
+      // 5) spec-m2-000 任务 3:异步抽用户语气指纹(每 20 条 user 消息触发一次)
+      //    fingerprint-extractor 内部判断触发条件 + 全 catch
+      if (userMessageRow) {
+        setImmediate(() => {
+          void runFingerprintExtractor({ userId })
         })
       }
     },

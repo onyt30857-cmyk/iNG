@@ -47,6 +47,9 @@ export interface AiCallContext {
     // spec-m2-000 任务 2(2026-05-12):老白每轮回复后异步抽取的"实时观察"
     // (写入 RelationshipObservation, observation_type='laoke_realtime_observation')
     | 'observation_extraction'
+    // spec-m2-000 任务 3(2026-05-12):每 20 条 user 消息异步抽用户语气指纹
+    // (写入 UserLanguageFingerprint, user 维度跨关系)
+    | 'fingerprint_extraction'
 }
 
 export interface CallClaudeParams {
