@@ -281,29 +281,30 @@ model ProfileAssertion {
 // 复盘会话相关
 // ============================================================
 
+// Session 表:spec-006 之后 Session 仍用作"对话线程"容器(messages 通过 session_id 关联),
+// 但下面以 // @deprecated 标注的 6 个字段是 spec-005 6 状态机时代的产物,
+// spec-006 路径下永远停在默认值不更新。M3.0 Step 5 标 @deprecated 但不删 column,M4 决定物理删。
 model Session {
   id              String @id @default(cuid())
   user_id         String
   relationship_id String // ★ 强制约束
 
-  // 状态机当前状态
+  /// @deprecated spec-005 6 状态机字段 — spec-006 路径下永远 ENTRY 不变
   state SessionState @default(ENTRY)
 
-  // 场景识别结果(JSON)
-  // 例: { primary: "FLIRT_008", secondary: ["FLIRT_005"], confidence: 0.85 }
+  /// @deprecated spec-005 PARSING 阶段产物 — spec-006 路径下永远 null
   scenario Json?
 
-  // 用户在 ENTRY 阶段填的简单描述
+  /// @deprecated spec-005 ENTRY 阶段产物 — spec-006 路径下永远 null
   entry_note String?
 
-  // 状态机的 context(完整快照)
-  // 用 XState 的 state.context 序列化
+  /// @deprecated spec-005 XState context 快照 — spec-006 路径下永远 "{}"
   state_context Json @default("{}")
 
-  // 是否触发危机干预
+  /// @deprecated spec-005 危机干预标记 — spec-006 走红线另一套机制(red-line-guard)
   crisis_triggered Boolean @default(false)
 
-  // 是否触发红线(不进入用户成长档案)
+  /// @deprecated spec-005 红线标记 — 同上,spec-006 不写
   red_line_triggered Boolean @default(false)
 
   // 时间
@@ -377,7 +378,8 @@ enum MessageRole {
   SYSTEM // 系统消息(状态切换提示等)
 }
 
-// 用户在 REFLECTING 阶段的回答
+// @deprecated spec-005 REFLECTING 阶段产物。spec-006 不再写,只在 account-deletion +
+// relationship.service 用作历史数据清理。M4 决定是否物理删表。
 model UserReflection {
   id         String @id @default(cuid())
   session_id String
@@ -398,7 +400,8 @@ model UserReflection {
   @@map("user_reflections")
 }
 
-// 生成的话术卡片(DRAFTING 状态输出)
+// @deprecated spec-005 DRAFTING 阶段产物。spec-006 已不创建,代码 0 引用。
+// 表保留是为旧数据查得到。M4 决定是否物理删表。
 model GeneratedReply {
   id         String @id @default(cuid())
   session_id String

@@ -622,8 +622,16 @@ apps/mobile/
 
 ### M3 进行中的心虚(M3.0 拆完后删除对应条目)
 
-9. **死代码岛(spec-005 残留)**:`session.route.ts` + `replay-orchestrator.service.ts` + 5 个旧 orchestrator(parsing/reflecting/diagnosing/planning/drafting)+ `state-machines/replay.machine.ts` 共 ~2000 行 / 12 endpoints。**M3.0 能力 2** 拆除进度:Step 2(ParsingMessage 抽到 types.ts)+ Step 3(server.ts 注释 register sessionRoutes,关闭公网入口)已完成。前置条件综合判断:mobile 是 H5(刷新即升级 / 无未升级版本)+ native 未打包(`appid: ""`)+ Railway log 窗口 0 调用 + 代码 0 真实引用 = 实际风险 ≈ 0。1 周观察期无报错后,Step 4 删 10 个文件。出问题取消 server.ts:107 注释即可恢复(import 仍保留)。
-10. **Session.current_state 字段未删**:6 状态机时代字段,M3.0 W2-3 加 `@deprecated` 注释但保留(数据库不动),M4 再决定是否物理删字段。
+9. **死代码岛(spec-005 残留)**:完整清单(SPEC §2 原列 10 个 + 调研补充 2 个)= 12 文件 / ~2000 行 / 12 endpoints:
+   - `routes/v1/session.route.ts`
+   - `services/replay/{replay-orchestrator, replay-state}.service.ts`
+   - `services/session/session.service.ts`(SPEC 漏列)
+   - `schemas/session.schema.ts`(SPEC 漏列)
+   - 5 个旧 orchestrator(parsing/reflecting/diagnosing/planning/drafting)
+   - `state-machines/replay.machine.ts`
+   - 3 个测试文件
+   **M3.0 能力 2** 拆除进度:Step 2(types.ts 抽离)+ Step 3(server.ts 注释 register)+ Step 5(schema 字段加 `///` @deprecated)已完成。前置条件综合判断:mobile 是 H5(刷新即升级)+ native 未打包(`appid: ""`)+ Railway 当前 log 窗口 0 调用 + 代码 0 真实引用 = 实际风险 ≈ 0。1 周观察期无报错后(2026-05-18),Step 4 删上述 12 文件。出问题取消 server.ts:107 注释即可恢复(import 仍保留)。
+10. **Session 表 6 字段已 @deprecated 但物理保留**:`state` / `scenario` / `entry_note` / `state_context` / `crisis_triggered` / `red_line_triggered` 6 个 spec-005 字段加了 `///` Prisma 注释,spec-006 路径下永远默认值不更新。Session 表本身仍是"对话线程"容器(messages 通过 session_id 关联),不删。M4 决定是否物理删 column。`UserReflection` / `GeneratedReply` 模型也加了 deprecated 头注释。
 11. **老白人格漂移风险**:M3 三期累计加多个 prompt 段(M3.0 已加 `# 你的局限` / `# 你的脾气(温和拒绝)` / `# 特殊场景判断`),persona 总长涨了。需要持续 persona-check ≥95% + Sam 主观评估"看着像同一个老白"。M3.0 上线后 4 周观察期看 dislike 比例是否回升。
 12. **M3.0 testset 未跑**:能力 3-6 的 prompt 已部署,但 testset(`lianai-dev-kit-m3/04-TESTSET-M3.md` §3-§6)是产品语言测试,需要真 LLM 调用 + 人判断。Sam 用真实 mobile 跑 + 截图记录,M3.0 上线前必须达标。
 
