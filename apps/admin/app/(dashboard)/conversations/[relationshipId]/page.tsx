@@ -8,7 +8,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { ArrowLeft, ThumbsDown, ThumbsUp, MessageSquare, AlertTriangle, ShieldOff, Sparkles } from 'lucide-react'
 import { adminGet } from '@/lib/api-client'
-import { formatDate } from '@/lib/format'
+import { formatDate, formatBubbleTime } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -246,13 +246,6 @@ export default function ConversationInspectorPage() {
 
                 return (
                   <div key={m.id}>
-                    {/* 时间分隔(每天首条)— 简化:只在跟上条间隔 > 5min 时显示 */}
-                    {(!prev || new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() > 5 * 60_000) && (
-                      <div className="text-center text-[10px] text-muted-foreground/70 py-1">
-                        {new Date(m.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    )}
-
                     <div
                       className={`flex items-end gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}
                       onClick={() => setSelected(m)}
@@ -271,59 +264,66 @@ export default function ConversationInspectorPage() {
                         </div>
                       )}
 
-                      {/* 气泡 */}
-                      <div
-                        className={`max-w-[78%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap cursor-pointer transition-all ${
-                          isSelected ? 'ring-2 ring-amber-400 ring-offset-1' : 'hover:brightness-95'
-                        }`}
-                        style={
-                          isLaoke
-                            ? {
-                                background: '#FFFFFF',
-                                color: '#1F2433',
-                                borderLeft: '2px solid #9B82FF',
-                                borderRadius: '4px 12px 12px 12px',
-                                boxShadow: '0 1px 4px rgba(0,0,0,.04)',
-                              }
-                            : {
-                                background: '#95EC69',
-                                color: '#1F2433',
-                                borderRadius: '12px 4px 12px 12px',
-                                boxShadow: '0 1px 4px rgba(0,0,0,.04)',
-                              }
-                        }
-                      >
-                        {m.content ?? (m.screenshot_url ? '🖼 [截图]' : '(空消息)')}
+                      {/* 气泡 + 时间小字纵向包一层 */}
+                      <div className={`flex flex-col max-w-[78%] ${isUser ? 'items-end' : 'items-start'}`}>
+                        <div
+                          className={`rounded-lg px-3 py-2 text-sm whitespace-pre-wrap cursor-pointer transition-all ${
+                            isSelected ? 'ring-2 ring-amber-400 ring-offset-1' : 'hover:brightness-95'
+                          }`}
+                          style={
+                            isLaoke
+                              ? {
+                                  background: '#FFFFFF',
+                                  color: '#1F2433',
+                                  borderLeft: '2px solid #9B82FF',
+                                  borderRadius: '4px 12px 12px 12px',
+                                  boxShadow: '0 1px 4px rgba(0,0,0,.04)',
+                                }
+                              : {
+                                  background: '#95EC69',
+                                  color: '#1F2433',
+                                  borderRadius: '12px 4px 12px 12px',
+                                  boxShadow: '0 1px 4px rgba(0,0,0,.04)',
+                                }
+                          }
+                        >
+                          {m.content ?? (m.screenshot_url ? '🖼 [截图]' : '(空消息)')}
 
-                        {/* 标记 chips 跟在气泡底部 */}
-                        {(hasFeedback || hasRedLine || personaFail) && (
-                          <div className="flex gap-1 mt-1.5 flex-wrap">
-                            {m.feedback.map((f, i) => (
-                              <span
-                                key={i}
-                                className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                                  f.type === 'dislike'
-                                    ? 'bg-red-100 text-red-700'
-                                    : f.type === 'comment'
-                                    ? 'bg-blue-100 text-blue-700'
-                                    : 'bg-green-100 text-green-700'
-                                }`}
-                              >
-                                {f.type === 'dislike' ? '👎' : f.type === 'comment' ? '💬' : '👍'}
-                              </span>
-                            ))}
-                            {hasRedLine && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">
-                                🚨 {m.red_line!.category ?? 'red'}
-                              </span>
-                            )}
-                            {personaFail && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                                🤖 出格
-                              </span>
-                            )}
-                          </div>
-                        )}
+                          {/* 标记 chips 跟在气泡底部 */}
+                          {(hasFeedback || hasRedLine || personaFail) && (
+                            <div className="flex gap-1 mt-1.5 flex-wrap">
+                              {m.feedback.map((f, i) => (
+                                <span
+                                  key={i}
+                                  className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                                    f.type === 'dislike'
+                                      ? 'bg-red-100 text-red-700'
+                                      : f.type === 'comment'
+                                      ? 'bg-blue-100 text-blue-700'
+                                      : 'bg-green-100 text-green-700'
+                                  }`}
+                                >
+                                  {f.type === 'dislike' ? '👎' : f.type === 'comment' ? '💬' : '👍'}
+                                </span>
+                              ))}
+                              {hasRedLine && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">
+                                  🚨 {m.red_line!.category ?? 'red'}
+                                </span>
+                              )}
+                              {personaFail && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                                  🤖 出格
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 时间小字(每条都显示,跨日跨周自动相对化)*/}
+                        <span className="text-[10px] text-muted-foreground/70 mt-1 px-1">
+                          {formatBubbleTime(m.created_at)}
+                        </span>
                       </div>
 
                       {/* 用户头像占位(连续同角色不显示)*/}

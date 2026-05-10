@@ -1,8 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useUserStore } from '../../stores/user'
+import { formatBubbleTime } from '../../utils/format-time'
 
-const props = defineProps<{ text: string; subtle?: boolean; isOtherQuote?: boolean; quoteName?: string }>()
+const props = defineProps<{
+  text: string
+  subtle?: boolean
+  isOtherQuote?: boolean
+  quoteName?: string
+  /** 消息生成时间(ISO),气泡下显示时间小字让用户区分上次/这次 */
+  createdAt?: string
+}>()
+
+const formattedTime = computed(() => formatBubbleTime(props.createdAt))
 
 // 2026-05-10:在用户气泡顶部显示昵称,让对话流明显是"用户 ↔ 老白"两边
 // subtle(系统消息)和"她回的"引用气泡不显示昵称(语义不是用户本人发言)
@@ -42,6 +52,9 @@ async function onLongPress() {
         <text v-if="isOtherQuote" class="quote-tag">{{ quoteName || '她' }} 回的</text>
         <text class="text">{{ text }}</text>
       </view>
+
+      <!-- 时间小字(用户气泡右下,系统消息不显示)-->
+      <text v-if="formattedTime && !subtle" class="bubble-time">{{ formattedTime }}</text>
     </view>
   </view>
 </template>
@@ -125,5 +138,14 @@ async function onLongPress() {
 .subtle .text {
   font-size: 26rpx;
   color: $color-text-tertiary;
+}
+// 气泡下时间小字(用户气泡右对齐,与昵称对应)
+.bubble-time {
+  display: block;
+  margin-top: 8rpx;
+  padding-right: 4rpx;
+  font-size: 20rpx;
+  color: $color-text-tertiary;
+  letter-spacing: 0.2rpx;
 }
 </style>

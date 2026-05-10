@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import type { FeedbackType } from '../../api/feedback.api'
 import { useConversationStore } from '../../stores/conversation'
+import { formatBubbleTime } from '../../utils/format-time'
 import LaokeAvatar from '../LaokeAvatar.vue'
 
 const props = defineProps<{
@@ -11,7 +12,11 @@ const props = defineProps<{
   /** spec-009 反馈通道:消息 id + 关系 id 用于提交反馈,不传则不显示反馈区 */
   messageId?: string
   relationshipId?: string
+  /** 消息生成时间(ISO),气泡下显示时间小字让用户区分上次/这次 */
+  createdAt?: string
 }>()
+
+const formattedTime = computed(() => formatBubbleTime(props.createdAt))
 
 // === 话术 chip 解析(spec-009)===
 // 只把"独占一行的引号片段"识别成可复制话术 chip(那是老白真给的话术),
@@ -230,6 +235,12 @@ async function onLongPress() {
           @tap="onCommentTap"
         >说哪不对</text>
       </view>
+
+      <!-- 时间小字(气泡左下,思考态/流式态不显示避免抖动)-->
+      <text
+        v-if="formattedTime && !isThinking && !isStreaming"
+        class="bubble-time"
+      >{{ formattedTime }}</text>
     </view>
   </view>
 
@@ -450,6 +461,16 @@ async function onLongPress() {
 .fb-link-like { color: $color-success; }
 .fb-link-dislike { color: $color-danger; }
 .fb-link-comment { color: $color-accent; }
+
+// 气泡下时间小字(老白气泡左对齐)
+.bubble-time {
+  display: block;
+  margin-top: 8rpx;
+  padding-left: 6rpx;
+  font-size: 20rpx;
+  color: $color-text-tertiary;
+  letter-spacing: 0.2rpx;
+}
 
 // === 评论 modal ===
 .cm-overlay {

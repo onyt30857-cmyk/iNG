@@ -1,12 +1,18 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { ReplyDraft } from '../../types/message'
+import { formatBubbleTime } from '../../utils/format-time'
+
 const props = defineProps<{
   intro: string
   drafts: ReplyDraft[]
   /** 已收藏的 draft id 列表 */
   savedIds?: string[]
+  /** 消息生成时间(ISO),气泡下显示时间小字让用户区分上次/这次 */
+  createdAt?: string
 }>()
 const emit = defineEmits<{ select: [string]; copy: [string]; save: [string] }>()
+const formattedTime = computed(() => formatBubbleTime(props.createdAt))
 
 function isSaved(id: string): boolean {
   return !!props.savedIds?.includes(id)
@@ -61,6 +67,8 @@ function copyText(text: string, draftId: string) {
           </view>
         </view>
       </view>
+
+      <text v-if="formattedTime" class="bubble-time">{{ formattedTime }}</text>
     </view>
   </view>
 </template>
@@ -199,5 +207,14 @@ function copyText(text: string, draftId: string) {
   font-size: 22rpx;
   color: $color-text-tertiary;
   line-height: 1.5;
+}
+// 气泡下时间小字(老白侧左对齐)
+.bubble-time {
+  display: block;
+  margin-top: 8rpx;
+  padding-left: 6rpx;
+  font-size: 20rpx;
+  color: $color-text-tertiary;
+  letter-spacing: 0.2rpx;
 }
 </style>

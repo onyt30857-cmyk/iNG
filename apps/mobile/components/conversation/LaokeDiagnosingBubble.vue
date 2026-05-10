@@ -1,6 +1,14 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { DiagnosingParagraph } from '../../types/message'
-defineProps<{ paragraphs: DiagnosingParagraph[] }>()
+import { formatBubbleTime } from '../../utils/format-time'
+
+const props = defineProps<{
+  paragraphs: DiagnosingParagraph[]
+  /** 消息生成时间(ISO),气泡下显示时间小字让用户区分上次/这次 */
+  createdAt?: string
+}>()
+const formattedTime = computed(() => formatBubbleTime(props.createdAt))
 </script>
 
 <template>
@@ -8,13 +16,16 @@ defineProps<{ paragraphs: DiagnosingParagraph[] }>()
     <view class="avatar">
       <text class="avatar-text">K</text>
     </view>
-    <view class="bubble">
-      <view v-for="(p, i) in paragraphs" :key="i">
-        <view v-if="p.is_shame_handling" class="shame">
-          <text class="shame-text">{{ p.text }}</text>
+    <view class="bubble-wrap">
+      <view class="bubble">
+        <view v-for="(p, i) in paragraphs" :key="i">
+          <view v-if="p.is_shame_handling" class="shame">
+            <text class="shame-text">{{ p.text }}</text>
+          </view>
+          <text v-else class="paragraph">{{ p.text }}</text>
         </view>
-        <text v-else class="paragraph">{{ p.text }}</text>
       </view>
+      <text v-if="formattedTime" class="bubble-time">{{ formattedTime }}</text>
     </view>
   </view>
 </template>
@@ -79,5 +90,19 @@ defineProps<{ paragraphs: DiagnosingParagraph[] }>()
   line-height: 1.7;
   color: $color-text-primary;
   white-space: pre-wrap;
+}
+.bubble-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex: 1;
+}
+.bubble-time {
+  display: block;
+  margin-top: 8rpx;
+  padding-left: 6rpx;
+  font-size: 20rpx;
+  color: $color-text-tertiary;
+  letter-spacing: 0.2rpx;
 }
 </style>

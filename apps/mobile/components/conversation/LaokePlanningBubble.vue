@@ -1,7 +1,16 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { PlanningContent } from '../../types/message'
-defineProps<{ content: PlanningContent; saved?: boolean }>()
+import { formatBubbleTime } from '../../utils/format-time'
+
+const props = defineProps<{
+  content: PlanningContent
+  saved?: boolean
+  /** 消息生成时间(ISO),气泡下显示时间小字让用户区分上次/这次 */
+  createdAt?: string
+}>()
 const emit = defineEmits<{ save: [] }>()
+const formattedTime = computed(() => formatBubbleTime(props.createdAt))
 </script>
 
 <template>
@@ -9,34 +18,37 @@ const emit = defineEmits<{ save: [] }>()
     <view class="avatar">
       <text class="avatar-text">K</text>
     </view>
-    <view class="bubble">
-      <view class="head">
-        <text class="title">{{ content.title }}</text>
-        <view
-          class="save-btn"
-          :class="{ saved }"
-          @tap.stop="emit('save')"
-        >
-          <text class="save-icon">{{ saved ? '★' : '☆' }}</text>
+    <view class="bubble-wrap">
+      <view class="bubble">
+        <view class="head">
+          <text class="title">{{ content.title }}</text>
+          <view
+            class="save-btn"
+            :class="{ saved }"
+            @tap.stop="emit('save')"
+          >
+            <text class="save-icon">{{ saved ? '★' : '☆' }}</text>
+          </view>
+        </view>
+
+        <view class="section">
+          <text class="label">做什么</text>
+          <text class="content">{{ content.what_to_do }}</text>
+        </view>
+        <view class="section">
+          <text class="label">为什么</text>
+          <text class="content">{{ content.why }}</text>
+        </view>
+        <view class="section">
+          <text class="label">红线</text>
+          <text class="content">{{ content.red_line }}</text>
+        </view>
+        <view class="section last">
+          <text class="label">退路</text>
+          <text class="content">{{ content.fallback }}</text>
         </view>
       </view>
-
-      <view class="section">
-        <text class="label">做什么</text>
-        <text class="content">{{ content.what_to_do }}</text>
-      </view>
-      <view class="section">
-        <text class="label">为什么</text>
-        <text class="content">{{ content.why }}</text>
-      </view>
-      <view class="section">
-        <text class="label">红线</text>
-        <text class="content">{{ content.red_line }}</text>
-      </view>
-      <view class="section last">
-        <text class="label">退路</text>
-        <text class="content">{{ content.fallback }}</text>
-      </view>
+      <text v-if="formattedTime" class="bubble-time">{{ formattedTime }}</text>
     </view>
   </view>
 </template>
@@ -131,5 +143,19 @@ const emit = defineEmits<{ save: [] }>()
   font-size: 30rpx;
   color: $color-text-primary;
   line-height: 1.55;
+}
+.bubble-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex: 1;
+}
+.bubble-time {
+  display: block;
+  margin-top: 8rpx;
+  padding-left: 6rpx;
+  font-size: 20rpx;
+  color: $color-text-tertiary;
+  letter-spacing: 0.2rpx;
 }
 </style>

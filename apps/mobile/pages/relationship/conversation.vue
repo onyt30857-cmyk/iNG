@@ -353,21 +353,25 @@ function handleSavePlanning(planningId: string, content: import('../../types/mes
           :is-streaming="m.is_streaming"
           :message-id="m.id"
           :relationship-id="relationshipId"
+          :created-at="m.created_at"
         />
         <LaokeQuestionBubble
           v-else-if="m.type === 'laoke_question'"
           :text="m.text"
           :sequence="m.sequence"
           :total="m.total"
+          :created-at="m.created_at"
         />
         <LaokeDiagnosingBubble
           v-else-if="m.type === 'laoke_diagnosing'"
           :paragraphs="m.paragraphs"
+          :created-at="m.created_at"
         />
         <LaokePlanningBubble
           v-else-if="m.type === 'laoke_planning'"
           :content="m.content"
           :saved="conversationStore.isPlanningSaved(relationshipId, m.id)"
+          :created-at="m.created_at"
           @save="handleSavePlanning(m.id, m.content)"
         />
         <LaokeDraftsBubble
@@ -375,6 +379,7 @@ function handleSavePlanning(planningId: string, content: import('../../types/mes
           :intro="m.intro"
           :drafts="m.drafts"
           :saved-ids="conversationStore.getSavedDrafts(relationshipId).map((d) => d.id)"
+          :created-at="m.created_at"
           @select="handleSelectDraft"
           @save="handleSaveDraft"
         />
@@ -383,9 +388,10 @@ function handleSavePlanning(planningId: string, content: import('../../types/mes
           :text="m.text"
           :is-other-quote="m.is_other_quote"
           :quote-name="relationship?.name"
+          :created-at="m.created_at"
         />
-        <ScreenshotBubble v-else-if="m.type === 'user_screenshots'" :count="m.count" :urls="m.urls" />
-        <UserBubble v-else-if="m.type === 'user_action'" :text="m.text" :subtle="true" />
+        <ScreenshotBubble v-else-if="m.type === 'user_screenshots'" :count="m.count" :urls="m.urls" :created-at="m.created_at" />
+        <UserBubble v-else-if="m.type === 'user_action'" :text="m.text" :subtle="true" :created-at="m.created_at" />
       </template>
 
       <!-- 底部留空给 sticky input -->

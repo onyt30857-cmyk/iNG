@@ -9,10 +9,17 @@
 //
 // urls 兼容旧消息没存 urls 的情况(只显示数字 caption,不渲染缩略图)
 
+import { computed } from 'vue'
+import { formatBubbleTime } from '../../utils/format-time'
+
 const props = defineProps<{
   count: number
   urls?: string[]
+  /** 消息生成时间(ISO),气泡下显示时间小字让用户区分上次/这次 */
+  createdAt?: string
 }>()
+
+const formattedTime = computed(() => formatBubbleTime(props.createdAt))
 
 function previewAt(idx: number) {
   if (!props.urls || props.urls.length === 0) return
@@ -64,6 +71,7 @@ function isSingle(): boolean {
       </view>
 
       <text class="caption">{{ count }} 张聊天截图</text>
+      <text v-if="formattedTime" class="bubble-time">{{ formattedTime }}</text>
     </view>
   </view>
 </template>
@@ -175,5 +183,13 @@ function isSingle(): boolean {
 .caption {
   font-size: 22rpx;
   color: $color-text-tertiary;
+}
+// 气泡下时间小字(用户侧右对齐)
+.bubble-time {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 20rpx;
+  color: $color-text-tertiary;
+  letter-spacing: 0.2rpx;
 }
 </style>
