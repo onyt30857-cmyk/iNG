@@ -14,6 +14,7 @@ import { z } from 'zod'
 import { requireAuth } from '../../middleware/auth.js'
 import { conversationTurnSchema } from '../../schemas/conversation.schema.js'
 import { runConversationTurnForRelationship } from '../../services/replay/conversation-turn.service.js'
+import { runObservationExtractor } from '../../ai/orchestrators/observation-extractor.js'
 import { prisma } from '../../lib/prisma.js'
 import { config } from '../../config/index.js'
 import { estimateCostUsd } from '../../ai/call-log.js'
@@ -66,26 +67,34 @@ export async function conversationRoutes(app: FastifyInstance): Promise<void> {
       const { relationshipId } = paramsSchema.parse(request.params)
       const body = conversationTurnSchema.parse(request.body)
 
-      // 1) 获取/创建持久化 session(承载所有 messages)
-      // 失败不阻断流式,只是 admin 看不到这条;但记 warn 让我们能发现
+      // 1) 获取/创建持久化 session(承载所有 messages)+ 取关系名(spec-m2-000 任务 2 observation 用)
+      // 失败不阻断流式,只是 admin 看不到这条 / observation 跳过;记 warn
       let sessionId: string | null = null
+      let relationshipName: string | null = null
       try {
         sessionId = await getOrCreateThreadSessionId(userId, relationshipId)
+        const rel = await prisma.relationship.findUnique({
+          where: { id: relationshipId },
+          select: { name: true },
+        })
+        relationshipName = rel?.name ?? null
       } catch (e) {
-        logger.warn({ err: e, userId, relationshipId }, 'thread session 创建失败,跳过持久化')
+        logger.warn({ err: e, userId, relationshipId }, 'thread session/relationship 失败,跳过持久化')
       }
 
-      // 2) 用户消息先落库(stream 之前)
+      // 2) 用户消息先落库(stream 之前)— spec-m2-000:取 id 给 observation 用
       // 按 USER_SCREENSHOT vs USER:body 是 conversation-turn schema,纯文本场景
+      let userMessageRow: { id: string } | null = null
       if (sessionId) {
         try {
-          await prisma.message.create({
+          userMessageRow = await prisma.message.create({
             data: {
               session_id: sessionId,
               relationship_id: relationshipId,
               role: 'USER',
               content: body.user_text,
             },
+            select: { id: true },
           })
         } catch (e) {
           logger.warn({ err: e, sessionId }, '用户消息持久化失败,继续 stream')
@@ -112,12 +121,13 @@ export async function conversationRoutes(app: FastifyInstance): Promise<void> {
       }
       reply.raw.end()
 
-      // 3) 老白消息后落库(包含 model / tokens / cost,给 admin 监控用)
+      // 3) 老白消息后落库(包含 model / tokens / cost,给 admin 监控用)— spec-m2-000:取 id 给 observation 用
       // 流式已结束 → 用户已看到回复;落库失败不影响用户体验,只 warn
+      let laokeMessageRow: { id: string } | null = null
       if (sessionId && result && result.text) {
         try {
           const model = config.CLAUDE_MODEL_ID
-          await prisma.message.create({
+          laokeMessageRow = await prisma.message.create({
             data: {
               session_id: sessionId,
               relationship_id: relationshipId,
@@ -132,10 +142,39 @@ export async function conversationRoutes(app: FastifyInstance): Promise<void> {
                 result.usage.output_tokens,
               ),
             },
+            select: { id: true },
           })
         } catch (e) {
           logger.warn({ err: e, sessionId }, '老白消息持久化失败')
         }
+      }
+
+      // 4) spec-m2-000 任务 2:异步抽 observation(老白这一刻看到的)
+      //    setImmediate 让响应不等待,observation-extractor 内部已 catch 全部失败
+      if (
+        result?.text &&
+        userMessageRow &&
+        laokeMessageRow &&
+        relationshipName
+      ) {
+        const userMsgId = userMessageRow.id
+        const laokeMsgId = laokeMessageRow.id
+        const relName = relationshipName
+        const laokeText = result.text
+        setImmediate(() => {
+          void runObservationExtractor({
+            userId,
+            relationshipId,
+            relationshipName: relName,
+            userMessageId: userMsgId,
+            laokeMessageId: laokeMsgId,
+            recentHistory: [
+              ...body.history.slice(-5),
+              { speaker: 'user', text: body.user_text },
+              { speaker: 'laoke', text: laokeText },
+            ],
+          })
+        })
       }
     },
   )
