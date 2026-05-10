@@ -42,9 +42,37 @@ export async function runConversationTurnForRelationship(
   input: RunConversationTurnInput,
   handlers: CallClaudeStreamHandlers,
 ): Promise<ConversationTurnOutput> {
-  // ★ Layer 1 ownership 校验
+  // ★ Layer 1 ownership 校验 + 一并查 spec-m2-001 需要的画像数据
   const current = await getRelationshipById(userId, relationshipId)
-  const others = await listRelationships(userId)
+  const [others, profileAssertions, recentObservations, languageFingerprint] =
+    await Promise.all([
+      listRelationships(userId),
+      // spec-m2-001:她的稳定特征(高 priority 优先)
+      prisma.profileAssertion.findMany({
+        where: { relationship_id: relationshipId, deleted_at: null },
+        orderBy: [
+          { priority: 'desc' },
+          { confidence: 'desc' },
+          { updated_at: 'desc' },
+        ],
+        take: 20,
+        select: { assertion_text: true, confidence: true },
+      }),
+      // spec-m2-001:老白对她的观察(三类 type 全取 — realtime/fact_extracted/backfill)
+      prisma.relationshipObservation.findMany({
+        where: { relationship_id: relationshipId, deleted_at: null },
+        orderBy: { created_at: 'desc' },
+        take: 30,
+        select: {
+          observation_text: true,
+          observation_type: true,
+        },
+      }),
+      // spec-m2-001:兄弟的语气指纹(user 维度跨关系)
+      prisma.userLanguageFingerprint.findUnique({
+        where: { user_id: userId },
+      }),
+    ])
   const otherIdentifiers = others
     .filter((r) => r.id !== current.id)
     .map((r) => r.name)
@@ -123,6 +151,14 @@ export async function runConversationTurnForRelationship(
     ? `${input.user_text}\n\n${directiveBlock}`
     : input.user_text
 
+  // spec-m2-001:从 created_at 算认识多少个月(向上取整,至少 1)
+  const monthsKnown = Math.max(
+    1,
+    Math.ceil(
+      (Date.now() - current.created_at.getTime()) / (30 * 24 * 60 * 60 * 1000),
+    ),
+  )
+
   const turnInput: ConversationTurnInput = {
     user_id: userId,
     relationship_id: current.id,
@@ -131,6 +167,26 @@ export async function runConversationTurnForRelationship(
     user_text: userTextWithIntent,
     other_identifiers: otherIdentifiers,
     ...(input.signal_brief ? { signal_brief: input.signal_brief } : {}),
+    // spec-m2-001 新增 4 块画像数据
+    relationship_stage: current.stage,
+    relationship_months_known: monthsKnown,
+    profile_assertions: profileAssertions.map((a) => ({
+      assertion_text: a.assertion_text,
+      confidence: a.confidence,
+    })),
+    recent_observations: recentObservations.map((o) => ({
+      observation_text: o.observation_text,
+      observation_type: o.observation_type,
+    })),
+    language_fingerprint: languageFingerprint
+      ? {
+          preferred_phrases: languageFingerprint.preferred_phrases,
+          message_length: languageFingerprint.message_length,
+          formality: languageFingerprint.formality,
+          emotionality: languageFingerprint.emotionality,
+          uses_emoji: languageFingerprint.uses_emoji,
+        }
+      : null,
   }
   return runConversationTurn(turnInput, handlers)
 }

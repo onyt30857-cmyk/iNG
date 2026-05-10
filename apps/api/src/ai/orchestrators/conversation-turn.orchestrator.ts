@@ -35,6 +35,24 @@ export interface ConversationTurnInput {
   other_identifiers: ReadonlyArray<string>
   /** spec-007 Phase 19.5:老白"私下看到的"信号 brief(前端从 OCR 累积消息算出来,翻译成大白话) */
   signal_brief?: string
+
+  // === spec-m2-001 新增 4 块画像数据(让老白看到长期沉淀) ===
+  /** 关系阶段:INIT / FLIRTING / COMMITTED / CONFLICT / RECOVERY / ENDED */
+  relationship_stage?: string
+  /** 兄弟跟这位认识多久(月,从 Relationship.created_at 算,向上取整至少 1) */
+  relationship_months_known?: number
+  /** 她的稳定特征(从 profile_assertions 表,高 priority 优先) */
+  profile_assertions?: ReadonlyArray<{ assertion_text: string; confidence: number }>
+  /** 老白以前对她的观察(从 relationship_observations 表,三类 type 全取) */
+  recent_observations?: ReadonlyArray<{ observation_text: string; observation_type: string }>
+  /** 兄弟的语气指纹(从 user_language_fingerprint,user 维度跨关系) */
+  language_fingerprint?: {
+    preferred_phrases: string[]
+    message_length: string
+    formality: number
+    emotionality: number
+    uses_emoji: boolean
+  } | null
 }
 
 const TURN_SYSTEM_PROMPT_PREFIX = `你是「老白」——32 岁、过得不错的兄长型角色,详细人格见下面。
@@ -271,6 +289,40 @@ const TURN_SYSTEM_PROMPT_PREFIX = `你是「老白」——32 岁、过得不错
 - ✅ "懂"
 - ✅ "我觉得不对"
 
+# 你的工作流程(spec-m2-001:每次回复前在脑子里走一遍)
+
+第 1 步:看长期画像
+  - 看 user message 里"她的稳定特征"段(profile_assertions)
+  - 看"老白以前对她的观察"段(relationship_observations)
+  - 在脑子里形成她的画像:
+    她是什么类型(直接/委婉/敏感)
+    她在乎什么
+    她平时怎么回复(节奏/长度)
+
+第 2 步:看当下信号
+  - 看"你私下看到的"段(行为信号)
+  - 看"之前的对话"段最近 5-10 条
+  - 看"兄弟刚说的"
+  - 形成对她当下的判断:她今天的反应是什么样
+
+第 3 步:对比 + 推断
+  - 对比第 1 步和第 2 步:她当下是否符合平时的她?
+  - 如果符合 → 平稳模式,按平时她回应
+  - 如果反常 → 思考可能因为什么(工作累 / 家事 / 对兄弟某事不满)
+  - 不要瞎猜,基于具体信号推断
+
+第 4 步:回应
+  - 必要时显式说出你的判断
+    例:"她平时不是这样回你的"
+    例:"她这个反应符合她平时的样子,你不用想多"
+  - 把画像融入判断,不要机械列出 assertion 内容
+  - 给具体话术(80% 场景必须直给)
+
+第 5 步:贴用户语气
+  - 看"兄弟的语气"段
+  - 给的话术贴近他平时的风格(句长 / 正式度 / 常用短语 / 是否爱 emoji)
+  - 不要让他觉得"这话不像我说的"
+
 `
 
 export type ConversationTurnOutput = CallClaudeResult
@@ -325,7 +377,57 @@ export function composeUserMessage(
   longTermMemory?: string | null,
 ): string {
   const lines: string[] = []
-  lines.push(`# 关系\n你跟兄弟正在聊「${input.relationship_name}」这段关系。\n`)
+
+  // spec-m2-001:关系基本信息扩展(从只有 name 升级)
+  lines.push('# 关系')
+  lines.push(`你跟兄弟正在聊「${input.relationship_name}」这段关系。`)
+  if (input.relationship_stage) {
+    lines.push(`关系阶段:${input.relationship_stage}`)
+  }
+  if (input.relationship_months_known !== undefined) {
+    lines.push(`兄弟跟她聊了大概 ${input.relationship_months_known} 个月`)
+  }
+  lines.push('')
+
+  // spec-m2-001:她的稳定特征(profile_assertions 高 priority + confidence 排序的前 20 条)
+  lines.push('# 她的稳定特征(高置信优先,你要把这些融入判断,不要机械列出)')
+  if (input.profile_assertions && input.profile_assertions.length > 0) {
+    for (const a of input.profile_assertions) {
+      lines.push(`- ${a.assertion_text}`)
+    }
+  } else {
+    lines.push('(还没积累出来)')
+  }
+  lines.push('')
+
+  // spec-m2-001:老白以前对她的观察(三类 type 全取,最近 30 条)
+  lines.push('# 老白以前对她的观察(最近 30 条,三类:实时/事实抽取/历史回填)')
+  if (input.recent_observations && input.recent_observations.length > 0) {
+    for (const o of input.recent_observations) {
+      lines.push(`- ${o.observation_text}`)
+    }
+  } else {
+    lines.push('(还没观察)')
+  }
+  lines.push('')
+
+  // spec-m2-001:兄弟的语气指纹(user_language_fingerprint,跨关系)
+  lines.push('# 兄弟的语气(给话术时贴他平时说话风格)')
+  if (input.language_fingerprint) {
+    const fp = input.language_fingerprint
+    lines.push(
+      `句长:${fp.message_length}`
+        + ` / 正式度:${fp.formality}/100`
+        + ` / 情绪强度:${fp.emotionality}/100`
+        + ` / ${fp.uses_emoji ? '用 emoji' : '不爱 emoji'}`,
+    )
+    if (fp.preferred_phrases.length > 0) {
+      lines.push(`常用短语:${fp.preferred_phrases.join(' / ')}`)
+    }
+  } else {
+    lines.push('(还没积累)')
+  }
+  lines.push('')
 
   // spec-007 Phase 19.5:老白的 inner state(他"私下看到的")
   if (input.signal_brief && input.signal_brief.trim().length > 0) {
