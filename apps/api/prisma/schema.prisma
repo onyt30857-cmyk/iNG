@@ -1140,10 +1140,38 @@ model SystemConfig {
   fingerprint_extractor_enabled   Boolean @default(true)
   fingerprint_extraction_interval Int     @default(20) // 每 N 条 user 消息触发一次
 
+  // spec-m2-003 任务 1 (2026-05-12):长期记忆门槛参数化(默认从 100 降到 30)
+  long_term_memory_threshold     Int @default(30) // 对话超过 N 条才启动摘要
+  long_term_memory_window_size   Int @default(80) // 最近 N 条原文进 prompt,更早的压缩
+
   updated_by String?
   updated_at DateTime @updatedAt @db.Timestamptz
 
   @@map("system_config")
+}
+
+// spec-m2-003 任务 2 (2026-05-12):长期记忆缓存
+// 替代 M1 每轮重算 Haiku 的应急方案。
+// 缓存 key = relationship_id(每段关系一份摘要)
+// covered_until_count = 缓存生成时 history.length(用于判断是否需增量更新)
+model LongTermMemoryCache {
+  id                    String @id @default(cuid())
+  relationship_id       String @unique
+
+  // 摘要内容(200-400 字老白口吻 markdown)
+  summary               String @db.Text
+
+  // 缓存覆盖范围:生成时 history.length 是多少
+  // 下次调用比较当前 history.length:相等→用缓存 大于→增量摘要 小于→全量重算
+  covered_until_count   Int
+
+  // 元数据
+  model_version         String   @default("haiku-4.5")
+  generated_at          DateTime @default(now()) @db.Timestamptz
+  updated_at            DateTime @updatedAt @db.Timestamptz
+
+  @@index([relationship_id])
+  @@map("long_term_memory_cache")
 }
 
 // === 用户颗粒度管理(spec-014)===
