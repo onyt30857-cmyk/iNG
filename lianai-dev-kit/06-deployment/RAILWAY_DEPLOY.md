@@ -168,7 +168,7 @@ railway run -s lianai-api pnpm --filter @lianai/api prisma migrate deploy
 CORS_ORIGIN 设 `*` M1 OK。M2 真上线前换成具体前端域名:
 
 ```
-CORS_ORIGIN=https://app.lianai.com,https://lianai.vercel.app
+CORS_ORIGIN=https://i-ng-api.vercel.app,https://lianai-admin.vercel.app
 ```
 
 ### 国内访问慢

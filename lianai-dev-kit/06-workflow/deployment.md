@@ -183,5 +183,6 @@ vercel deploy --prod --yes
 ## 八、待办(Sam 跟进)
 
 - [ ] Transfer `i-ng-api` 项目到我的 Vercel team(2026-05-10 启动)
-- [ ] 确认 `lianai` / `fashenme` / `nextjs-ai-chatbot` 这 3 个 Vercel project 是否能删
+- [x] ~~确认 `lianai` project 能否删~~ — 2026-05-12 已删(0 env vars + alias 未外发,跟 i-ng-api 是 GitHub auto-deploy 双轨镜像,删后用户端只剩 i-ng-api 一条线)
+- [ ] 确认 `fashenme` / `nextjs-ai-chatbot` 这 2 个 Vercel project 是否能删
 - [ ] 部署文档加自定义域名章节(等 lianai.com 域名拿到时)
