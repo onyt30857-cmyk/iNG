@@ -6,7 +6,7 @@
 > 关联:取代 spec-011 §4.2 LLMOps + §4.5 Prompt 工程台 + §4.4.3 主题聚类(并入更系统的方案)
 > 范围:M1 上线必备(已落地)
 >
-> **2026-05-10 校准 — 已被以下后续 spec 持续扩展**:
+> **2026-05-10 校准 — 已被以下后续 spec 持续扩展**(全部已归档 markdown):
 > - spec-014 用户颗粒度管理(UserTag / UserNote / admin-tag.service.ts)
 > - spec-015 配额管理 P0 三件套
 > - spec-016 admin conversation 查阅器
@@ -15,13 +15,14 @@
 > - spec-020 错误码字典 + admin /errors 实时流
 > - spec-021 反馈聚类大盘(FeedbackCluster + cron)
 > - spec-022 产品迭代记录(product-changelog.service.ts + admin /changelog 自动从 git log 抽变更草稿)
-> - spec-023 老白档案
+> - spec-023 老白档案 v1(总览页 7 区块)
 > - spec-024 admin 用户管理升级(7d 行为指标 / 高级过滤 / 标签批量)
 > - spec-025 老白档案 v2(LaokePersona)
 > - spec-026 红线 DB 化(RedLineRule)+ 老白头像
 > - spec-027 prompt 系统运营友好升级 + inline default-prompts.ts
+> - spec-028 非编号(billing / stability / 备份码恢复)
 >
-> 这些 spec 代码已实施但**没有独立 markdown 归档**(知识在 git commit 里)。M1 上线前应补归档。
+> 注:spec-017 编号永久空缺。
 
 ---
 
