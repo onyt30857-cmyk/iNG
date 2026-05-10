@@ -20,6 +20,17 @@ export interface PutAvatarResult {
 
 const DATA_URL_RE = /^data:([^;]+);base64,(.+)$/
 
+export interface PutAvatarOptions {
+  /**
+   * 保留同 userId 路径下其他旧文件,不触发 cleanupOldAvatars。
+   * 默认 false(单用户头像场景:换新删旧)。
+   * preset 列表场景必须传 true,否则每加一张新 preset,前面的全被删
+   * (2026-05-11 bug 修复:之前 admin 用 putAvatar('_preset', ...) 上传
+   * 8 张 preset,实际 supabase 上只剩最后一张,前 7 张文件被 cleanup 误删)。
+   */
+  keepOld?: boolean
+}
+
 /**
  * 上传头像。
  * 输入:base64 data URL(前端压缩后的 256x256 jpeg)
@@ -28,6 +39,7 @@ const DATA_URL_RE = /^data:([^;]+);base64,(.+)$/
 export async function putAvatar(
   userId: string,
   dataUrl: string,
+  options: PutAvatarOptions = {},
 ): Promise<PutAvatarResult> {
   // fallback:无配置直接返原 dataUrl(前端会 PATCH 进 db,跟 M1 行为一致)
   if (!isSupabaseConfigured()) {
@@ -70,7 +82,10 @@ export async function putAvatar(
 
   // 换了新的旧的不保留 — fire-and-forget 异步清理该 user 之前的所有头像
   // (不 await,不阻塞 response。失败只 log,不影响新头像生效)
-  void cleanupOldAvatars(userId, filename)
+  // keepOld=true 时跳过(preset 列表场景,见 PutAvatarOptions 注释)
+  if (!options.keepOld) {
+    void cleanupOldAvatars(userId, filename)
+  }
 
   return { url: data.publicUrl, driver: 'supabase' }
 }

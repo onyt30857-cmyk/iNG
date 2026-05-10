@@ -260,8 +260,10 @@ export async function adminSettingsRoutes(app: FastifyInstance): Promise<void> {
 
   app.post('/v1/admin/settings/user-preset-avatars/upload', async (request) => {
     const body = presetAvatarUploadSchema.parse(request.body)
-    const result = await putAvatar('_preset', body.data_url)
-    // 注:不修改列表,只返回 URL — 由 admin 前端拿到后调 PUT 替换列表
+    // 关键:必须 keepOld=true。preset 是列表,每张都要保留,
+    // 否则会复发 2026-05-11 的 bug(每加一张新 preset 删掉前面全部)
+    const result = await putAvatar('_preset', body.data_url, { keepOld: true })
+    // 注:不修改列表,只返回 URL — 由 admin 前端拿到后调 PATCH 替换列表
     return { ok: true, data: { url: result.url, driver: result.driver } }
   })
 }
