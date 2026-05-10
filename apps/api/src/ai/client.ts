@@ -44,6 +44,9 @@ export interface AiCallContext {
     | 'conversation_turn'
     // 2026-05-10:个性化回归问候(冷启动时显示老白迎接气泡)
     | 'greeting'
+    // spec-m2-000 任务 2(2026-05-12):老白每轮回复后异步抽取的"实时观察"
+    // (写入 RelationshipObservation, observation_type='laoke_realtime_observation')
+    | 'observation_extraction'
 }
 
 export interface CallClaudeParams {
