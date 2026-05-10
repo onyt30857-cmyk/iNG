@@ -11,10 +11,8 @@
 
 import { z } from 'zod'
 import { callClaude, type AiCallContext } from '../../ai/client.js'
-import {
-  getRelationshipById,
-  updateRelationship,
-} from './relationship.service.js'
+import { getRelationshipById } from './relationship.service.js'
+import { prisma } from '../../lib/prisma.js'
 import type { Relationship } from '@prisma/client'
 import { errors } from '../../lib/error.js'
 
@@ -186,10 +184,29 @@ export async function extractRelationshipProfile(
     throw errors.freeQuotaExceeded('heavy', quota.points_used, quota.points_limit)
   }
 
-  // 拿现有 key_facts(可能是 undefined)
-  const existingFacts = ((current.basic_facts as Record<string, unknown> | null)
+  // spec-m2-000 双读策略:先读独立画像表(新归属),再读 basic_facts(回填脚本跑完前的旧数据)
+  const [existingAssertions, existingObservations] = await Promise.all([
+    prisma.profileAssertion.findMany({
+      where: { relationship_id: relationshipId, deleted_at: null },
+      select: { assertion_text: true },
+    }),
+    prisma.relationshipObservation.findMany({
+      where: {
+        relationship_id: relationshipId,
+        deleted_at: null,
+        observation_type: 'fact_extracted_low_confidence',
+      },
+      select: { observation_text: true },
+    }),
+  ])
+  // 兼容期 fallback:回填前老数据仍在 basic_facts.key_facts / pending_facts
+  const legacyKeyFacts = ((current.basic_facts as Record<string, unknown> | null)
     ?.key_facts as string[] | undefined) ?? []
-  // spec-008 Phase 2.3:拿用户拒绝过的事实作 LLM 反例
+  const existingFacts = [
+    ...existingAssertions.map((a) => a.assertion_text),
+    ...legacyKeyFacts,
+  ]
+  // spec-008 Phase 2.3:用户拒绝过的事实作 LLM 反例(仍存 basic_facts.rejected_facts,不迁移)
   const rejectedFacts = ((current.basic_facts as Record<string, unknown> | null)
     ?.rejected_facts as string[] | undefined) ?? []
 
@@ -225,15 +242,13 @@ export async function extractRelationshipProfile(
     throw errors.internal(`抽取结果解析失败:${e instanceof Error ? e.message : String(e)}`)
   }
 
-  // 去重:跟已有 key_facts + pending_facts + rejected_facts 三重比对
-  // (rejected 一并跳过 — 用户都明确拒了,LLM 千万别再抽)
-  const existingPending =
-    ((current.basic_facts as Record<string, unknown> | null)?.pending_facts as
-      | Array<{ text: string }>
-      | undefined) ?? []
+  // 去重:跟 4 个来源合并比对(独立表 + basic_facts 兼容期 + rejected 反例)
+  const legacyPending = ((current.basic_facts as Record<string, unknown> | null)
+    ?.pending_facts as Array<{ text: string }> | undefined) ?? []
   const allKnown = [
-    ...existingFacts,
-    ...existingPending.map((p) => p.text),
+    ...existingFacts, // 已含 existingAssertions + legacyKeyFacts
+    ...existingObservations.map((o) => o.observation_text),
+    ...legacyPending.map((p) => p.text),
     ...rejectedFacts,
   ]
 
@@ -255,35 +270,49 @@ export async function extractRelationshipProfile(
     }
   }
 
-  // spec-008 Phase 2.2:high confidence 直接进 key_facts,low confidence 进 pending_facts
+  // spec-m2-000 任务 1 (2026-05-12):
+  //   high confidence facts → ProfileAssertion 表(独立)
+  //   low confidence facts → RelationshipObservation 表(observation_type=fact_extracted_low_confidence)
+  //   不再写 basic_facts.key_facts / pending_facts
+  //     basic_facts JSON 此后只装"用户主动填写"的字段(how_we_met / age_range / rejected_facts)
   const highFacts = added.filter((f) => f.confidence === 'high')
   const lowFacts = added.filter((f) => f.confidence === 'low')
 
-  const now = new Date().toISOString()
-  const newKeyFacts = [...existingFacts, ...highFacts.map((f) => f.text)]
-  const newPendingFacts = [
-    ...existingPending,
-    ...lowFacts.map((f) => ({
-      text: f.text,
-      evidence_quote: f.evidence_quote,
-      kind: f.kind,
-      captured_at: now,
-    })),
-  ]
-
-  const newBasicFacts = {
-    ...((current.basic_facts as Record<string, unknown> | null) ?? {}),
-    key_facts: newKeyFacts,
-    ...(newPendingFacts.length > 0 ? { pending_facts: newPendingFacts } : {}),
+  // 原子性:high facts 进 ProfileAssertion + low facts 进 RelationshipObservation 一个 transaction
+  try {
+    await prisma.$transaction([
+      ...highFacts.map((f) =>
+        prisma.profileAssertion.create({
+          data: {
+            relationship_id: relationshipId,
+            assertion_text: f.text,
+            confidence: 0.85, // M2-000 暂用固定值,M3 引入频次累积时动态算
+            priority: 50, // 默认优先级
+            source_observation_ids: [], // M2-000 暂空,M3 接通"observation 升级 assertion"时填
+          },
+        }),
+      ),
+      ...lowFacts.map((f) =>
+        prisma.relationshipObservation.create({
+          data: {
+            relationship_id: relationshipId,
+            observation_text: f.text,
+            observation_type: 'fact_extracted_low_confidence',
+            confidence: 0.5,
+            source_message_ids: [], // M2-000 暂空(evidence_quote 是字符串非 message id)
+          },
+        }),
+      ),
+    ])
+  } catch (e) {
+    // 写入失败不阻塞:fact 抽取已成功,落库异常记 log
+    // eslint-disable-next-line no-console
+    console.warn('[profile-extraction] write to assertion/observation failed:', e)
   }
-
-  const updated = await updateRelationship(userId, relationshipId, {
-    basic_facts: newBasicFacts as Record<string, unknown>,
-  })
 
   return {
     added,
     skipped_duplicates: skipped,
-    relationship: updated,
+    relationship: current, // basic_facts 不再被本函数更新,返回原值
   }
 }
