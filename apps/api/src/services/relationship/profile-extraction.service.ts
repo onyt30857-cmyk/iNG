@@ -96,11 +96,13 @@ confidence 判断:
 
 不要给 markdown,不要 \`\`\`json 包裹。如果没有可抽的事实,返回 { "facts": [] }。`
 
-function buildSystemPrompt(name: string): string {
+/** @internal exported for testing */
+export function buildSystemPrompt(name: string): string {
   return SYSTEM_PROMPT.replaceAll('{{name}}', name)
 }
 
-function buildUserMessage(
+/** @internal exported for testing */
+export function buildUserMessage(
   history: ExtractProfileInput['history'],
   existingFacts: string[],
   rejectedFacts: string[] = [],
@@ -142,12 +144,14 @@ function buildUserMessage(
   return lines.join('\n')
 }
 
-/** 简单去重:逐字 normalize 比对(不引入 embedding,YAGNI) */
-function normalizeForDedup(s: string): string {
+/** 简单去重:逐字 normalize 比对(不引入 embedding,YAGNI)
+ *  @internal exported for testing */
+export function normalizeForDedup(s: string): string {
   return s.replace(/[\s,。、,.()()\[\]【】]/g, '').toLowerCase()
 }
 
-function isDuplicate(newFact: string, existing: string[]): boolean {
+/** @internal exported for testing */
+export function isDuplicate(newFact: string, existing: string[]): boolean {
   const n = normalizeForDedup(newFact)
   if (n.length === 0) return true
   return existing.some((e) => {
@@ -160,7 +164,8 @@ function isDuplicate(newFact: string, existing: string[]): boolean {
   })
 }
 
-function safeParseJsonResponse(raw: string): { facts: ExtractedFact[] } {
+/** @internal exported for testing */
+export function safeParseJsonResponse(raw: string): { facts: ExtractedFact[] } {
   // LLM 偶尔会包 ```json ... ```,稳定一下
   let s = raw.trim()
   const fenceMatch = s.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i)
