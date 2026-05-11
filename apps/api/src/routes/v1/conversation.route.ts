@@ -83,10 +83,27 @@ export async function conversationRoutes(app: FastifyInstance): Promise<void> {
         logger.warn({ err: e, userId, relationshipId }, 'thread session/relationship 失败,跳过持久化')
       }
 
+      // M3.0 (2026-05-11)「老白还想知道的」闭环:from_unknown_prompt 触发场景下,
+      // 用户没真发消息(只是 detail 页点击 trigger),不写入 messages 表
+      // 把 user_text 改写成 trigger 描述,告诉老白这是"主动问兄弟"的开场
+      const isUnknownPromptTrigger = !!body.from_unknown_prompt
+      if (isUnknownPromptTrigger) {
+        body.user_text =
+          `[INTERNAL_TRIGGER:UNKNOWN_PROMPT_FROM_PROFILE] 兄弟刚在关系档案页点了` +
+          `「老白还想知道的」里的这一条:「${body.from_unknown_prompt}」。\n` +
+          `这是你之前没数的信息空白 — 你**主动用兄长口吻问兄弟**让他跟你说说,` +
+          `不是兄弟在问你。回应要点:\n` +
+          `- 像兄长打开话题(承认你这块没数 + 邀请兄弟告诉你)\n` +
+          `- 不要说"好的我帮你查/分析"(机器感)\n` +
+          `- 不要给话术让兄弟去问她(目的是兄弟告诉你他知道的)\n` +
+          `- 一句话开场即可,等兄弟回应后再继续`
+      }
+
       // 2) 用户消息先落库(stream 之前)— spec-m2-000:取 id 给 observation 用
       // 按 USER_SCREENSHOT vs USER:body 是 conversation-turn schema,纯文本场景
+      // unknown_prompt trigger 场景跳过(用户没真发消息)
       let userMessageRow: { id: string } | null = null
-      if (sessionId) {
+      if (sessionId && !isUnknownPromptTrigger) {
         try {
           userMessageRow = await prisma.message.create({
             data: {

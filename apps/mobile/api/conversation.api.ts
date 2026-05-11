@@ -114,6 +114,13 @@ export async function streamConversationTurnHTTP(
     history: Array<{ speaker: 'user' | 'laoke'; text: string }>
     /** spec-007 Phase 19.5:老白的 inner state(信号 brief),可空 */
     signal_brief?: string | null
+    /**
+     * M3.0 (2026-05-11)「老白还想知道的」闭环:detail 页 unknown_prompt
+     * 触发的开场。后端识别这个字段时:
+     *   - 跳过把 user_text 写入 messages 表(用户没真发,只是点击 trigger)
+     *   - 改 prompt 形态让老白主动用兄长口吻问兄弟,而不是被动回答
+     */
+    from_unknown_prompt?: string | null
   },
   onChunk: (text: string) => void,
 ): Promise<void> {

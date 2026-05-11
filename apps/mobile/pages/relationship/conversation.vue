@@ -36,8 +36,11 @@ const signalsStore = useRelationshipSignalsStore()
 
 const relationshipId = ref('')
 const relationship = ref<Relationship | null>(null)
-// M3.0 (2026-05-11)「老白还想知道的」闭环:detail 页点条目跳进来时带 ?hint=XXX
-// onMounted 加载完毕后自动以 hint 作为兄弟的话发出去,触发老白回应
+// M3.0 (2026-05-11)「老白还想知道的」闭环 — 老白主动问兄弟,不是兄弟问老白:
+// detail 页点条目跳进来时带 ?hint=XXX。onMounted 加载完毕后调 stream-turn,
+// 用 from_unknown_prompt 字段告诉后端"这是档案页 unknown_prompt 触发"
+// → 后端跳过用户消息写库 + 老白主动用兄长口吻问兄弟"你跟我说说 X 的事"
+// → mobile 不创建用户气泡,只创建 streaming 老白气泡接 stream
 const pendingHint = ref<string | null>(null)
 
 onLoad((opts) => {
@@ -58,16 +61,55 @@ onMounted(async () => {
   conversationStore.loadConversation(relationshipId.value)
   nextTick(() => scrollToBottom())
 
-  // hint 闭环:历史载入完成后再发,确保 LLM 能看到完整上下文
+  // hint 闭环:历史载入完成后,silent 触发一轮老白主动开口
   if (pendingHint.value) {
     const hint = pendingHint.value
     pendingHint.value = null
-    // 微小延迟让用户视觉上感受到"自己刚问了一句,老白接着说"
-    setTimeout(() => {
-      conversationStore.appendUserText(relationshipId.value, hint)
-    }, 250)
+    // 微小延迟让用户先看到对话页基本框架,再看到老白气泡冒出
+    setTimeout(() => triggerProactiveAsk(hint), 350)
   }
 })
+
+async function triggerProactiveAsk(hint: string) {
+  // 不创建用户气泡(老白是主动方),只创建 streaming 老白气泡
+  const streamingMsgId = conversationStore.appendStreamingLaokeText(relationshipId.value)
+
+  // 收集对话历史给 LLM 参考(让老白知道当前关系上下文)
+  const { serializeHistoryForLLM } = await import('../../utils/history-serializer')
+  const all = conversationStore.getMessages(relationshipId.value)
+  const turnHistory = serializeHistoryForLLM(all, {
+    relationshipName: relationship.value?.name ?? '她',
+    skipIds: [streamingMsgId],
+    limit: 50,
+  })
+
+  let fullText = ''
+  try {
+    await streamConversationTurnHTTP(
+      relationshipId.value,
+      {
+        // 后端识别 from_unknown_prompt 字段时,把它当成"老白主动问兄弟"的上下文
+        // user_text 是占位(后端 silent 模式会把它替换为内部 trigger 描述)
+        user_text: hint,
+        from_unknown_prompt: hint,
+        history: turnHistory,
+      },
+      (chunk) => {
+        fullText += chunk
+        conversationStore.updateStreamingLaokeText(relationshipId.value, streamingMsgId, fullText)
+      },
+    )
+  } catch (e) {
+    console.warn('[unknown-prompt-trigger] 失败:', e)
+    conversationStore.updateStreamingLaokeText(
+      relationshipId.value,
+      streamingMsgId,
+      '我先看看,过会儿再说。',
+    )
+  } finally {
+    conversationStore.finishStreamingLaokeText(relationshipId.value, streamingMsgId)
+  }
+}
 
 const messages = computed(() =>
   conversationStore.getMessages(relationshipId.value),

@@ -13,4 +13,11 @@ export const conversationTurnSchema = z.object({
   // spec-007 Phase 19.5:前端把 signal snapshot 翻译成老白视角的简短文字传过来,
   // 当 LLM 的 inner state。null/缺失表示无信号或数据不足。
   signal_brief: z.string().max(2000).nullish(),
+  // M3.0 (2026-05-11)「老白还想知道的」闭环:detail 页"老白还想知道的"
+  // 列表点击触发,语义是"老白主动问兄弟",不是兄弟问老白。
+  // 后端识别这字段:
+  //   - 跳过把 user_text 写入 messages 表(用户没真发)
+  //   - 改 user message 拼装,告诉老白"这是档案页 unknown_prompt 触发,
+  //     你主动用兄长口吻问兄弟 X 这事"
+  from_unknown_prompt: z.string().max(500).nullish(),
 })
