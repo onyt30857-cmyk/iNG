@@ -46,8 +46,13 @@ const selectedAvatar = ref<string | null>(null)
 // 老白还在打字?(纯视觉提示)
 const laokeTyping = ref(true)
 
-function handleNicknameInput(e: { detail: { value: string } }) {
-  const v = e.detail.value
+// 2026-05-11 unblock Vercel deploy:vue-tsc 用 web 标准 InputEvent 类型检查,
+// 但 uni-app x native input 实际 dispatch 的是 { detail: { value: string } } 形态。
+// 两边签名不兼容,baseline TS2345 报错阻塞 Vercel mobile typecheck check。
+// 这里用 unknown + 安全 cast,既绕过 strict 检查又保留 runtime 安全
+function handleNicknameInput(e: unknown) {
+  const detail = (e as { detail?: { value?: string } }).detail
+  const v = detail?.value ?? ''
   // 限制 12 字硬截断,避免输入超长后才提示
   nickname.value = v.length > 12 ? v.slice(0, 12) : v
   nicknameError.value = null
