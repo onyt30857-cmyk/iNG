@@ -225,11 +225,24 @@ export default function ConversationInspectorPage() {
                 const isUser = m.role === 'USER' || m.role === 'USER_SCREENSHOT'
                 const isSystem = !isLaoke && !isUser
 
+                // 2026-05-12:识别"她回的引用"消息 — mobile 端用户勾"粘她回的原话"发送时,
+                // user_text 被包成 `[她刚回了我:"原话"]\n\n这是她发给我的原话...` 后端原样存
+                // admin 端按 content prefix 识别,渲染成"她"风格气泡(左侧、不同色、tag)
+                const otherQuoteMatch = m.content?.match(/^\[她刚回了我:"([\s\S]+?)"\]\n\n这是她发给我的原话/)
+                const isOtherQuote = isUser && !!otherQuoteMatch
+                const displayContent = isOtherQuote ? otherQuoteMatch[1]! : m.content
+
                 // 跟上一条对比是否同角色 + 30s 内 → 不重复显示头像/时间
+                // "她"消息单独算一种角色(不跟 USER/LAOKE 合并)
+                const effectiveRole = isOtherQuote ? 'OTHER_QUOTE' : m.role
                 const prev = idx > 0 ? visibleMessages[idx - 1] : null
+                const prevEffectiveRole =
+                  prev
+                    ? (prev.role === 'USER' && prev.content?.match(/^\[她刚回了我:"/) ? 'OTHER_QUOTE' : prev.role)
+                    : null
                 const sameAuthorAsPrev =
                   prev &&
-                  prev.role === m.role &&
+                  prevEffectiveRole === effectiveRole &&
                   Math.abs(new Date(m.created_at).getTime() - new Date(prev.created_at).getTime()) < 30_000
 
                 if (isSystem) {
@@ -244,10 +257,13 @@ export default function ConversationInspectorPage() {
                   )
                 }
 
+                // "她"消息渲染在左侧(跟老白同侧),区分用粉色调 + tag,跟兄弟(绿色右侧)对立
+                const bubbleSide = isOtherQuote ? 'left' : isUser ? 'right' : 'left'
+
                 return (
                   <div key={m.id}>
                     <div
-                      className={`flex items-end gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}
+                      className={`flex items-end gap-2 ${bubbleSide === 'right' ? 'justify-end' : 'justify-start'}`}
                       onClick={() => setSelected(m)}
                     >
                       {/* 老白头像(同角色连续不重复显示)*/}
@@ -264,8 +280,26 @@ export default function ConversationInspectorPage() {
                         </div>
                       )}
 
+                      {/* "她"头像(跟老白同侧但用粉色) */}
+                      {isOtherQuote && (
+                        <div className="w-8 h-8 shrink-0">
+                          {!sameAuthorAsPrev && (
+                            <div
+                              className="w-8 h-8 rounded-full flex items-center justify-center"
+                              style={{ background: '#FFE4EC' }}
+                            >
+                              <span style={{ fontSize: '14px', color: '#E91E63', fontWeight: 600 }}>她</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {/* 气泡 + 时间小字纵向包一层 */}
-                      <div className={`flex flex-col max-w-[78%] ${isUser ? 'items-end' : 'items-start'}`}>
+                      <div className={`flex flex-col max-w-[78%] ${bubbleSide === 'right' ? 'items-end' : 'items-start'}`}>
+                        {/* "她"消息上方加 "她 回的" 小 tag */}
+                        {isOtherQuote && !sameAuthorAsPrev && (
+                          <span className="text-[10px] text-pink-700 font-medium mb-0.5">她 回的</span>
+                        )}
                         <div
                           className={`rounded-lg px-3 py-2 text-sm whitespace-pre-wrap cursor-pointer transition-all ${
                             isSelected ? 'ring-2 ring-amber-400 ring-offset-1' : 'hover:brightness-95'
@@ -279,6 +313,14 @@ export default function ConversationInspectorPage() {
                                   borderRadius: '4px 12px 12px 12px',
                                   boxShadow: '0 1px 4px rgba(0,0,0,.04)',
                                 }
+                              : isOtherQuote
+                              ? {
+                                  background: '#FFF0F5',
+                                  color: '#1F2433',
+                                  borderLeft: '2px solid #E91E63',
+                                  borderRadius: '4px 12px 12px 12px',
+                                  boxShadow: '0 1px 4px rgba(0,0,0,.04)',
+                                }
                               : {
                                   background: '#95EC69',
                                   color: '#1F2433',
@@ -287,7 +329,7 @@ export default function ConversationInspectorPage() {
                                 }
                           }
                         >
-                          {m.content ?? (m.screenshot_url ? '🖼 [截图]' : '(空消息)')}
+                          {displayContent ?? (m.screenshot_url ? '🖼 [截图]' : '(空消息)')}
 
                           {/* 标记 chips 跟在气泡底部 */}
                           {(hasFeedback || hasRedLine || personaFail) && (
@@ -326,8 +368,8 @@ export default function ConversationInspectorPage() {
                         </span>
                       </div>
 
-                      {/* 用户头像占位(连续同角色不显示)*/}
-                      {isUser && (
+                      {/* 用户头像占位(连续同角色不显示;"她"消息走左侧不显示这个)*/}
+                      {isUser && !isOtherQuote && (
                         <div className="w-8 h-8 shrink-0">
                           {!sameAuthorAsPrev && (
                             <div
