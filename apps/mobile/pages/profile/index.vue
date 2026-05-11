@@ -237,6 +237,12 @@ async function onConfirmRecover() {
           <text class="action-card-arrow">›</text>
         </view>
       </view>
+
+      <!-- v4 (2026-05-11):品牌 footer,slogan 强化记忆 -->
+      <view class="brand-footer">
+        <text class="brand-footer-slogan">想脱单,先练爱</text>
+        <text class="brand-footer-mark">练爱 · 老白陪你慢慢看</text>
+      </view>
     </view>
 
     <!-- 恢复输入 modal -->
@@ -563,5 +569,26 @@ async function onConfirmRecover() {
   font-size: 28rpx;
   color: $color-background;
   font-weight: $weight-medium;
+}
+
+// v4 品牌 footer
+.brand-footer {
+  margin-top: 64rpx;
+  padding: 32rpx 0 48rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+}
+.brand-footer-slogan {
+  font-size: $font-body-small;
+  font-weight: $weight-medium;
+  color: $color-primary-deep;
+  letter-spacing: 2rpx;
+}
+.brand-footer-mark {
+  font-size: $font-footnote;
+  color: $color-text-tertiary;
+  letter-spacing: 1rpx;
 }
 </style>

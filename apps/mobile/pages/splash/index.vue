@@ -108,6 +108,8 @@ onMounted(async () => {
 
     <!-- 品牌文字 -->
     <text class="brand-name">练爱</text>
+    <!-- v4 (2026-05-11):主 slogan 行动召唤 + 副 tagline 功能描述,双行强化记忆 -->
+    <text class="brand-slogan">想脱单,先练爱</text>
     <text class="brand-tagline">慢慢学会和喜欢的人正常说话</text>
 
     <!-- 底部状态 -->
@@ -143,8 +145,18 @@ onMounted(async () => {
   font-weight: $weight-bold;
   color: $color-primary;
   letter-spacing: 8rpx;
-  margin-bottom: $space-3;
+  margin-bottom: $space-2;
   animation: fadeUp 0.6s ease 0.3s both;
+}
+
+// v4 主 slogan:中等字号 + 柔粉主色,行动召唤
+.brand-slogan {
+  font-size: $font-title-3;   // 36rpx,介于 name 和 tagline 之间
+  font-weight: $weight-medium;
+  color: $color-primary-deep;  // 柔粉 deep,比 name 稍深
+  letter-spacing: 2rpx;
+  margin-bottom: $space-2;
+  animation: fadeUp 0.6s ease 0.4s both;
 }
 
 .brand-tagline {
