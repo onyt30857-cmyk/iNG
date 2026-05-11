@@ -17,7 +17,9 @@ import { helloRoute } from './routes/hello.route.js'
 import { authRoutes } from './routes/v1/auth.route.js'
 import { userRoutes } from './routes/v1/user.route.js'
 import { relationshipRoutes } from './routes/v1/relationship.route.js'
-import { sessionRoutes } from './routes/v1/session.route.js'
+// M3.0 能力 2 Step 3:sessionRoutes register 已注释,import 顺带注释避免 ESLint
+// no-unused-vars。Step 4(2026-05-18)删 session.route.ts 时一起删这两行。
+// import { sessionRoutes } from './routes/v1/session.route.js'
 import { ocrRoutes } from './routes/v1/ocr.route.js'
 import { conversationRoutes } from './routes/v1/conversation.route.js'
 import { feedbackRoutes } from './routes/v1/feedback.route.js'

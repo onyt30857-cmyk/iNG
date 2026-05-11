@@ -147,7 +147,8 @@ export function buildUserMessage(
 /** 简单去重:逐字 normalize 比对(不引入 embedding,YAGNI)
  *  @internal exported for testing */
 export function normalizeForDedup(s: string): string {
-  return s.replace(/[\s,。、,.()()\[\]【】]/g, '').toLowerCase()
+  // character class 里 [] 不需要转义,Vercel lint no-useless-escape 报错(2026-05-11 修)
+  return s.replace(/[\s,。、,.()()[\]【】]/g, '').toLowerCase()
 }
 
 /** @internal exported for testing */
