@@ -31,18 +31,30 @@ function exitToHome() {
   uni.reLaunch({ url: '/pages/home/index' })
 }
 
+// 2026-05-11 节奏优化:之前 60ms/字 + 1500ms 停留 → 11 字句总 ~2.5s,Sam 反馈太快
+// 现在 90ms/字 + 标点 +200ms + 2500ms 停留 → 11 字句总 ~5s,慢悠悠的兄长气
+const TYPE_INTERVAL_MS = 90
+const PUNCTUATION_PAUSE_MS = 200
+const FINISHED_HOLD_MS = 2500
+const PUNCTUATION_RE = /[,。?!,.?!、…]/
+
 function typewriter(text: string) {
   visibleText.value = ''
   let i = 0
   const step = () => {
     if (i >= text.length) {
-      // 写完后停留 1500ms 让用户读完
-      exitTimer = setTimeout(exitToHome, 1500)
+      // 打完留住让用户读完 + 视线缓冲
+      exitTimer = setTimeout(exitToHome, FINISHED_HOLD_MS)
       return
     }
     visibleText.value = text.slice(0, i + 1)
+    const justTyped = text[i] ?? ''
     i++
-    typeTimer = setTimeout(step, 60) // 60ms/字 = 一句 25 字 = 1.5s
+    // 标点位置 = 说话气口,多停一会儿
+    const nextDelay = PUNCTUATION_RE.test(justTyped)
+      ? TYPE_INTERVAL_MS + PUNCTUATION_PAUSE_MS
+      : TYPE_INTERVAL_MS
+    typeTimer = setTimeout(step, nextDelay)
   }
   step()
 }
@@ -65,8 +77,11 @@ onMounted(async () => {
   // 短暂延迟后开始打字(给头像淡入留时间)
   setTimeout(() => typewriter(res.data.text), 350)
 
-  // 安全兜底:6s 还没结束(打字机异常)强制跳走
-  setTimeout(() => exitToHome(), 6_000)
+  // 安全兜底:8s 还没结束(打字机异常)强制跳走 — 配合新节奏延长
+  // 11 字句正常路径:头像 350 + 打字 ~1.4s(含标点停顿) + 停留 2500 = ~4.3s
+  // 25 字句正常路径:头像 350 + 打字 ~3s(含标点停顿) + 停留 2500 = ~5.9s
+  // 兜底 8s 给极端长句留余地
+  setTimeout(() => exitToHome(), 8_000)
 })
 
 onUnmounted(() => {
@@ -149,7 +164,8 @@ onUnmounted(() => {
   right: 0;
   text-align: center;
   opacity: 0;
-  animation: fadeInLate 0.5s ease 1.2s both;
+  // 2026-05-11:从 1.2s 提早到 0.6s — 让早想跳过的用户尽快看见 hint
+  animation: fadeInLate 0.5s ease 0.6s both;
 }
 .hint-text {
   font-size: $font-footnote;
