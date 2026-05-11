@@ -183,11 +183,15 @@ async function onLongPress() {
         :class="{ thinking: isThinking, streaming: isStreaming }"
         @longpress="onLongPress"
       >
-        <!-- 思考中 -->
-        <view v-if="isThinking" class="thinking-dots">
-          <view class="dot"></view>
-          <view class="dot"></view>
-          <view class="dot"></view>
+        <!-- 思考中 — v4 (2026-05-11) 加"老白想想"状态文字 + 柔粉 dots,
+             比单纯灰 dots 更有期待感 + 用户感受到老白在做事 -->
+        <view v-if="isThinking" class="thinking-wrap">
+          <view class="thinking-dots">
+            <view class="dot"></view>
+            <view class="dot"></view>
+            <view class="dot"></view>
+          </view>
+          <text class="thinking-label">老白想想</text>
         </view>
         <template v-else>
           <view class="text-segments">
@@ -406,17 +410,24 @@ async function onLongPress() {
   50%, 100% { opacity: 0; }
 }
 
+// v4 思考态:dots + 文字标签同行,柔粉色系跟老白人格呼应
+.thinking-wrap {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+  padding: 4rpx 0;
+}
 .thinking-dots {
   display: flex;
   flex-direction: row;
   align-items: center;
-  padding: 4rpx 0;
 }
 .dot {
   width: 12rpx;
   height: 12rpx;
   border-radius: 50%;
-  background-color: $color-text-tertiary;
+  background-color: $color-primary;  // v4 柔粉(原 text-tertiary 灰)
   margin-right: 8rpx;
   animation: bounce 1.4s infinite ease-in-out;
 
@@ -425,8 +436,21 @@ async function onLongPress() {
 .dot:nth-child(2) { animation-delay: 0.18s; }
 .dot:nth-child(3) { animation-delay: 0.36s; }
 @keyframes bounce {
-  0%, 80%, 100% { opacity: 0.25; transform: translateY(0) scale(0.85); }
+  0%, 80%, 100% { opacity: 0.35; transform: translateY(0) scale(0.85); }
   40% { opacity: 1; transform: translateY(-6rpx) scale(1); }
+}
+// "老白想想" 文字标签 — 浅粉色弱出场,跟 dots 同步呼吸感
+.thinking-label {
+  font-size: 24rpx;
+  color: $color-primary-deep;
+  letter-spacing: 1rpx;
+  font-weight: $weight-medium;
+  opacity: 0.7;
+  animation: thinking-label-pulse 1.8s infinite ease-in-out;
+}
+@keyframes thinking-label-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.85; }
 }
 
 // === spec-009 反馈区 — 单行文字链风,跟 detail.vue quote-feedback / extract-link 同款 ===
