@@ -51,6 +51,13 @@ export interface AnthropicBalanceEstimate {
   error: string | null
   /** 最后一次拉 cost_report 的时间(给前端显示"X 分钟前刷新") */
   refreshed_at: Date | null
+  /**
+   * 2026-05-11:成本数据来自哪 —
+   *   'anthropic_cost_report' = 配了 Admin key,Anthropic 官方精确数据
+   *   'local_ai_call_log' = 走本地 AiCallLog sum(全自动,±5% 估算)
+   *   null = 还没算(未配置 / 错误)
+   */
+  data_source: 'anthropic_cost_report' | 'local_ai_call_log' | null
 }
 
 interface CachedEstimate {
@@ -124,9 +131,57 @@ async function fetchCostBetween(
 }
 
 /**
+ * 2026-05-11:本地 AiCallLog fallback —— 不需要 Anthropic Admin API。
+ *
+ * Anthropic 个人 workspace 没法用 Admin API,但我们 AiCallLog 表本来就记每次 LLM
+ * 调用的 cost_usd(client.ts 调用完写库)。直接 sum 起来 = 累计花费。
+ *
+ * 精度:跟我们成本估算一致(参考 call-log.ts 价格表),可能跟 Anthropic 实际计费
+ * 有 ±5% 偏差,但作为"还剩多少钱"的估算监控完全够用。
+ *
+ * 优势:
+ * - 完全自动,基准填一次后系统持续更新
+ * - 不依赖外部 API(不会有 cost_report 网络抖动)
+ * - Anthropic 同步延迟最长几小时,这个**实时**(写库即刻可查)
+ */
+async function fetchSpentFromLocalLogs(
+  baselineAt: Date,
+): Promise<{ totalUsd: number; avgDaily7d: number | null }> {
+  // 1. 自 baselineAt 起累计花费
+  const totalAgg = await prisma.aiCallLog.aggregate({
+    _sum: { cost_usd: true },
+    where: { created_at: { gte: baselineAt } },
+  })
+  const totalUsd = totalAgg._sum.cost_usd ? Number(totalAgg._sum.cost_usd) : 0
+
+  // 2. 近 7 天日均(以 day 分组 → 平均)
+  const sevenDaysAgo = new Date(Date.now() - 7 * 86400_000)
+  const dailyRows = await prisma.$queryRaw<Array<{ date: string; cost_sum: string }>>`
+    SELECT to_char(date_trunc('day', "created_at" AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS date,
+           SUM("cost_usd")::text AS cost_sum
+    FROM ai_call_logs
+    WHERE "created_at" >= ${sevenDaysAgo}
+    GROUP BY date
+    ORDER BY date
+  `
+  let avgDaily7d: number | null = null
+  if (dailyRows.length > 0) {
+    const totals = dailyRows.map((r) => Number(r.cost_sum))
+    avgDaily7d = totals.reduce((a, b) => a + b, 0) / totals.length
+  }
+
+  return { totalUsd, avgDaily7d }
+}
+
+/**
  * 拿当前余额估算(15 分钟缓存)。
- * 缺 baseline / 缺 admin key / API 报错时,各级降级 — 永远返回一个 estimate 对象,
- * 让前端总能显示状态(而不是白屏)
+ *
+ * 数据源 fallback 链(无人工干预):
+ *   ① 配了 ANTHROPIC_ADMIN_API_KEY → Anthropic 官方 cost_report(精确)
+ *   ② 没配 → 本地 AiCallLog cost_usd sum(全自动,~±5% 估算精度)
+ *
+ * 缺 baseline → 返 configured: false 提示填。任何级别都 graceful 降级,
+ * 永远返回一个 estimate 对象,前端能显示状态(而不是白屏)。
  */
 export async function getBalanceEstimate(): Promise<AnthropicBalanceEstimate> {
   if (cache && Date.now() - cache.cached_at < CACHE_TTL_MS) {
@@ -167,39 +222,47 @@ export async function getBalanceEstimate(): Promise<AnthropicBalanceEstimate> {
     level: 'unknown',
     error: null,
     refreshed_at: null,
+    data_source: null,
   }
 
-  // 检查配置完整度
-  if (!config.ANTHROPIC_ADMIN_API_KEY) {
-    return cacheAndReturn({
-      ...baseEstimate,
-      error: '未配置 ANTHROPIC_ADMIN_API_KEY 环境变量',
-    })
-  }
+  // 没填基准 → 啥都算不出来
   if (!baselineUsd || !baselineAt) {
     return cacheAndReturn({
       ...baseEstimate,
       configured: false,
-      error: '未填写余额基准 — 去 Console 抄一次余额数字到 /settings/billing',
+      error: '未填写余额基准 — 去 Anthropic Console 抄当前 Credit balance 到 /settings/billing',
     })
   }
 
-  // 配置齐了,调 cost_report
+  // 2026-05-11:走两条路 —
+  // ① 配了 ANTHROPIC_ADMIN_API_KEY → 调 Anthropic 官方 cost_report(精确)
+  // ② 没配(Anthropic 个人 workspace 没 Admin API 入口)→ fallback 走本地 AiCallLog
+  //    cost_usd sum,完全自动,精度跟我们成本估算一致(可能 ±5% 偏差)
   let totalSpentUsd: number
   let avgDaily7d: number | null = null
-  try {
-    const result = await fetchCostBetween(config.ANTHROPIC_ADMIN_API_KEY, baselineAt)
-    totalSpentUsd = result.totalUsd
+  let dataSource: 'anthropic_cost_report' | 'local_ai_call_log'
 
-    // 近 7 天日均(用 daily 反推)
-    const sevenDaysAgo = Date.now() - 7 * 86400_000
-    const last7 = result.daily.filter((d) => new Date(d.date).getTime() >= sevenDaysAgo)
-    if (last7.length > 0) {
-      const sum = last7.reduce((acc, d) => acc + d.amount, 0)
-      avgDaily7d = sum / last7.length
+  try {
+    if (config.ANTHROPIC_ADMIN_API_KEY) {
+      dataSource = 'anthropic_cost_report'
+      const result = await fetchCostBetween(config.ANTHROPIC_ADMIN_API_KEY, baselineAt)
+      totalSpentUsd = result.totalUsd
+
+      // 近 7 天日均(用 daily 反推)
+      const sevenDaysAgo = Date.now() - 7 * 86400_000
+      const last7 = result.daily.filter((d) => new Date(d.date).getTime() >= sevenDaysAgo)
+      if (last7.length > 0) {
+        const sum = last7.reduce((acc, d) => acc + d.amount, 0)
+        avgDaily7d = sum / last7.length
+      }
+    } else {
+      dataSource = 'local_ai_call_log'
+      const localResult = await fetchSpentFromLocalLogs(baselineAt)
+      totalSpentUsd = localResult.totalUsd
+      avgDaily7d = localResult.avgDaily7d
     }
   } catch (e) {
-    logger.warn({ err: e, event: 'anthropic_billing.cost_report_failed' }, 'cost_report 拉取失败')
+    logger.warn({ err: e, event: 'anthropic_billing.cost_lookup_failed' }, '成本查询失败')
     return cacheAndReturn({
       ...baseEstimate,
       configured: true,
@@ -226,7 +289,18 @@ export async function getBalanceEstimate(): Promise<AnthropicBalanceEstimate> {
     level,
     error: null,
     refreshed_at: new Date(),
+    data_source: dataSource,
   }
+
+  logger.info(
+    {
+      event: 'anthropic_billing.estimate_done',
+      data_source: dataSource,
+      total_spent_usd: round2(totalSpentUsd),
+      estimated_balance_usd: round2(estimatedBalance),
+    },
+    `余额估算完成(${dataSource})`,
+  )
 
   return cacheAndReturn(estimate)
 }

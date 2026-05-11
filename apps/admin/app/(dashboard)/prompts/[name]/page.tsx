@@ -238,6 +238,8 @@ function DeployDialog({
 }
 
 // ============== spec-025 P0-2: 当前 deployed 版本快照预览 ==============
+// 暂未挂载到主 UI(等 spec-025 P0-2 启动时引用),先 export 避免 lint unused
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function DeployedSnapshot({
   versions,
   viewContent,

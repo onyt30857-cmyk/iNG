@@ -4,7 +4,7 @@
 // 纯 SVG 不依赖第三方图表库,简洁优先
 
 import { useEffect, useMemo, useState } from 'react'
-import { TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react'
+import { TrendingUp, TrendingDown } from 'lucide-react'
 import { adminGet } from '@/lib/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 

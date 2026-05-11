@@ -24,6 +24,7 @@ interface BalanceEstimate {
   level: 'unknown' | 'ok' | 'warning' | 'critical'
   error: string | null
   refreshed_at: string | null
+  data_source: 'anthropic_cost_report' | 'local_ai_call_log' | null
 }
 
 const fmtUsd = (n: number | null) =>
@@ -197,14 +198,25 @@ export default function AnthropicBillingPage() {
       <Card>
         <CardContent className="pt-5 text-xs text-muted-foreground space-y-1">
           <p>
-            📌 <strong>为什么要手动填:</strong>Anthropic 没提供"剩余余额"API,只能 baseline + 累计花费推算。
+            📌 <strong>为什么要手动填基准:</strong>Anthropic 没提供"剩余余额"API,只能基准 + 累计花费推算。
           </p>
           <p>
-            📌 <strong>充值后必须回来更新:</strong>不然系统不知道你充了钱,会越算越少。
+            📌 <strong>充值后必须回来更新基准:</strong>不然系统会越算越少(以为没充)。
           </p>
           <p>
-            📌 <strong>需要环境变量:</strong>Railway 里要设置 ANTHROPIC_ADMIN_API_KEY(sk-ant-admin-... 开头),否则下面的"自动监控"用不了。
+            📌 <strong>累计花费数据源:</strong>
           </p>
+          <ul className="pl-4 list-disc">
+            <li>
+              <strong>local_ai_call_log</strong>(默认):走我们项目自己 AiCallLog 表 sum,
+              完全自动 ±5% 估算精度(无需 Anthropic Admin API)
+            </li>
+            <li>
+              <strong>anthropic_cost_report</strong>(可选):Railway 配
+              <code className="px-1">ANTHROPIC_ADMIN_API_KEY</code> 后启用 Anthropic 官方精确数据
+              — 需 Organization workspace(个人 workspace 不支持)
+            </li>
+          </ul>
         </CardContent>
       </Card>
     </div>
@@ -268,6 +280,13 @@ function BalanceStatus({
                 </span>
               )}
             </div>
+            {data.data_source && (
+              <div className="text-xs text-muted-foreground mt-1">
+                数据源:{data.data_source === 'anthropic_cost_report'
+                  ? 'Anthropic 官方(精确)'
+                  : '本地 AiCallLog(自动估算 ±5%)'}
+              </div>
+            )}
           </div>
           <Button
             type="button"
