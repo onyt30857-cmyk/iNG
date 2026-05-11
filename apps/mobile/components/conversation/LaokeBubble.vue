@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import type { FeedbackType } from '../../api/feedback.api'
 import { useConversationStore } from '../../stores/conversation'
 import { formatBubbleTime } from '../../utils/format-time'
@@ -15,6 +15,48 @@ const props = defineProps<{
   /** 消息生成时间(ISO),气泡下显示时间小字让用户区分上次/这次 */
   createdAt?: string
 }>()
+
+// === v4 (2026-05-11) "老白深思" 等待 UI ===
+// 不让用户干等,模拟真人思考节奏:进入 thinking 后,文字按时长分阶段切换,
+// 用户感受到"老白在认真考虑",越复杂的问题等越久,越觉得他在用心
+const THINKING_PHASES = [
+  { at: 0, text: '老白想想' },          // 刚开始,默认状态
+  { at: 2500, text: '他看了下你的话' }, // 2.5s 后,确认收到 + 在读
+  { at: 5500, text: '他在斟酌' },       // 5.5s 后,深思中
+  { at: 9000, text: '他要慢慢说' },     // 9s+,复杂问题给用户耐心
+] as const
+
+const thinkingPhraseIndex = ref(0)
+const thinkingPhrase = computed(() => THINKING_PHASES[thinkingPhraseIndex.value]?.text ?? '老白想想')
+let phaseTimers: Array<ReturnType<typeof setTimeout>> = []
+
+function startThinkingPhases() {
+  clearThinkingPhases()
+  thinkingPhraseIndex.value = 0
+  // 跳过 index 0(那是初始状态),从 index 1 开始定时切
+  for (let i = 1; i < THINKING_PHASES.length; i++) {
+    const phase = THINKING_PHASES[i]!
+    phaseTimers.push(
+      setTimeout(() => {
+        thinkingPhraseIndex.value = i
+      }, phase.at),
+    )
+  }
+}
+function clearThinkingPhases() {
+  phaseTimers.forEach((t) => clearTimeout(t))
+  phaseTimers = []
+}
+
+watch(
+  () => props.isThinking,
+  (now) => {
+    if (now) startThinkingPhases()
+    else clearThinkingPhases()
+  },
+  { immediate: true },
+)
+onUnmounted(clearThinkingPhases)
 
 const formattedTime = computed(() => formatBubbleTime(props.createdAt))
 
@@ -183,15 +225,16 @@ async function onLongPress() {
         :class="{ thinking: isThinking, streaming: isStreaming }"
         @longpress="onLongPress"
       >
-        <!-- 思考中 — v4 (2026-05-11) 加"老白想想"状态文字 + 柔粉 dots,
-             比单纯灰 dots 更有期待感 + 用户感受到老白在做事 -->
+        <!-- 思考中 — v4 (2026-05-11) "老白深思" UI:
+             柔粉 dots + 文字按时长分阶段切换(0/2.5/5.5/9s)
+             模拟真人思考节奏 — 越久 = 越在深思,用户感觉"被认真对待" -->
         <view v-if="isThinking" class="thinking-wrap">
           <view class="thinking-dots">
             <view class="dot"></view>
             <view class="dot"></view>
             <view class="dot"></view>
           </view>
-          <text class="thinking-label">老白想想</text>
+          <text class="thinking-label" :key="thinkingPhrase">{{ thinkingPhrase }}</text>
         </view>
         <template v-else>
           <view class="text-segments">
@@ -439,18 +482,24 @@ async function onLongPress() {
   0%, 80%, 100% { opacity: 0.35; transform: translateY(0) scale(0.85); }
   40% { opacity: 1; transform: translateY(-6rpx) scale(1); }
 }
-// "老白想想" 文字标签 — 浅粉色弱出场,跟 dots 同步呼吸感
+// "老白深思" 文字标签 — 浅粉色弱出场,呼吸感 + 切换时淡入(v-key 触发重渲染)
 .thinking-label {
   font-size: 24rpx;
   color: $color-primary-deep;
   letter-spacing: 1rpx;
   font-weight: $weight-medium;
   opacity: 0.7;
-  animation: thinking-label-pulse 1.8s infinite ease-in-out;
+  animation:
+    thinking-label-pulse 1.8s infinite ease-in-out,
+    thinking-label-in 0.5s ease both; // 切 phrase 时柔和淡入
 }
 @keyframes thinking-label-pulse {
   0%, 100% { opacity: 0.45; }
   50% { opacity: 0.85; }
+}
+@keyframes thinking-label-in {
+  from { opacity: 0; transform: translateY(4rpx); }
+  to { opacity: 0.7; transform: translateY(0); }
 }
 
 // === spec-009 反馈区 — 单行文字链风,跟 detail.vue quote-feedback / extract-link 同款 ===
