@@ -80,6 +80,9 @@ model User {
   subscriptions        Subscription[]
   payments             Payment[]
   data_deletions       DataDeletionLog[]
+  // M3+ FEEDBACK
+  product_feedback     ProductFeedback[]
+  feedback_triggers    FeedbackTriggerLog[]
 
   @@index([deleted_at])
   @@map("users")
@@ -840,6 +843,58 @@ model PromptFeedback {
   @@index([user_id, created_at])
   @@index([relationship_id, feedback_type])
   @@map("prompt_feedback")
+}
+
+// ============================================================
+// 用户反馈系统 — 老白关心式(M3+ FEEDBACK SPEC, 2026-05-11)
+// 跟 PromptFeedback 分开:那个是消息级 like/dislike,这个是产品级使用感受
+// 9 个 trigger:ACTIVATION_SCREENSHOT / ACTIVATION_DRAFT / T_D2D3 / T_D5D7
+//             T_D12D14 / T_D30 / T_D60 / T_PERIODIC / CRISIS_3DISLIKE
+// 详见 lianai-dev-kit-m3/06-FEEDBACK-SPEC.md
+// ============================================================
+
+model ProductFeedback {
+  id              String  @id @default(cuid())
+  user_id         String
+  relationship_id String? // crisis 触发时所在的关系(可选)
+
+  trigger_type    String  // 见上文 9 个 trigger 枚举
+  raw_text        String  @db.Text // 用户原话,freeform
+  created_at      DateTime @default(now()) @db.Timestamptz
+
+  // LLM 异步分类(失败时为 null,admin 手动 triage)
+  llm_category     String?   // PRODUCT / UI / LAOKE_PERSONA / TECH_BUG / OTHER
+  llm_sentiment    String?   // POSITIVE / NEUTRAL / NEGATIVE / CRITICAL
+  llm_tags         String[]  @default([]) // Haiku 提取的 2-4 个 tag
+  llm_processed_at DateTime?
+
+  // admin 处理状态
+  admin_status      String   @default("NEW") // NEW / TRIAGED / OWNED / RESOLVED / DISMISSED
+  admin_owner       String?
+  admin_note        String?  @db.Text
+  admin_resolved_at DateTime?
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, created_at])
+  @@index([trigger_type, created_at])
+  @@index([llm_category, llm_sentiment])
+  @@index([admin_status, created_at])
+  @@map("product_feedback")
+}
+
+// 触发记录(防重复 + 跳过也要记,eligibility 判断查这里)
+model FeedbackTriggerLog {
+  id           String   @id @default(cuid())
+  user_id      String
+  trigger_type String
+  triggered_at DateTime @default(now()) @db.Timestamptz
+  responded    Boolean  @default(false) // 用户答了(true)还是跳过/关页面(false)
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, trigger_type, triggered_at])
+  @@map("feedback_trigger_log")
 }
 
 // ============================================================

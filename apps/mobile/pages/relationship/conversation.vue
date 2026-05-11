@@ -23,6 +23,8 @@ import ScreenshotBubble from '../../components/conversation/ScreenshotBubble.vue
 import ChatInput from '../../components/conversation/ChatInput.vue'
 import StarterChips from '../../components/conversation/StarterChips.vue'
 import LaokeProactiveHint from '../../components/conversation/LaokeProactiveHint.vue'
+import LaokeCareBubble from '../../components/conversation/LaokeCareBubble.vue'
+import { useFeedbackTriggerStore } from '../../stores/feedback-trigger'
 import {
   buildProactiveHint,
   isHintDismissedToday,
@@ -33,6 +35,33 @@ import type { Relationship } from '../../types/relationship'
 const relationshipStore = useRelationshipStore()
 const conversationStore = useConversationStore()
 const signalsStore = useRelationshipSignalsStore()
+const feedbackTriggerStore = useFeedbackTriggerStore()
+
+// 当前是否有任意 streaming(用于决定是否先等老白说完再显示关心气泡)
+const isAnyStreaming = computed(() => {
+  const all = conversationStore.getMessages(relationshipId.value)
+  return all.some((m) => m.type === 'laoke_text' && (m.is_streaming || m.is_thinking))
+})
+
+async function handleCareSubmit(text: string) {
+  // 提交前拿 trigger_type(submit 后 pendingTrigger 会被清空)
+  const triggerType = feedbackTriggerStore.pendingTrigger?.trigger_type
+  const ok = await feedbackTriggerStore.submit(text, relationshipId.value)
+  if (ok) {
+    // 立即 push 一条老白预设感谢(不调 LLM,组合 3 步:append streaming + update + finish)
+    const { TRIGGER_THANKS } = await import('../../utils/feedback-thanks')
+    const thanks = (triggerType && TRIGGER_THANKS[triggerType]) ?? '懂了,这事我会改。'
+    const msgId = conversationStore.appendStreamingLaokeText(relationshipId.value)
+    conversationStore.updateStreamingLaokeText(relationshipId.value, msgId, thanks)
+    conversationStore.finishStreamingLaokeText(relationshipId.value, msgId)
+  } else {
+    uni.showToast({ title: '没发出去,稍后再试', icon: 'none' })
+  }
+}
+
+function handleCareSkip() {
+  void feedbackTriggerStore.skip()
+}
 
 const relationshipId = ref('')
 const relationship = ref<Relationship | null>(null)
@@ -60,6 +89,10 @@ onMounted(async () => {
   relationship.value = await relationshipStore.fetchOne(relationshipId.value)
   conversationStore.loadConversation(relationshipId.value)
   nextTick(() => scrollToBottom())
+
+  // M3+ FEEDBACK SPEC:查 eligibility,若 eligible,LaokeCareBubble 在消息列表末尾出现
+  // 30 秒节流,在 store 内部处理
+  void feedbackTriggerStore.checkEligibility()
 
   // hint 闭环:历史载入完成后,silent 触发一轮老白主动开口
   if (pendingHint.value) {
@@ -456,6 +489,17 @@ function handleSavePlanning(planningId: string, content: import('../../types/mes
         <ScreenshotBubble v-else-if="m.type === 'user_screenshots'" :count="m.count" :urls="m.urls" :created-at="m.created_at" />
         <UserBubble v-else-if="m.type === 'user_action'" :text="m.text" :subtle="true" :created-at="m.created_at" />
       </template>
+
+      <!-- M3+ FEEDBACK SPEC:老白关心气泡(消息列表末尾,不进 conversation store)
+           触发条件:checkEligibility 返回 eligible + 当前不在 streaming 中 -->
+      <LaokeCareBubble
+        v-if="feedbackTriggerStore.pendingTrigger && !isAnyStreaming"
+        :trigger-type="feedbackTriggerStore.pendingTrigger.trigger_type"
+        :phrase="feedbackTriggerStore.pendingTrigger.phrase"
+        :form-type="feedbackTriggerStore.pendingTrigger.form_type"
+        @submit="handleCareSubmit"
+        @skip="handleCareSkip"
+      />
 
       <!-- 底部留空给 sticky input -->
       <view class="bottom-spacer"></view>

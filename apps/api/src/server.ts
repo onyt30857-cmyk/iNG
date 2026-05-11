@@ -29,6 +29,7 @@ import { storageRoutes } from './routes/v1/storage.route.js'
 import { adminAuthRoutes } from './routes/v1/admin/auth.route.js'
 import { adminUserRoutes } from './routes/v1/admin/users.route.js'
 import { adminFeedbackRoutes } from './routes/v1/admin/feedback.route.js'
+import { adminProductFeedbackRoutes } from './routes/v1/admin/product-feedback.route.js'
 import { adminLlmRoutes } from './routes/v1/admin/llm.route.js'
 import { adminPromptRoutes } from './routes/v1/admin/prompts.route.js'
 import { adminAnnotationRoutes } from './routes/v1/admin/annotations.route.js'
@@ -44,6 +45,7 @@ import { reloadCache as reloadRedLineCache } from './services/admin/red-line-rul
 import { behaviorRoutes } from './routes/v1/behavior.route.js'
 import { laokeRoutes } from './routes/v1/laoke.route.js'
 import { appSettingsRoutes } from './routes/v1/app-settings.route.js'
+import { productFeedbackRoutes } from './routes/v1/product-feedback.route.js'
 import { clientErrorRoutes } from './routes/v1/client-errors.route.js'
 import { probeRoutes } from './routes/v1/probe.route.js'
 import { startDeletionCron } from './workers/deletion-cron.js'
@@ -121,12 +123,14 @@ async function buildApp() {
   await app.register(storageRoutes)
   await app.register(laokeRoutes)
   await app.register(appSettingsRoutes)
+  await app.register(productFeedbackRoutes)
   await app.register(clientErrorRoutes)
 
   // Admin 后台(spec-011)
   await app.register(adminAuthRoutes)
   await app.register(adminUserRoutes)
   await app.register(adminFeedbackRoutes)
+  await app.register(adminProductFeedbackRoutes)
   await app.register(adminLlmRoutes)
   await app.register(adminPromptRoutes)
   await app.register(adminAnnotationRoutes)

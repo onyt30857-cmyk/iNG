@@ -54,6 +54,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/users', label: '用户', icon: Users },
       { href: '/relationships', label: '关系', icon: Heart },
       { href: '/feedback', label: '反馈', icon: MessageSquareWarning },
+      { href: '/feedback/product', label: '产品反馈', icon: MessageSquareWarning },
     ],
   },
   {

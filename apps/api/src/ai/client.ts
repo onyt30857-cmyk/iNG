@@ -50,6 +50,8 @@ export interface AiCallContext {
     // spec-m2-000 任务 3(2026-05-12):每 20 条 user 消息异步抽用户语气指纹
     // (写入 UserLanguageFingerprint, user 维度跨关系)
     | 'fingerprint_extraction'
+    // M3+ FEEDBACK SPEC(2026-05-11):用户产品级反馈 Haiku 分类
+    | 'feedback_classifier'
 }
 
 export interface CallClaudeParams {
