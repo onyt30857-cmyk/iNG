@@ -62,31 +62,33 @@ onMounted(async () => {
     <view class="illustration">
       <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" class="brand-svg">
         <defs>
-          <!-- splash 是老白出场首屏,用 $color-laoke 紫降饱和系(跟 LaokeBubble 头像呼应) -->
+          <!-- v4 (2026-05-11) 柔粉 + 薄荷蓝双色系:
+               外晕薄荷蓝(辅色,清爽),主晕柔粉(品牌主色,心动温柔),
+               中心圆盘柔粉渐变(Sam 规范 #FF7D95 → #FFA0A0) -->
           <radialGradient id="brand-glow" cx="50%" cy="50%">
-            <stop offset="0%" stop-color="#9B82FF" stop-opacity="0.35" />
-            <stop offset="60%" stop-color="#9B82FF" stop-opacity="0.1" />
-            <stop offset="100%" stop-color="#9B82FF" stop-opacity="0" />
+            <stop offset="0%" stop-color="#FF7D95" stop-opacity="0.30" />
+            <stop offset="60%" stop-color="#FF7D95" stop-opacity="0.10" />
+            <stop offset="100%" stop-color="#FF7D95" stop-opacity="0" />
           </radialGradient>
           <radialGradient id="brand-halo" cx="50%" cy="50%">
-            <!-- 茶棕外晕保留(老白兄长温度 DNA) -->
-            <stop offset="0%" stop-color="#A87C5F" stop-opacity="0.16" />
-            <stop offset="100%" stop-color="#A87C5F" stop-opacity="0" />
+            <!-- 外晕薄荷蓝(辅色,中和柔粉甜腻) -->
+            <stop offset="0%" stop-color="#7DD3E6" stop-opacity="0.18" />
+            <stop offset="100%" stop-color="#7DD3E6" stop-opacity="0" />
           </radialGradient>
           <linearGradient id="brand-disc" x1="0%" y1="0%" x2="100%" y2="100%">
-            <!-- 中心圆盘:老白紫降饱和渐变(从 #8E72FF/#5B3FE0 改 #9B82FF/#7C5CFF) -->
-            <stop offset="0%" stop-color="#9B82FF" />
-            <stop offset="100%" stop-color="#7C5CFF" />
+            <!-- 中心圆盘:柔粉渐变(Sam v4 规范 #FF7D95 → #FFA0A0) -->
+            <stop offset="0%" stop-color="#FF7D95" />
+            <stop offset="100%" stop-color="#FFA0A0" />
           </linearGradient>
         </defs>
-        <!-- 外层茶棕暖晕(老白温度色 DNA 保留) -->
+        <!-- 外层薄荷蓝暖晕(辅色) -->
         <circle cx="120" cy="120" r="110" fill="url(#brand-halo)" class="ring ring-1" />
-        <!-- 内层紫主晕 -->
+        <!-- 内层柔粉主晕(主色) -->
         <circle cx="120" cy="120" r="90" fill="url(#brand-glow)" class="ring ring-2" />
-        <!-- 茶棕虚线环 -->
-        <circle cx="120" cy="120" r="56" fill="none" stroke="#A87C5F" stroke-width="1"
+        <!-- 薄荷蓝虚线环(辅色,模块分隔感) -->
+        <circle cx="120" cy="120" r="56" fill="none" stroke="#7DD3E6" stroke-width="1"
                 stroke-dasharray="2,4" class="dot dot-3" />
-        <!-- 中心圆盘:紫色渐变(更现代) -->
+        <!-- 中心圆盘:柔粉渐变(品牌主色) -->
         <circle cx="120" cy="120" r="48" fill="url(#brand-disc)" class="dot dot-4" />
         <!-- 老白简笔头像(替代 K 字,跟 LaokeBubble 同款) -->
         <g class="dot dot-5" stroke="#FFFFFF" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round" transform="translate(120 120)">

@@ -87,7 +87,7 @@ async function confirmDelete(id: string, name: string) {
     title: '删除这段关系?',
     content: `删除"${name}"后,聊天记录、关系档案都会一起没了,而且找不回来。`,
     confirmText: '删除',
-    confirmColor: '#E5484D',
+    confirmColor: '#F53F3F', // v4 token $color-danger 一致
     cancelText: '再想想',
   })
   if (res.confirm) {

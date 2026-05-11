@@ -1,53 +1,73 @@
-// Design Tokens - 来源: lianai-dev-kit/04-design/design-system.md
+// Design Tokens - 来源: lianai-dev-kit/04-design/design-system.md + 2026-05-11 v4 升级
 // 禁止 hardcode 颜色/字号/间距,全部从这里引用
 //
-// 2026-05-08 v3 升级(微信风格双色系,/liu-bang Q1-Q5 + 我推荐 7 项细节):
-// - 主色:鲜活紫 → 微信绿 #07C160(用户行为专用 — 发送/CTA/列表点击)
-// - 老 K 辅色:紫降饱和 #9B82FF(老 K 输出专用 — 头像/边条/judgment_card/draft/pattern_flag)
-// - 茶棕 accent 保留(老 K 兄长温度 chip)
-// - 圆角整体收紧(从现代风 → 微信温和风,主气泡 52→24rpx)
-// - 阴影更克制(微信几乎不用阴影,主要靠分隔线)
-// - 背景从 #F4F6FA → #EDEDED(微信原生浅灰)
-// - 新增 $color-divider 微信浅灰分隔线
+// 2026-05-11 v4 升级(柔粉 + 薄荷蓝品牌色,Sam 拍板):
+// - 调性:温柔治愈 + 清爽干净,低饱和柔粉 + 清新薄荷蓝 + 纯净白
+// - 主色:微信绿 #07C160 → 柔粉 #FF7D95(品牌 Logo / 主按钮 / 核心图标 / 心动)
+// - 辅色:紫 #9B82FF → 薄荷蓝 #7DD3E6(辅助卡片 / 次级图标 / 模块分隔 / 老白专色)
+// - 背景:微信灰 #EDEDED → 柔粉渐变 #FFF5F5 → #FFEFEF
+// - 中性色:更新到 Sam 新规范(#1D2129 / #4E5969 / #86909C / #F0F0F0 / #C9CDD4)
+// - 状态色:更新到 Sam 新规范(success #00B42A / warning #FF7D00 / error #F53F3F)
+//
+// 占比原则:粉 + 薄荷蓝作为点缀色,整体不超页面 30%;70%+ 由白 / 浅灰 / 渐变背景构成
 //
 // 双色系分工(关键):
-// - $color-primary  (微信绿):用户气泡 / 发送按钮 / 主 CTA / 列表点击 / focus 边框
-// - $color-laoke    (紫降饱和):老 K 头像背景 / 老 K 气泡左边条 / judgment_card 边框 / draft_reply_card / pattern_flag 装饰
+// - $color-primary  (柔粉):品牌 Logo / 主 CTA / 用户气泡 / 心动标识 / 强视觉
+// - $color-laoke    (薄荷蓝):老白头像 / 老白气泡左边条 / 辅助卡片 / 模块分隔
+//
+// 2026-05-08 v3 历史(已废弃,保留备忘):
+//   微信绿 + 紫降饱和 + 茶棕 accent(微信工具风)— v4 替换为柔粉 + 薄荷蓝(恋爱治愈风)
 
-// ========== 主色 - 微信绿 (WeChat Green,用户行为专用) ==========
-$color-primary: #07C160;          // 微信原生绿
-$color-primary-hover: #06AD56;
-$color-primary-deep: #06994B;     // 按下深绿
-$color-primary-soft: #95DBB1;     // 浅绿(disabled / hint)
-$color-primary-subtle: #E7F7EE;   // 极浅绿底(badge 背景等)
+// ========== 主色 - 柔粉 (Soft Pink,品牌核心) ==========
+$color-primary: #FF7D95;          // 低饱和蜜桃粉(Sam 规范)
+$color-primary-hover: #FF95AA;
+$color-primary-deep: #FF6580;     // 按下深粉
+$color-primary-soft: #FFC0CC;     // 浅粉(disabled / hint)
+$color-primary-subtle: #FFF0F3;   // 极浅粉底(badge 背景 / 心动标识底)
+$color-primary-gradient-end: #FFA0A0; // 渐变末端(Sam 规范 #FF7D95 → #FFA0A0)
 
-// ========== 老 K 辅色 - 紫降饱和 (Laoke Violet,老 K 输出专用) ==========
-$color-laoke: #9B82FF;             // 紫降饱和(从 #7C5CFF 降下来)
-$color-laoke-hover: #B0A0FF;
-$color-laoke-deep: #7C5CFF;       // 老 K 强判断 / pattern_flag 强调边框
-$color-laoke-subtle: #EFEAFF;     // 极浅紫底(judgment_card 内层 / 老 K 头像浅底)
+// ========== 辅色 - 薄荷蓝 (Mint Blue,清爽辅助 + 老白专色) ==========
+$color-laoke: #7DD3E6;            // 低饱和清透蓝(Sam 规范)
+$color-laoke-hover: #98DEEF;
+$color-laoke-deep: #5BC0D6;       // 老白强判断 / pattern_flag 强调边框
+$color-laoke-subtle: #EFF9FC;     // 极浅蓝底(judgment_card 内层 / 老白头像浅底)
+$color-laoke-gradient-end: #B8E6F2; // 渐变末端(Sam 规范 #7DD3E6 → #B8E6F2)
 
-// ========== 辅色 - 茶棕 (Tea Brown,保留,quote chip 等历史 chip) ==========
+// ========== 辅色 - 茶棕保留(老白 brand 历史 chip 用,2026 内逐步淘汰) ==========
+// v4 暂留:LaokeAvatar 头像 SVG 描边色 / quote chip 等历史引用
+// 后续 audit hardcode 时统一改成薄荷蓝
 $color-accent: #A87C5F;
 $color-accent-soft: #C99A7C;
 $color-accent-subtle: #F5EBE2;
 
-// ========== 中性色 - 微信浅灰系 ==========
-$color-text-primary: #1F2433;     // 深近黑(不变)
-$color-text-secondary: #4A5066;
-$color-text-tertiary: #8A91A8;
-$color-text-disabled: #B8BECF;
-$color-border: #E5E8EF;
-$color-divider: #F0F2F5;          // ★ 新增:微信浅灰分隔线(列表项/卡片之间)
-$color-surface-subtle: #F7F7F7;   // 微调:贴近微信浅灰
-$color-background: #EDEDED;       // ★ 微调:微信原生浅灰(原 #F4F6FA)
-$color-surface: #FFFFFF;          // 纯白卡片
+// ========== 中性色 - Sam v4 新规范 ==========
+$color-text-primary: #1D2129;     // 深灰黑(主标题)
+$color-text-secondary: #4E5969;   // 中度灰(常规正文)
+$color-text-tertiary: #86909C;    // 浅灰(辅助 / 次要)
+$color-text-disabled: #C9CDD4;    // 禁用 / 置灰
+$color-border: #F0F0F0;           // 弱边框
+$color-divider: #F0F0F0;          // 分割线(同弱边框,Sam 规范统一)
+$color-surface-subtle: #FFFAFA;   // 微淡粉作为 subtle 卡片底(主色系呼应)
+$color-background: #FFF5F5;       // 柔粉背景起点(渐变请用 mixin)
+$color-background-end: #FFEFEF;   // 柔粉背景终点
+$color-surface: #FFFFFF;          // 纯白卡片(通用底色,保证可读性)
 
-// ========== 语义色(保留) ==========
-$color-success: #5A8A6F;
-$color-warning: #C77A2C;
-$color-danger: #E5484D;
-$color-info: #3D6B8C;
+// 渐变 mixin —— 整体页面背景按规范用柔粉渐变,组件里 @include page-bg-gradient
+@mixin page-bg-gradient {
+  background: linear-gradient(180deg, $color-background 0%, $color-background-end 100%);
+}
+@mixin brand-gradient {
+  background: linear-gradient(135deg, $color-primary 0%, $color-primary-gradient-end 100%);
+}
+@mixin laoke-gradient {
+  background: linear-gradient(135deg, $color-laoke 0%, $color-laoke-gradient-end 100%);
+}
+
+// ========== 语义色 - Sam v4 新规范 ==========
+$color-success: #00B42A;          // 操作成功 / 状态完成
+$color-warning: #FF7D00;          // 需用户注意的提示
+$color-danger: #F53F3F;           // 操作失败 / 错误
+$color-info: #7DD3E6;             // 信息提示(薄荷蓝复用,语义中性)
 
 // ========== 字号(不变) ==========
 $font-display: 64rpx;
@@ -77,21 +97,21 @@ $space-8: 64rpx;
 $space-12: 96rpx;
 $space-16: 128rpx;
 
-// ========== 圆角(整体收紧到微信温和风) ==========
+// ========== 圆角(柔和温和,不变) ==========
 $radius-sm: 8rpx;        // 小元素 / chip
 $radius: 12rpx;          // 默认
 $radius-md: 16rpx;       // 中等卡片
 $radius-lg: 20rpx;       // 大卡片
-$radius-xl: 24rpx;       // 主气泡(原 52rpx 偏现代,现在像微信)
-$radius-bubble-tail: 4rpx; // 气泡尾巴方向那个角(微信式)
+$radius-xl: 24rpx;       // 主气泡
+$radius-bubble-tail: 4rpx; // 气泡尾巴方向那个角
 $radius-full: 9999rpx;
 
-// ========== 阴影(微信式克制) ==========
+// ========== 阴影(柔和克制 + v4 微调:主阴影换柔粉调) ==========
 $shadow-sm: 0 1rpx 4rpx rgba(0, 0, 0, 0.04);
 $shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
 $shadow-md: 0 4rpx 12rpx rgba(0, 0, 0, 0.06);
 $shadow-lg: 0 8rpx 24rpx rgba(0, 0, 0, 0.08);
-$shadow-xl: 0 16rpx 32rpx rgba(155, 130, 255, 0.10);  // 老 K 主色淡阴(从紫色出)
+$shadow-xl: 0 16rpx 32rpx rgba(255, 125, 149, 0.10);  // 柔粉淡阴(v4 从紫→粉)
 
 // ========== 字体族 ==========
 $font-family-zh: -apple-system, BlinkMacSystemFont,
@@ -99,24 +119,27 @@ $font-family-zh: -apple-system, BlinkMacSystemFont,
                  "HarmonyOS Sans SC", "Source Han Sans SC",
                  sans-serif;
 
-// ========== 暗色模式覆盖(同步双色系) ==========
+// ========== 暗色模式覆盖(v4 同步双色系) ==========
+// Sam 规范没明确暗色,我按"亮色色系的暗色变体"推:主色保留(对比度足够),背景换深色
 @mixin dark-mode {
-  --color-background: #1A1A1A;        // 微信暗色背景
+  --color-background: #1F1F1F;        // 暗色背景(去掉粉调,纯灰更稳)
+  --color-background-end: #1F1F1F;    // 暗色不渐变
   --color-surface: #2C2C2C;
   --color-surface-elevated: #3A3A3A;
+  --color-surface-subtle: #2C2C2C;
   --color-border: #3F3F3F;
   --color-divider: #2A2A2A;
   --color-text-primary: #ECECF5;
   --color-text-secondary: #B8BCD0;
   --color-text-tertiary: #7A8099;
   --color-text-disabled: #5A607A;
-  --color-primary: #07C160;            // 微信绿暗色不变
-  --color-primary-deep: #06994B;
-  --color-primary-soft: #2A4A36;
-  --color-primary-subtle: #1A2A20;
-  --color-laoke: #B0A0FF;              // 紫色提亮(暗色对比度)
-  --color-laoke-deep: #9B82FF;
-  --color-laoke-subtle: #2A2545;
+  --color-primary: #FF8FA3;            // 柔粉提亮少许(暗色对比)
+  --color-primary-deep: #FF7D95;
+  --color-primary-soft: #4A2A30;       // 暗色对应的浅粉(更深的粉调)
+  --color-primary-subtle: #2A1A1F;
+  --color-laoke: #98DEEF;              // 薄荷蓝提亮
+  --color-laoke-deep: #7DD3E6;
+  --color-laoke-subtle: #1F2A2F;
   --color-accent: #C99A7C;
   --color-accent-soft: #A87C5F;
 }
