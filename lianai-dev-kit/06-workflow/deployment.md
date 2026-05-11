@@ -180,6 +180,28 @@ vercel deploy --prod --yes
 
 ---
 
+### 2026-05-11 — Admin 改动反复漏 deploy(Claude 犯错,4 次)
+
+**事件累计 4 次**:
+1. 死代码岛 Step 3 — `sessionRoutes` import 没注释,api ESLint fail → Deployment Checks 阻塞 → production alias 不切,Sam 等 4h+ 才发现
+2. mobile typecheck baseline error 阻塞所有 deploy
+3. mobile chunk hash 不换(Build Cache 卡死)— Sam 操作 Redeploy 取消 cache 才修
+4. **admin `/feedback/product` 页 push 完没手动 deploy** — Sam 看到 404 才反馈
+
+**真因**:
+- Claude **把 commit/push 当 "完成"**,跳过 deploy + verify 步骤
+- 三端 deploy 链路不一致(Railway auto / mobile auto / admin **手动**),Claude 容易混淆
+- 缺乏强制 "完成定义" 检查清单 — 改完就 push,push 完就报告 Sam,不 verify HTTP 200
+
+**避坑铁律**(已写入 CLAUDE.md §16):
+1. **任何改动 commit+push 后,必须按 §16.1-16.3 走对应端 deploy + verify 链路**
+2. **完成 = code shipped + verify HTTP 200/chunk hash 换了 + 关键字命中**,不是 push 完就完
+3. **三端 deploy 行为不同**:Railway 全自动,mobile auto-deploy 但要 verify chunk hash,**admin 必须手动 `vercel deploy --prod --yes`**
+4. 多端 commit 一次 OK,但**deploy 链路必须分别走每端**
+5. 涉及 unused import / 死代码改动 **push 前必跑 lint**(Vercel ESLint 比 tsc 严格,fail 会阻塞 production alias 切换)
+
+---
+
 ## 八、待办(Sam 跟进)
 
 - [ ] Transfer `i-ng-api` 项目到我的 Vercel team(2026-05-10 启动)

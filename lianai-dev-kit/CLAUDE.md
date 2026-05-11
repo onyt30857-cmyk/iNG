@@ -643,12 +643,92 @@ apps/mobile/
 
 部署任何服务前必读:**`06-workflow/deployment.md`**(服务清单、命令、踩过的坑)。
 
-3 个核心服务:
-- **后端**(Railway):`git push origin main` 自动部署
-- **Admin**(Vercel,project `lianai-admin`):`cd apps/admin && vercel deploy --prod --yes`
-- **Mobile H5**(Vercel,project `i-ng-api`):**优先 git push 走 GitHub auto-deploy**,不要本地手动部署
+### 16.0 「完成定义」铁律(2026-05-11 多次踩坑后写入)
 
-**铁律**:跑 `vercel deploy` 之前必须 `cat .vercel/project.json` 确认 project,没 link 不要直接 deploy。详见 deployment.md(教训档案有 2026-05-10 误创 h5 项目的事故记录)。
+**code commit + push ≠ 完成。完成 = code shipped + admin/user 实际能用。**
+
+任何改动只要碰了 `apps/{api,admin,mobile}/**`,**完成定义必须包含**:
+
+1. ✅ typecheck + lint 全过(api lint 比 tsc 严格,涉及 import 改动必跑)
+2. ✅ commit + push 到 main
+3. ✅ **执行对应端的 deploy 链路**(见 §16.1-16.3,每端不同)
+4. ✅ **verify 实际 live**(HTTP 200 / chunk hash 换了 / 关键字 grep 命中)
+
+**没走完 4 步 → 不能对 Sam 说"完成"/"上线"/"ship 了"。** 多次教训证明:跳过 verify 等于把 bug 推给 Sam 发现。
+
+### 16.1 API(Railway,git auto-deploy)
+
+```bash
+# 完成定义检查清单
+git push origin main
+# Railway 自动构建 → 1-3 分钟后:
+railway logs --http --lines 5     # 看是否有新 request
+railway logs 2>&1 | grep "Server listening" | tail -1   # 确认重启时间
+```
+
+**触发 Deployment Checks**(api lint + api typecheck + mobile typecheck):**任一失败 → production alias 不切**,需修复后再 push。
+
+### 16.2 Admin(Vercel **手动** deploy)
+
+```bash
+cd apps/admin
+cat .vercel/project.json    # ★铁律: 确认 projectName=lianai-admin
+pnpm typecheck              # deploy 前最后一关
+vercel deploy --prod --yes  # 40s 左右 ready
+curl -sI https://lianai-admin.vercel.app/<new-path> | head -1   # 验证 HTTP 200
+```
+
+**特别注意**:admin 项目**没接 git auto-deploy**。push main 不会自动上线。必须手动 deploy 这一步。**这步漏了 = Sam 看到的还是上一版,反复出过事故**。
+
+### 16.3 Mobile H5(Vercel `i-ng-api`,git auto-deploy)
+
+```bash
+# push 后等 1-3 分钟,然后 verify
+git push origin main
+sleep 120  # 或 ScheduleWakeup 120s
+curl -sL https://i-ng-api.vercel.app/ | grep -oE '/assets/index-[^"]+\.js' | head -1
+# chunk hash 应该跟上次不同。还是同的 = build cache 命中没真编新代码
+# 然后 fetch 对应 page chunk grep 关键字 verify 新代码进 bundle:
+curl -sL https://i-ng-api.vercel.app/assets/pages-<page>-<hash>.js | grep -c "<新加的中文字符串>"
+```
+
+**踩坑预防**:
+- Vercel **Deployment Checks 失败**(api lint / mobile typecheck)→ Stale,production alias 不切。verify chunk hash 没换就是这个症状,看 Deployments 列表找哪个 check fail
+- `i-ng-api` 项目在 Sam 个人 Vercel 账号(`onyt30857-cmyk`),Claude CLI 看不到,无法手动 redeploy。必须 push + 等 auto-deploy + 修 Checks
+- Mobile H5 ≠ admin:**不要** `cd apps/mobile && vercel deploy`(会误创新 project,2026-05-10 踩过)
+
+### 16.4 已知踩坑档案(2026-05-11 整理)
+
+| 症状 | 根因 | 预防规则 |
+|---|---|---|
+| Sam 看不到 admin 改动 | 改完 commit+push 没手动 `vercel deploy` | 涉及 `apps/admin/**` 改动必走 §16.2 完整链路,**最后必 curl verify HTTP 200** |
+| Vercel deployment "Ready" 但 chunk hash 没换 | Deployment Checks 失败(lint/typecheck)→ Stale 不切 prod alias | push 前**必跑 api lint + mobile typecheck + admin typecheck**,baseline error 也要修(不能放着不动) |
+| api lint 报 unused import 阻塞 deploy | 注释/删 register/usage 时没顺手删 import,tsconfig 没开 noUnusedLocals 所以 tsc 通过 | 涉及 unused import / 死代码改动 push 前**必跑 `pnpm lint`** |
+| mobile chunk hash 同步换了但内容是老的 | Vite content-hash 算 input 一致 → cache 命中复用旧 chunk | Redeploy 时**取消 "Use existing Build Cache"** 复选框 |
+| Claude 本地 CLI 看不到 i-ng-api | 项目在 Sam 另一 Vercel 账号 | 仅靠 git auto-deploy,无法本地 force deploy;待 i-ng-api transfer 到 team 后才能 CLI 操作 |
+
+### 16.5 多端改动的标准流程(必记)
+
+涉及多端时 commit 可一次,但 **deploy 链路必须分别走每端**:
+
+```bash
+# 1. 写代码 → 三端 typecheck + lint 全过
+cd apps/api && pnpm typecheck && pnpm lint
+cd apps/admin && pnpm typecheck
+cd apps/mobile && pnpm typecheck
+
+# 2. commit + push
+git add ... && git commit && git push
+
+# 3. 各端 deploy + verify(并行)
+# API: 等 railway 自动(可 ScheduleWakeup 120s 后看 server listening)
+# Mobile: 等 vercel i-ng-api 自动(可 verify chunk hash)
+# Admin: 手动 cd apps/admin && vercel deploy --prod --yes,然后 curl verify
+
+# 4. 三端全 verify HTTP 200 + 关键字命中后,才能告诉 Sam "完成"
+```
+
+**这是死规则**。**code 改 + push 完不算 ship**。**必须 verify 实际 live**。
 
 ---
 
