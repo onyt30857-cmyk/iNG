@@ -708,6 +708,17 @@ async function deleteIt() {
           <text class="unknown-text">{{ p }}</text>
           <text class="unknown-arrow">去说 →</text>
         </view>
+        <!-- 2026-05-11:加生成入口 — 之前默认是 3 条 hardcode fallback,
+             用户必须切到 Tab 2 点"让老白写一段"才能拿到 LLM 智能生成的版本。
+             现在 Tab 1 也能主动触发,且文案区分初次 vs 重生成。 -->
+        <view class="extract-row">
+          <text class="add-knowledge-tip">
+            {{ llmUnknownPrompts ? '不准了?让老白再看看' : '默认是通用问题,让老白基于你跟她的对话定制' }}
+          </text>
+          <text class="extract-link" @tap="regenerateInsights">
+            {{ insightsLoading ? '老白想着…' : (llmUnknownPrompts ? '再让老白看看 ↺' : '让老白看看 ↺') }}
+          </text>
+        </view>
       </view>
     </view>
 
