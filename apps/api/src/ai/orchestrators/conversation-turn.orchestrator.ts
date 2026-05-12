@@ -602,6 +602,19 @@ export async function runConversationTurn(
   // 预期命中率提升:Item 2 单轮降 55% → Item 5 后单轮降 67%(~¥0.13 → ~¥0.10)
   const { staticContext, dynamicTurn } = composeUserMessageParts(input, longTermMemory)
 
+  // M3.0 Item 9(2026-05-12)Module 3 — Dynamic Few-Shot:从 LearningCase 检索相似 success case
+  // 字面相似度兜底(Item 8 启用 embedding 后升级 cosine);失败返回空,不污染 prompt
+  const { retrieveSimilarSuccessCases, formatFewShotPrompt } = await import(
+    '../../services/relationship/case-retrieval.service.js'
+  )
+  const similarCases = await retrieveSimilarSuccessCases({
+    userText: input.user_text,
+    scene: 'conversation_turn',
+    limit: 2, // 保守 2 个避免 prompt 过长
+    threshold: 0.4,
+  })
+  const fewShotPrompt = formatFewShotPrompt(similarCases)
+
   return callClaudeStream(
     ctx,
     {
@@ -617,7 +630,13 @@ export async function runConversationTurn(
           cache_control: { type: 'ephemeral' }, // Item 5:静态画像/观察/指纹段 cache
         },
       ],
-      messages: [{ role: 'user', content: dynamicTurn }],
+      // M3.0 Item 9:few-shot 案例段(如有)拼在 dynamicTurn 之前
+      messages: [
+        {
+          role: 'user',
+          content: fewShotPrompt ? `${fewShotPrompt}\n${dynamicTurn}` : dynamicTurn,
+        },
+      ],
       // 2026-05-11 v2 修正:回滚 512 限制,该长就长,该短就短(真人感)
       // 慢的体感问题通过前端"深思"等待 UI 解决,不靠强行短回复
       max_tokens: 1024,
