@@ -15,6 +15,18 @@ export interface LlmDashboard {
   total_input_tokens: number
   total_output_tokens: number
   total_cost_usd: number
+  /**
+   * Item 2 prompt cache(2026-05-12)— 窗口期内 cache_read tokens 总和(命中,0.10x 计价)
+   */
+  total_cache_read_tokens: number
+  /** 窗口期内 cache_creation tokens 总和(写入,1.25x 计价)*/
+  total_cache_creation_tokens: number
+  /**
+   * Cache 命中率 = total_cache_read_tokens / total_input_tokens。
+   * 注意:总 input 包含 Haiku 等无 cache 的 scene,所以这个比率天然偏低 — 反映"整体 cache 占比"。
+   * 看 conversation_turn 单独命中情况请用 /llm/calls 列表 Cache 列。
+   */
+  cache_hit_rate: number
   persona_passed_count: number
   persona_passed_rate: number
   /** 错误调用占比(error 字段非空)*/
@@ -64,6 +76,8 @@ export async function getLlmDashboard(windowDays = 7): Promise<LlmDashboard> {
       total: bigint
       input: bigint
       output: bigint
+      cache_read: bigint
+      cache_create: bigint
       cost: number
       passed: bigint
       errors: bigint
@@ -78,6 +92,8 @@ export async function getLlmDashboard(windowDays = 7): Promise<LlmDashboard> {
       COUNT(*)::bigint AS total,
       COALESCE(SUM(input_tokens),0)::bigint AS input,
       COALESCE(SUM(output_tokens),0)::bigint AS output,
+      COALESCE(SUM(cache_read_input_tokens),0)::bigint AS cache_read,
+      COALESCE(SUM(cache_creation_input_tokens),0)::bigint AS cache_create,
       COALESCE(SUM(cost_usd),0)::float AS cost,
       COUNT(*) FILTER (WHERE persona_passed = true)::bigint AS passed,
       COUNT(*) FILTER (WHERE error IS NOT NULL)::bigint AS errors,
@@ -144,12 +160,21 @@ export async function getLlmDashboard(windowDays = 7): Promise<LlmDashboard> {
     LIMIT 10
   `
 
+  const total_input = Number(totals.input)
+  const cache_read = Number(totals.cache_read)
+  const cache_create = Number(totals.cache_create)
+
   return {
     window_days: windowDays,
     total_calls: total,
-    total_input_tokens: Number(totals.input),
+    total_input_tokens: total_input,
     total_output_tokens: Number(totals.output),
     total_cost_usd: totals.cost,
+    total_cache_read_tokens: cache_read,
+    total_cache_creation_tokens: cache_create,
+    // Cache 命中率(全 scene 总聚合)。Item 2 当前只 conversation_turn 启用 cache,
+    // 分母含 Haiku 调用 → 这值天然偏低,看 conversation_turn 单独命中用 /llm/calls 列表
+    cache_hit_rate: total_input > 0 ? cache_read / total_input : 0,
     persona_passed_count: passed,
     persona_passed_rate: total > 0 ? passed / total : 1,
     error_count: Number(totals.errors),

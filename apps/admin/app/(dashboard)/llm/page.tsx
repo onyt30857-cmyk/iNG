@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Activity, AlertTriangle, ShieldOff, Zap, BookOpen, ChevronDown, ChevronRight } from 'lucide-react'
+import { Activity, AlertTriangle, ShieldOff, Zap, BookOpen, ChevronDown, ChevronRight, Layers } from 'lucide-react'
 import { adminGet } from '@/lib/api-client'
 import { formatPercent } from '@/lib/format'
 import { Button } from '@/components/ui/button'
@@ -23,6 +23,10 @@ interface LlmDashboard {
   total_input_tokens: number
   total_output_tokens: number
   total_cost_usd: number
+  // Item 2 prompt cache(2026-05-12)— 后端 admin-llm.service 暴露的字段
+  total_cache_read_tokens: number
+  total_cache_creation_tokens: number
+  cache_hit_rate: number
   persona_passed_count: number
   persona_passed_rate: number
   error_count: number
@@ -224,7 +228,7 @@ export default function LlmDashboardPage() {
       {data && (
         <>
           {/* KPI */}
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
             <Kpi label="总调用" value={fmtNum(data.total_calls)} icon={<Activity className="h-4 w-4" />} />
             <Kpi label="总成本" value={fmtCost(data.total_cost_usd)} icon={<Zap className="h-4 w-4 text-amber-600" />} />
             <Kpi
@@ -238,6 +242,12 @@ export default function LlmDashboardPage() {
               value={formatPercent(data.error_rate)}
               icon={<AlertTriangle className="h-4 w-4" />}
               tone={data.error_rate > 0.02 ? 'warn' : 'ok'}
+            />
+            {/* Item 2 prompt cache 监控(2026-05-12)— 分母含 Haiku 等无 cache scene,数值偏低反映"整体占比" */}
+            <CacheKpi
+              hitRate={data.cache_hit_rate}
+              readTokens={data.total_cache_read_tokens}
+              createTokens={data.total_cache_creation_tokens}
             />
           </div>
 
@@ -414,6 +424,38 @@ function Kpi({ label, value, icon, tone }: { label: string; value: string; icon:
           {icon}
         </div>
         <div className={`text-2xl font-semibold mt-2 ${tone === 'warn' ? 'text-amber-600' : ''}`}>{value}</div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// Item 2 prompt cache 监控卡(主 value 命中率,副信息 R/W tokens 量)
+function CacheKpi({
+  hitRate,
+  readTokens,
+  createTokens,
+}: {
+  hitRate: number
+  readTokens: number
+  createTokens: number
+}) {
+  // 注意:全 scene 聚合,Item 2 只 conversation_turn 启用 cache,分母含 Haiku 偏低
+  // hitRate >= 50% 算绿(主对话占比足),20-50% 灰,< 20% warn(可能没真命中或 Haiku 占比太高)
+  const tone = hitRate >= 0.5 ? 'ok' : hitRate < 0.2 ? 'warn' : undefined
+  const pctText = `${(hitRate * 100).toFixed(1)}%`
+  return (
+    <Card>
+      <CardContent className="p-5">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>Cache 命中率</span>
+          <Layers className="h-4 w-4 text-emerald-600" />
+        </div>
+        <div className={`text-2xl font-semibold mt-2 ${tone === 'warn' ? 'text-amber-600' : tone === 'ok' ? 'text-emerald-600' : ''}`}>
+          {pctText}
+        </div>
+        <div className="text-[10px] text-muted-foreground mt-1 font-mono">
+          R {fmtNum(readTokens)} / W {fmtNum(createTokens)}
+        </div>
       </CardContent>
     </Card>
   )
