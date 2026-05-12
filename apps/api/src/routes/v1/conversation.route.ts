@@ -16,6 +16,7 @@ import { conversationTurnSchema } from '../../schemas/conversation.schema.js'
 import { runConversationTurnForRelationship } from '../../services/replay/conversation-turn.service.js'
 import { runObservationExtractor } from '../../ai/orchestrators/observation-extractor.js'
 import { runFingerprintExtractor } from '../../ai/orchestrators/fingerprint-extractor.js'
+import { runQualitySelfCheck } from '../../services/quality-self-check.service.js'
 import { prisma } from '../../lib/prisma.js'
 import { config } from '../../config/index.js'
 import { estimateCostUsd } from '../../ai/call-log.js'
@@ -202,6 +203,17 @@ export async function conversationRoutes(app: FastifyInstance): Promise<void> {
           void runFingerprintExtractor({ userId })
         })
       }
+
+      // 6) M3.0 Item 4 Module 1(2026-05-12):quality-self-check 异步检测 anti-pattern
+      //    内部 in-memory cache 每 session 5 turn 触发一次 + 全 catch
+      //    落 prompt_feedback (feedback_type='auto_lint'),admin /feedback "自动检测"可见
+      setImmediate(() => {
+        void runQualitySelfCheck({
+          userId,
+          relationshipId,
+          sessionId: sessionId ?? null,
+        })
+      })
     },
   )
 }
