@@ -34,6 +34,9 @@ interface CallItem {
   model: string
   input_tokens: number
   output_tokens: number
+  // Item 2 prompt cache(2026-05-12)— 后端 select 暴露的两字段
+  cache_creation_input_tokens: number
+  cache_read_input_tokens: number
   cost_usd: number
   duration_ms: number
   persona_passed: boolean
@@ -180,6 +183,7 @@ export default function LlmCallsPage() {
               <TableHead>Scene</TableHead>
               <TableHead>Model</TableHead>
               <TableHead className="text-right">Tokens(in/out)</TableHead>
+              <TableHead className="text-right">Cache</TableHead>
               <TableHead className="text-right">$</TableHead>
               <TableHead className="text-right">耗时</TableHead>
               <TableHead>状态</TableHead>
@@ -189,14 +193,14 @@ export default function LlmCallsPage() {
           <TableBody>
             {loading && !data && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                   加载中…
                 </TableCell>
               </TableRow>
             )}
             {data && data.items.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                   没数据。如果 AiCallLog Pino transport 刚上线,等几次真请求后再回来。
                 </TableCell>
               </TableRow>
@@ -217,6 +221,23 @@ export default function LlmCallsPage() {
                 <TableCell className="font-mono text-xs">{c.model.replace('claude-', '')}</TableCell>
                 <TableCell className="text-right text-xs">
                   {c.input_tokens}/{c.output_tokens}
+                </TableCell>
+                <TableCell className="text-right text-xs font-mono">
+                  {/* Item 2 cache 展示:R 命中 / W 写入 / — 都没 */}
+                  {c.cache_read_input_tokens > 0 ? (
+                    <span className="text-green-600">
+                      R {c.cache_read_input_tokens}
+                      {c.input_tokens > 0 && (
+                        <span className="text-muted-foreground">
+                          {' '}({Math.round((c.cache_read_input_tokens / c.input_tokens) * 100)}%)
+                        </span>
+                      )}
+                    </span>
+                  ) : c.cache_creation_input_tokens > 0 ? (
+                    <span className="text-amber-600">W {c.cache_creation_input_tokens}</span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-right text-xs">${c.cost_usd.toFixed(4)}</TableCell>
                 <TableCell className="text-right text-xs">

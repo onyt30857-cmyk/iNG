@@ -232,6 +232,9 @@ export async function listLlmCalls(filter: LlmCallListFilter) {
         model: true,
         input_tokens: true,
         output_tokens: true,
+        // Item 2 prompt cache(2026-05-12)— 展示 cache 命中情况给 admin
+        cache_creation_input_tokens: true,
+        cache_read_input_tokens: true,
         cost_usd: true,
         duration_ms: true,
         persona_passed: true,
