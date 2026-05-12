@@ -23,6 +23,11 @@ const relStore = useRelationshipStore()
 // 守卫:未 onboarded 不该进这页(走 welcome → profile 流程)
 // 已建过关系也不该回到这页(防误进)
 const ready = ref(false)
+
+// 跟 welcome.vue 同款 3 气泡渐进节奏 — 200ms / 1000ms / 1800ms
+// 避免 3 句一起冒出来情感冲(welcome / profile 都是渐进显示)
+const visibleCount = ref(0)
+
 onMounted(async () => {
   await userStore.syncFromServer()
   if (!userStore.isOnboarded()) {
@@ -38,6 +43,14 @@ onMounted(async () => {
     return
   }
   ready.value = true
+
+  // 气泡分批出现(跟 welcome 一致节奏)
+  const delays = [200, 1000, 1800]
+  delays.forEach((d, i) => {
+    setTimeout(() => {
+      visibleCount.value = i + 1
+    }, d)
+  })
 })
 
 // 流程阶段
@@ -109,11 +122,29 @@ function skip() {
       </view>
     </view>
 
-    <!-- 对话流 -->
+    <!-- 对话流(3 气泡渐进 fade-in,跟 welcome 一致节奏)-->
     <view class="messages">
-      <view class="bubble">对了,最后一件事 —</view>
-      <view class="bubble">心里要是有那么个人,告诉我她叫啥,我帮你记下来。</view>
-      <view class="bubble">还没想好也行,以后再说。</view>
+      <view
+        v-show="visibleCount >= 1"
+        class="bubble"
+        :class="{ 'fade-in': visibleCount >= 1 }"
+      >
+        对了,最后一件事 —
+      </view>
+      <view
+        v-show="visibleCount >= 2"
+        class="bubble"
+        :class="{ 'fade-in': visibleCount >= 2 }"
+      >
+        心里要是有<text class="strong">那么一个人</text>,告诉我她叫啥,我帮你记下来。
+      </view>
+      <view
+        v-show="visibleCount >= 3"
+        class="bubble"
+        :class="{ 'fade-in': visibleCount >= 3 }"
+      >
+        还没想好也行,以后再说。
+      </view>
 
       <!-- 用户回名(submit 后显示) -->
       <view v-if="phase !== 'asking'" class="bubble user">{{ name.trim() }}</view>
@@ -156,13 +187,13 @@ function skip() {
           <text v-else>↑</text>
         </button>
       </view>
-      <!-- Escape hatch -->
+      <!-- Escape hatch(样式跟 welcome.recover-link 双段式一致)-->
       <view
         v-if="phase === 'asking'"
         class="skip-link"
         @tap="skip"
       >
-        <text class="skip-link-text">先不告诉,看看再说</text>
+        还没想好?<text class="skip-link-strong">先看看再说</text>
       </view>
     </view>
   </view>
@@ -221,19 +252,31 @@ function skip() {
   box-shadow: $shadow-sm;
   margin: 0 auto 0 0;
   margin-bottom: $space-3;
-  animation: bubbleIn .35s ease both;
+  white-space: pre-line;
+}
+// 默认不 animate,加 .fade-in 才触发(跟 welcome 一致模式)
+// 配合 v-show + visibleCount 让 3 气泡分批渐进出现
+.bubble.fade-in {
+  animation: bubbleIn .45s ease both;
 }
 .bubble.user {
   margin: 0 0 $space-3 auto;
   background: $color-primary;
   color: #fff;
   border-radius: $radius-xl $radius-bubble-tail $radius-xl $radius-xl;
+  animation: bubbleIn .35s ease both;
 }
 .bubble.closing {
   background: $color-surface;
+  animation: bubbleIn .35s ease both;
+}
+// 关键词高亮:薄荷蓝(老白专色,品牌锚点)— 跟 welcome.vue .strong 同款
+.strong {
+  color: $color-laoke;
+  font-weight: $weight-semibold;
 }
 @keyframes bubbleIn {
-  from { opacity: 0; transform: translateY(8rpx); }
+  from { opacity: 0; transform: translateY(12rpx); }
   to { opacity: 1; transform: none; }
 }
 
@@ -309,16 +352,18 @@ function skip() {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-// Escape hatch — 比主 CTA 弱,但可点(克制留白)
+// Escape hatch — 双段式(灰字 + 柔粉强调),跟 welcome.recover-link 同款
 .skip-link {
-  margin-top: $space-2;
-  padding: $space-2 0;
   text-align: center;
-  &:active { opacity: 0.55; }
-}
-.skip-link-text {
   font-size: $font-footnote;
   color: $color-text-tertiary;
+  margin-top: $space-3;
+  padding: $space-2;
+  &:active { opacity: 0.6; }
+}
+.skip-link-strong {
+  color: $color-primary;
+  font-weight: $weight-medium;
 }
 
 /* 暗色(跟 profile/welcome 同款) */
