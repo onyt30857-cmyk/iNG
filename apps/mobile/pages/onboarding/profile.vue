@@ -104,9 +104,10 @@ async function finish(skipAvatar: boolean) {
     })
   }
 
-  // 1s 给"行,我们这就开始"气泡留显示时间,然后 reLaunch
+  // 1s 给收尾气泡留显示时间,然后跳 first-relationship 让用户建第一段关系
+  // (2026-05-12:之前直接跳 home 让用户落空状态,改成 Replika 模式 — onboarding 末尾建第一段关系产生 ownership)
   setTimeout(() => {
-    uni.reLaunch({ url: '/pages/home/index' })
+    uni.reLaunch({ url: '/pages/onboarding/first-relationship' })
   }, 1000)
 }
 
@@ -173,8 +174,8 @@ async function finish(skipAvatar: boolean) {
         </view>
       </template>
 
-      <!-- 提交成功后老白收尾气泡(submit 后短暂显示再跳转)-->
-      <view v-if="phase === 'submitting'" class="bubble closing">行,我们这就开始。</view>
+      <!-- 提交成功后老白承接气泡(submit 后短暂显示再跳 first-relationship)-->
+      <view v-if="phase === 'submitting'" class="bubble closing">记下了。</view>
 
       <!-- 滚动锚 -->
       <view id="anchor-bottom" class="anchor" />

@@ -72,6 +72,12 @@
       }
     },
     {
+      "path": "pages/onboarding/first-relationship",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/profile/edit",
       "style": {
         "navigationBarTitleText": "编辑资料"
