@@ -1243,6 +1243,42 @@ model SystemConfig {
 // 替代 M1 每轮重算 Haiku 的应急方案。
 // 缓存 key = relationship_id(每段关系一份摘要)
 // covered_until_count = 缓存生成时 history.length(用于判断是否需增量更新)
+// M3.0 Item 6(2026-05-12)— 案例库,Module 2 数据沉淀
+// 用户 like + admin ≥4 分 → type='success',反 → type='failure'
+// 为 Item 9 Dynamic Few-Shot 准备数据;Item 8 加 embedding 字段(M3.2 7 月)
+//
+// 设计:单表 + type 字段(比双表 SuccessCase/FailureCase 简洁;查询更灵活)
+model LearningCase {
+  id              String   @id @default(cuid())
+
+  // 'success' | 'failure'
+  type            String
+
+  // 来源
+  source_type     String   // 'user_feedback' / 'admin_score' / 'manual'
+  source_id       String?  // PromptFeedback.id / annotation id
+
+  user_id         String
+  relationship_id String?
+  message_id      String   // 老白消息 ID(Message.id)
+
+  // 上下文(给 Module 3 few-shot 用)
+  user_text       String   @db.Text  // 用户当时说啥
+  laoke_text      String   @db.Text  // 老白怎么回的
+  scene           String   // conversation_turn / ocr / ...
+
+  // 评分 0-5(success: ≥4, failure: ≤2)
+  score           Float    @default(0)
+  score_reason    String?  @db.Text
+
+  created_at      DateTime @default(now()) @db.Timestamptz
+
+  @@unique([type, source_id])
+  @@index([type, scene, created_at])
+  @@index([relationship_id, created_at])
+  @@map("learning_cases")
+}
+
 model LongTermMemoryCache {
   id                    String @id @default(cuid())
   relationship_id       String @unique

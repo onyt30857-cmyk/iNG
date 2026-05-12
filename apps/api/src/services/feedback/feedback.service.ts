@@ -52,7 +52,82 @@ export async function submitFeedback(
       feedback_note: input.comment ?? null,
     },
   })
+
+  // M3.0 Item 6(2026-05-12)— Module 2 案例库:like → success / dislike → failure
+  // 异步 fire-and-forget,不阻塞 feedback 提交
+  if (input.feedback_type === 'like' || input.feedback_type === 'dislike') {
+    void recordLearningCase({
+      type: input.feedback_type === 'like' ? 'success' : 'failure',
+      source_type: 'user_feedback',
+      source_id: created.id,
+      user_id: userId,
+      relationship_id: input.relationship_id,
+      message_id: input.message_id,
+      laoke_text: input.bubble_text,
+      // 评分:like 默认 5,dislike 默认 1(后续 admin 评分可覆盖)
+      score: input.feedback_type === 'like' ? 5 : 1,
+      score_reason: input.comment ?? null,
+    })
+  }
+
   return { id: created.id }
+}
+
+/**
+ * M3.0 Item 6:写 LearningCase(Module 2 数据沉淀,为 Item 9 Dynamic Few-Shot 准备)
+ * fire-and-forget,失败 log 不抛
+ */
+async function recordLearningCase(input: {
+  type: 'success' | 'failure'
+  source_type: 'user_feedback' | 'admin_score' | 'manual'
+  source_id: string | null
+  user_id: string
+  relationship_id: string
+  message_id: string
+  laoke_text: string
+  score: number
+  score_reason: string | null
+}): Promise<void> {
+  try {
+    // 找用户当时说啥 — 老白这条 message 的前一条 user 消息
+    const laokeMsg = await prisma.message.findUnique({
+      where: { id: input.message_id },
+      select: { session_id: true, created_at: true },
+    })
+    if (!laokeMsg) return
+
+    const prevUserMsg = await prisma.message.findFirst({
+      where: {
+        session_id: laokeMsg.session_id,
+        role: { in: ['USER', 'USER_SCREENSHOT'] },
+        created_at: { lt: laokeMsg.created_at },
+      },
+      orderBy: { created_at: 'desc' },
+      select: { content: true },
+    })
+
+    await prisma.learningCase.create({
+      data: {
+        type: input.type,
+        source_type: input.source_type,
+        source_id: input.source_id,
+        user_id: input.user_id,
+        relationship_id: input.relationship_id,
+        message_id: input.message_id,
+        user_text: prevUserMsg?.content ?? '(未找到用户上文)',
+        laoke_text: input.laoke_text,
+        scene: 'conversation_turn', // admin scene 评分入口接入时可覆盖
+        score: input.score,
+        score_reason: input.score_reason,
+      },
+    })
+  } catch (e) {
+    // 重复 like/dislike 触发 unique 约束(type+source_id),catch 静默
+    if (!(e instanceof Error && e.message.includes('Unique'))) {
+      // eslint-disable-next-line no-console
+      console.warn('[learning-case] write failed:', e)
+    }
+  }
 }
 
 /** 撤销某条反馈(同 user+message+type) */
