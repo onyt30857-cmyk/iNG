@@ -10,7 +10,6 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FeedbackTrendChart } from '@/components/dashboard/feedback-trend-chart'
 import { FeedbackAnomalyBanner } from '@/components/dashboard/feedback-anomaly-banner'
-import { FeedbackVersionComparison } from '@/components/dashboard/feedback-version-comparison'
 import { FeedbackSceneBreakdown } from '@/components/dashboard/feedback-scene-breakdown'
 import { FeedbackClusters } from '@/components/dashboard/feedback-clusters'
 
@@ -186,10 +185,9 @@ export default function FeedbackDashboardPage() {
       {/* 一周吐槽自动归类(spec-021 P0-2)*/}
       <FeedbackClusters />
 
-      {/* Scene 分粒度 + Prompt 版本对比(spec-021 P1-4 + P0-3)*/}
-      <div className="grid gap-4 lg:grid-cols-2">
+      {/* Scene 分粒度(M3.0 Item 1 拆 prompt 工程台后,删 Prompt 版本对比区块)*/}
+      <div className="grid gap-4">
         <FeedbackSceneBreakdown windowDays={windowDays} />
-        <FeedbackVersionComparison />
       </div>
 
       {errorMsg && (

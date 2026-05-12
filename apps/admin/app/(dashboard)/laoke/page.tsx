@@ -39,7 +39,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { LaokeAvatar } from '@/components/laoke/laoke-avatar'
-import { ActivePromptsCard } from '@/components/laoke/active-prompts-card'
 
 interface Persona {
   id: string
@@ -86,7 +85,7 @@ interface AuditItem {
   created_at: string
 }
 
-type TabKey = 'persona' | 'prompts' | 'red_lines' | 'ai_config' | 'audit'
+type TabKey = 'persona' | 'red_lines' | 'ai_config' | 'audit'
 
 export default function LaokePage() {
   const [persona, setPersona] = useState<Persona | null>(null)
@@ -126,13 +125,10 @@ export default function LaokePage() {
       {/* Hero — 老白形象卡(永久顶部)*/}
       <Hero persona={persona} onAvatarChanged={loadAll} />
 
-      {/* 5 Tab 切换 — 人格 / 在用 Prompt / 红线 / AI 配置 / 修改历史 */}
+      {/* 4 Tab 切换(M3.0 Item 1 拆 prompt 工程台后,删 '在用 Prompt' tab):人格 / 红线 / AI 配置 / 修改历史 */}
       <div className="border-b flex items-center gap-1 overflow-x-auto">
         <TabButton active={tab === 'persona'} onClick={() => setTab('persona')} icon={<User className="h-4 w-4" />}>
           人格
-        </TabButton>
-        <TabButton active={tab === 'prompts'} onClick={() => setTab('prompts')} icon={<Brain className="h-4 w-4" />}>
-          在用 Prompt
         </TabButton>
         <TabButton
           active={tab === 'red_lines'}
@@ -152,7 +148,6 @@ export default function LaokePage() {
 
       {/* Tab 内容 */}
       {tab === 'persona' && <PersonaTab persona={persona} onSaved={loadAll} />}
-      {tab === 'prompts' && <ActivePromptsCard />}
       {tab === 'red_lines' && <RedLinesTab rules={redLines} onChanged={loadAll} />}
       {tab === 'ai_config' && aiConfig && <AiConfigTab config={aiConfig} />}
       {tab === 'audit' && <AuditTab items={audit} />}

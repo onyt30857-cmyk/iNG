@@ -1052,6 +1052,9 @@ enum RefundStatus {
 
 // === 模块 B:Prompt 工程台 ===
 
+/// @deprecated M3.0 Item 1 拆除幽灵 prompt 工程台后保留(2026-05-12)
+/// 应用层 0 引用(admin-prompt.service / prompt-loader / default-prompts 已删)
+/// 历史数据保留,M4 决定物理 drop table
 model PromptVersion {
   id             String    @id @default(cuid())
   // 'conversation_turn' / 'parsing' / 'ocr' / 'intent_classifier' 等
@@ -1077,6 +1080,7 @@ model PromptVersion {
   @@map("prompt_versions")
 }
 
+/// @deprecated 同 PromptVersion(M3.0 Item 1 拆除,M4 物理 drop)
 model PromptEvalDataset {
   id          String   @id @default(cuid())
   name        String   @unique
@@ -1093,6 +1097,7 @@ model PromptEvalDataset {
   @@map("prompt_eval_datasets")
 }
 
+/// @deprecated 同 PromptVersion(M3.0 Item 1 拆除,M4 物理 drop)
 model PromptEval {
   id                String  @id @default(cuid())
   prompt_version_id String

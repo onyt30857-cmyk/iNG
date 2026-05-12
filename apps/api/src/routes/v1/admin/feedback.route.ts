@@ -13,7 +13,6 @@ import {
   listDislikes,
   getMessageContextForFeedback,
   getFeedbackTrend,
-  getPromptVersionComparison,
   getSceneFeedbackBreakdown,
   exportDislikesCsv,
 } from '../../../services/admin/admin-feedback.service.js'
@@ -84,18 +83,6 @@ export async function adminFeedbackRoutes(app: FastifyInstance): Promise<void> {
   app.get('/v1/admin/feedback/scene-breakdown', async (request) => {
     const q = dashboardQuerySchema.parse(request.query)
     const result = await getSceneFeedbackBreakdown(q.windowDays)
-    return { ok: true, data: result }
-  })
-
-  // GET /v1/admin/feedback/version-comparison — prompt 版本对比(spec-021 P0-3)
-  app.get('/v1/admin/feedback/version-comparison', async (request) => {
-    const q = z
-      .object({
-        promptName: z.string().default('conversation_turn'),
-        windowDays: z.coerce.number().int().min(1).max(365).default(90),
-      })
-      .parse(request.query)
-    const result = await getPromptVersionComparison(q.promptName, q.windowDays)
     return { ok: true, data: result }
   })
 

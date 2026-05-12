@@ -28,7 +28,6 @@ import { adminUserRoutes } from './routes/v1/admin/users.route.js'
 import { adminFeedbackRoutes } from './routes/v1/admin/feedback.route.js'
 import { adminProductFeedbackRoutes } from './routes/v1/admin/product-feedback.route.js'
 import { adminLlmRoutes } from './routes/v1/admin/llm.route.js'
-import { adminPromptRoutes } from './routes/v1/admin/prompts.route.js'
 import { adminAnnotationRoutes } from './routes/v1/admin/annotations.route.js'
 import { adminBehaviorRoutes } from './routes/v1/admin/behavior.route.js'
 import { adminSettingsRoutes } from './routes/v1/admin/settings.route.js'
@@ -122,7 +121,6 @@ async function buildApp() {
   await app.register(adminFeedbackRoutes)
   await app.register(adminProductFeedbackRoutes)
   await app.register(adminLlmRoutes)
-  await app.register(adminPromptRoutes)
   await app.register(adminAnnotationRoutes)
   await app.register(adminBehaviorRoutes)
   await app.register(adminSettingsRoutes)

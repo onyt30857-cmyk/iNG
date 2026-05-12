@@ -204,8 +204,8 @@ export default function LlmDashboardPage() {
                   </p>
                   <p className="text-muted-foreground">
                     <strong className="text-foreground">第 4 步</strong>:
-                    去 <Link href="/prompts" className="text-primary underline">/prompts</Link>
-                    改老白说话方式,加段"不要说'我建议',直接给判断"
+                    去 <Link href="/laoke" className="text-primary underline">/laoke</Link> 人格 tab
+                    改 LaokePersona,加段"不要说'我建议',直接给判断"
                   </p>
                   <p className="text-muted-foreground">
                     <strong className="text-foreground">第 5 步</strong>:

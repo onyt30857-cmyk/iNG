@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   LogOut,
   Activity,
-  FileCode2,
   ClipboardCheck,
   Settings,
   Settings2,
@@ -71,7 +70,6 @@ const NAV_GROUPS: NavGroup[] = [
     hint: '改老白本身',
     items: [
       { href: '/laoke', label: '老白档案', icon: Sparkles },
-      { href: '/prompts', label: 'Prompt 工程', icon: FileCode2 },
     ],
   },
   {
