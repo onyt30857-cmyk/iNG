@@ -311,21 +311,35 @@ ENTRY → PARSING → REFLECTING → DIAGNOSING → PLANNING → DRAFTING → CL
 - **禁止事项**:这次特别不要做什么
 
 ### 7.3 Prompt cache 必须启用
-对于复用的静态部分(角色定义、few-shot 示例),用 Anthropic prompt cache:
+
+**✅ 已启用主对话路径**(2026-05-12, M3.0 Item 2 上线,见 `lianai-dev-kit-m3-v2/04-COST-OPT-PHASE-1-SPEC.md`):
 
 ```typescript
-const messages = [
-  {
-    role: 'system',
-    content: [
-      { type: 'text', text: STATIC_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
-      { type: 'text', text: dynamicContext }  // 不缓存
-    ]
-  }
-]
+// apps/api/src/ai/orchestrators/conversation-turn.orchestrator.ts
+return callClaudeStream(ctx, {
+  system: [
+    {
+      type: 'text',
+      text: systemPrompt, // TURN_SYSTEM_PROMPT_PREFIX + persona.text (~2,500 token)
+      cache_control: { type: 'ephemeral' }, // 5min TTL,命中按 0.10x 计价
+    },
+  ],
+  messages: [{ role: 'user', content: userMessage }],  // userMessage 不缓存
+  ...
+})
 ```
 
-可节省 90% 的输入 token 成本。
+**当前缓存范围**:`TURN_SYSTEM_PROMPT_PREFIX + LAOKE_CORE_PERSONA + LaokePersona 表合并`(~2,500 token,单段 ephemeral)。userMessage 不进 cache(每轮都变)。
+
+**监控字段**:`AiCallLog.cache_creation_input_tokens`(写入 cache,1.25x 计价) + `cache_read_input_tokens`(命中,0.10x 计价)。admin `/llm/calls` 有 "Cache" 列显示命中状态。
+
+**实测命中率 / 单轮成本下降**:待观察期复盘后填(2026-05-19,Item 2 上线一周)。
+
+**Phase 2 计划**(2026-06):重排 `composeUserMessage` 把"画像 / observations / fingerprint"也进 cache,把命中范围从 ~2,500 token 扩到 ~10,000 token,预计降幅从 55% 拉到 67%。
+
+**Haiku 调用不启用**:intent / red-line / observation / fingerprint 这些 Haiku 调用 input 通常 < 2,048 token,达不到 cache 最小门槛,启用收益不大。
+
+**理论降幅参考**:静态前缀 100% 命中时,Sonnet input 部分降 80-90%(0.10x 计价),整体单轮降 55%(¥0.30 → ¥0.13)。
 
 ### 7.4 Prompt 修改流程
 1. 改之前先读 `03-prompts/<name>.md`
@@ -634,6 +648,8 @@ apps/mobile/
 10. **Session 表 6 字段已 @deprecated 但物理保留**:`state` / `scenario` / `entry_note` / `state_context` / `crisis_triggered` / `red_line_triggered` 6 个 spec-005 字段加了 `///` Prisma 注释,spec-006 路径下永远默认值不更新。Session 表本身仍是"对话线程"容器(messages 通过 session_id 关联),不删。M4 决定是否物理删 column。`UserReflection` / `GeneratedReply` 模型也加了 deprecated 头注释。
 11. **老白人格漂移风险**:M3 三期累计加多个 prompt 段(M3.0 已加 `# 你的局限` / `# 你的脾气(温和拒绝)` / `# 特殊场景判断`),persona 总长涨了。需要持续 persona-check ≥95% + Sam 主观评估"看着像同一个老白"。M3.0 上线后 4 周观察期看 dislike 比例是否回升。
 12. **M3.0 testset 未跑**:能力 3-6 的 prompt 已部署,但 testset(`lianai-dev-kit-m3/04-TESTSET-M3.md` §3-§6)是产品语言测试,需要真 LLM 调用 + 人判断。Sam 用真实 mobile 跑 + 截图记录,M3.0 上线前必须达标。
+
+13. **Prompt cache 已启用主对话路径**(2026-05-12 M3.0 Item 2):`conversation-turn.orchestrator` 把 `TURN_SYSTEM_PROMPT_PREFIX + persona.text`(~2,500 token)用 ephemeral cache_control 缓存,5min TTL,命中 0.10x 计价。Haiku 调用(intent / red-line / observation / fingerprint)未启用 — Haiku input 通常 < 2,048 token,达不到 cache 最小门槛。**观察期到 2026-05-19**:看实测命中率 + 单轮成本降幅是否达标(预期降 55%),不达标决定是否调整(扩 cache 范围或 1-hour TTL)。
 
 这些不是缺陷,是 v1.0 / M3 进行中的边界。开工后一定会修订。
 
