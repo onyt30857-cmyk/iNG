@@ -17,9 +17,6 @@ import { helloRoute } from './routes/hello.route.js'
 import { authRoutes } from './routes/v1/auth.route.js'
 import { userRoutes } from './routes/v1/user.route.js'
 import { relationshipRoutes } from './routes/v1/relationship.route.js'
-// M3.0 能力 2 Step 3:sessionRoutes register 已注释,import 顺带注释避免 ESLint
-// no-unused-vars。Step 4(2026-05-18)删 session.route.ts 时一起删这两行。
-// import { sessionRoutes } from './routes/v1/session.route.js'
 import { ocrRoutes } from './routes/v1/ocr.route.js'
 import { conversationRoutes } from './routes/v1/conversation.route.js'
 import { feedbackRoutes } from './routes/v1/feedback.route.js'
@@ -108,13 +105,6 @@ async function buildApp() {
   await app.register(authRoutes)
   await app.register(userRoutes)
   await app.register(relationshipRoutes)
-  // M3.0 能力 2 Step 3(2026-05-11):注释掉 sessionRoutes 公网入口
-  // 该路由对应 spec-005 复盘流程,mobile 已切到 conversation-turn (spec-006),
-  // 客户端代码 0 引用 + Railway log 窗口 0 调用 + mobile 是 H5(自动升级,无未升级版本)。
-  // 1 周观察期无报错后,Step 4 删除 session.route.ts + replay-orchestrator.service +
-  // 5 个旧 orchestrator + state-machines/replay.machine.ts(共 ~2000 行 / 10 文件)。
-  // 出问题取消注释即可恢复(import 仍保留)。详见 lianai-dev-kit-m3/01-M3.0-SPEC.md §2。
-  // await app.register(sessionRoutes)
   await app.register(ocrRoutes)
   await app.register(conversationRoutes)
   await app.register(feedbackRoutes)
