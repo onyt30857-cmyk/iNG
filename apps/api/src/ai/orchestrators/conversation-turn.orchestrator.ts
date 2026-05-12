@@ -414,22 +414,33 @@ export async function runConversationTurn(
     input.relationship_name,
   )
 
-  const userMessage = composeUserMessage(input, longTermMemory)
+  // M3.0 Item 5(2026-05-12)成本 Phase 2 — 把 composeUserMessage 拆 static/dynamic 双段:
+  //   staticContext = 关系/画像/观察/指纹/inner/长期记忆(~5,000-8,000 token,每轮基本不变)
+  //   dynamicTurn   = history + user_text(每轮变,不 cache)
+  //
+  // System blocks 2 段(Anthropic SDK 支持多 cache_control breakpoint):
+  //   block 1: TURN_SYSTEM_PROMPT_PREFIX + persona (~2,500 token, cache_control=ephemeral) ← Item 2 已有
+  //   block 2: staticContext (~5,000-8,000 token, cache_control=ephemeral)              ← Item 5 新增
+  //
+  // 预期命中率提升:Item 2 单轮降 55% → Item 5 后单轮降 67%(~¥0.13 → ~¥0.10)
+  const { staticContext, dynamicTurn } = composeUserMessageParts(input, longTermMemory)
 
   return callClaudeStream(
     ctx,
     {
-      // Item 2 prompt cache(2026-05-12):把 TURN_SYSTEM_PROMPT_PREFIX + persona 整段(~2,500 token)
-      // 用 ephemeral cache_control 缓存,5min TTL,命中按 0.10x 计价。
-      // userMessage 不进 cache(每轮都变),Phase 2 重排顺序后再扩大缓存范围。
       system: [
         {
           type: 'text',
           text: systemPrompt,
-          cache_control: { type: 'ephemeral' },
+          cache_control: { type: 'ephemeral' }, // Item 2:persona 段 cache
+        },
+        {
+          type: 'text',
+          text: staticContext,
+          cache_control: { type: 'ephemeral' }, // Item 5:静态画像/观察/指纹段 cache
         },
       ],
-      messages: [{ role: 'user', content: userMessage }],
+      messages: [{ role: 'user', content: dynamicTurn }],
       // 2026-05-11 v2 修正:回滚 512 限制,该长就长,该短就短(真人感)
       // 慢的体感问题通过前端"深思"等待 UI 解决,不靠强行短回复
       max_tokens: 1024,
@@ -439,92 +450,119 @@ export async function runConversationTurn(
   )
 }
 
-export function composeUserMessage(
+/**
+ * M3.0 Item 5(2026-05-12)— 拆 composeUserMessage 为 static / dynamic 双段:
+ *   staticContext = 关系基本/画像/观察/指纹/inner/长期记忆(每轮变化小,进 cache)
+ *   dynamicTurn   = history + user_text(每轮变,不 cache)
+ *
+ * 注:profile_assertions / observations / fingerprint 在用户跨轮提问内通常稳定,
+ * 即使有变化,字符串 cache 内容跟新一轮不同会自动 miss-then-write 新 cache,无破坏。
+ */
+export function composeUserMessageParts(
   input: ConversationTurnInput,
   longTermMemory?: string | null,
-): string {
-  const lines: string[] = []
+): { staticContext: string; dynamicTurn: string } {
+  const staticLines: string[] = []
+  const dynamicLines: string[] = []
 
-  // spec-m2-001:关系基本信息扩展(从只有 name 升级)
-  lines.push('# 关系')
-  lines.push(`你跟兄弟正在聊「${input.relationship_name}」这段关系。`)
+  // === Static (进 cache)===
+
+  // spec-m2-001:关系基本信息
+  staticLines.push('# 关系')
+  staticLines.push(`你跟兄弟正在聊「${input.relationship_name}」这段关系。`)
   if (input.relationship_stage) {
-    lines.push(`关系阶段:${input.relationship_stage}`)
+    staticLines.push(`关系阶段:${input.relationship_stage}`)
   }
   if (input.relationship_months_known !== undefined) {
-    lines.push(`兄弟跟她聊了大概 ${input.relationship_months_known} 个月`)
+    staticLines.push(`兄弟跟她聊了大概 ${input.relationship_months_known} 个月`)
   }
-  lines.push('')
+  staticLines.push('')
 
-  // spec-m2-001:她的稳定特征(profile_assertions 高 priority + confidence 排序的前 20 条)
-  lines.push('# 她的稳定特征(高置信优先,你要把这些融入判断,不要机械列出)')
+  // spec-m2-001:她的稳定特征(profile_assertions)
+  staticLines.push('# 她的稳定特征(高置信优先,你要把这些融入判断,不要机械列出)')
   if (input.profile_assertions && input.profile_assertions.length > 0) {
     for (const a of input.profile_assertions) {
-      lines.push(`- ${a.assertion_text}`)
+      staticLines.push(`- ${a.assertion_text}`)
     }
   } else {
-    lines.push('(还没积累出来)')
+    staticLines.push('(还没积累出来)')
   }
-  lines.push('')
+  staticLines.push('')
 
-  // spec-m2-001:老白以前对她的观察(三类 type 全取,最近 30 条)
-  lines.push('# 老白以前对她的观察(最近 30 条,三类:实时/事实抽取/历史回填)')
+  // spec-m2-001:老白以前对她的观察
+  staticLines.push('# 老白以前对她的观察(最近 30 条,三类:实时/事实抽取/历史回填)')
   if (input.recent_observations && input.recent_observations.length > 0) {
     for (const o of input.recent_observations) {
-      lines.push(`- ${o.observation_text}`)
+      staticLines.push(`- ${o.observation_text}`)
     }
   } else {
-    lines.push('(还没观察)')
+    staticLines.push('(还没观察)')
   }
-  lines.push('')
+  staticLines.push('')
 
-  // spec-m2-001:兄弟的语气指纹(user_language_fingerprint,跨关系)
-  lines.push('# 兄弟的语气(给话术时贴他平时说话风格)')
+  // spec-m2-001:兄弟的语气指纹
+  staticLines.push('# 兄弟的语气(给话术时贴他平时说话风格)')
   if (input.language_fingerprint) {
     const fp = input.language_fingerprint
-    lines.push(
+    staticLines.push(
       `句长:${fp.message_length}`
         + ` / 正式度:${fp.formality}/100`
         + ` / 情绪强度:${fp.emotionality}/100`
         + ` / ${fp.uses_emoji ? '用 emoji' : '不爱 emoji'}`,
     )
     if (fp.preferred_phrases.length > 0) {
-      lines.push(`常用短语:${fp.preferred_phrases.join(' / ')}`)
+      staticLines.push(`常用短语:${fp.preferred_phrases.join(' / ')}`)
     }
   } else {
-    lines.push('(还没积累)')
+    staticLines.push('(还没积累)')
   }
-  lines.push('')
+  staticLines.push('')
 
-  // spec-007 Phase 19.5:老白的 inner state(他"私下看到的")
+  // spec-007 Phase 19.5:老白的 inner state
   if (input.signal_brief && input.signal_brief.trim().length > 0) {
-    lines.push('# 你私下看到的(老白的 inner state,不是兄弟刚说的)')
-    lines.push(input.signal_brief.trim())
-    lines.push('')
+    staticLines.push('# 你私下看到的(老白的 inner state,不是兄弟刚说的)')
+    staticLines.push(input.signal_brief.trim())
+    staticLines.push('')
   }
 
-  // Phase 4.1 长期记忆:超过 80 条窗口的旧对话摘要(老白的"累积观察")
+  // Phase 4.1 长期记忆
   if (longTermMemory && longTermMemory.trim().length > 0) {
-    lines.push('# 你跟兄弟更早聊过的累积观察(超过最近 80 条窗口的部分压缩成这段)')
-    lines.push(longTermMemory.trim())
-    lines.push('')
+    staticLines.push('# 你跟兄弟更早聊过的累积观察(超过最近 80 条窗口的部分压缩成这段)')
+    staticLines.push(longTermMemory.trim())
+    staticLines.push('')
   }
+
+  // === Dynamic (不进 cache)===
 
   if (input.history.length > 0) {
-    lines.push('# 之前的对话(最近的在最后,你能"翻找过去内容"全靠这段)')
-    // 从 20 → 80,让老白真有记忆。前端 history 已经把截图 OCR 内容内联了,你能看到截图里的话
+    dynamicLines.push('# 之前的对话(最近的在最后,你能"翻找过去内容"全靠这段)')
     const recent = input.history.slice(-80)
     for (const m of recent) {
       const who = m.speaker === 'user' ? '兄弟' : '你(老白)'
-      lines.push(`${who}: ${m.text}`)
+      dynamicLines.push(`${who}: ${m.text}`)
     }
-    lines.push('')
+    dynamicLines.push('')
   }
 
-  lines.push('# 兄弟刚说的')
-  lines.push(input.user_text.trim())
-  lines.push('')
-  lines.push('请自然回应,不分阶段、不走流程。')
+  dynamicLines.push('# 兄弟刚说的')
+  dynamicLines.push(input.user_text.trim())
+  dynamicLines.push('')
+  dynamicLines.push('请自然回应,不分阶段、不走流程。')
 
-  return lines.join('\n')
+  return {
+    staticContext: staticLines.join('\n'),
+    dynamicTurn: dynamicLines.join('\n'),
+  }
+}
+
+/**
+ * @deprecated M3.0 Item 5 后改用 composeUserMessageParts。
+ * 这个函数留着兼容 — 但主路径不再用。M4 跑测试发现没引用后物理删。
+ */
+export function composeUserMessage(
+  input: ConversationTurnInput,
+  longTermMemory?: string | null,
+): string {
+  const { staticContext, dynamicTurn } = composeUserMessageParts(input, longTermMemory)
+  return staticContext + '\n' + dynamicTurn
 }
