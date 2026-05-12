@@ -237,6 +237,108 @@ export async function addUserReminder(
   })
 }
 
+// ============= M3.0 Item 3 Scope 5(2026-05-12)— disputeObservation =============
+// 走 B 方案(Sam 决策 2026-05-12):纯 backend,不接 mobile UI
+// admin 后续 M4 阶段开 user-facing dispute UI 时调用此函数
+// 见 lianai-dev-kit-m3-v2/05-RELATIONSHIP-MEMORY-PHASE-1-SPEC.md Scope 5
+//   + ~/.claude/projects/.../memory/project_item3_decision.md
+
+/**
+ * 用户/admin 标某条 observation "不准"。
+ *
+ * 连锁影响:
+ *   1. 标 obs.user_disputed = true + user_dispute_note(可选)
+ *   2. 找所有引用此 obs.id 的 profile_assertions(source_observation_ids 含此 id)
+ *   3. 重算 assertion.confidence:
+ *      - source 全部 disputed → 标 assertion.user_disputed = true,confidence 降 0.3
+ *      - source 部分 disputed → 按比例降 confidence(disputed_count / total × 0.5)
+ *   4. 同时:含此 assertion.id 的 LongTermMemoryCache 反查删除(下次老白对话重新生成)
+ *
+ * 失败:throw(调用方决定怎么处理,通常是 admin endpoint 上抛 5xx)
+ */
+export async function disputeObservation(input: {
+  relationship_id: string
+  observation_id: string
+  note?: string | undefined
+}): Promise<void> {
+  // 1. 标 obs disputed
+  const obs = await prisma.relationshipObservation.update({
+    where: { id: input.observation_id },
+    data: {
+      user_disputed: true,
+      user_dispute_note: input.note ?? null,
+    },
+    select: { id: true, relationship_id: true },
+  })
+
+  // 安全:obs 必须属于参数 relationship_id(防误用)
+  if (obs.relationship_id !== input.relationship_id) {
+    throw new Error(
+      `observation ${input.observation_id} 不属于 relationship ${input.relationship_id}`,
+    )
+  }
+
+  // 2. 找引用此 obs 的 assertions
+  const assertions = await prisma.profileAssertion.findMany({
+    where: {
+      relationship_id: input.relationship_id,
+      deleted_at: null,
+      source_observation_ids: { has: input.observation_id },
+    },
+    select: { id: true, source_observation_ids: true, confidence: true },
+  })
+
+  if (assertions.length === 0) return
+
+  // 3. 重算每个 assertion 的 confidence,看 source obs 多少被 disputed
+  const affectedAssertionIds: string[] = []
+  for (const a of assertions) {
+    const sourceIds = a.source_observation_ids
+    if (sourceIds.length === 0) continue
+
+    // 查这些 source obs 中已 disputed 的数量
+    const disputedCount = await prisma.relationshipObservation.count({
+      where: {
+        id: { in: sourceIds },
+        user_disputed: true,
+      },
+    })
+
+    const ratio = disputedCount / sourceIds.length
+    let newConfidence = a.confidence
+    let assertionDisputed = false
+
+    if (ratio >= 1.0) {
+      // 全部 source disputed → assertion 也 disputed
+      newConfidence = Math.max(0.1, a.confidence - 0.3)
+      assertionDisputed = true
+    } else if (ratio > 0) {
+      // 部分 disputed → 按比例降
+      newConfidence = Math.max(0.1, a.confidence * (1 - ratio * 0.5))
+    }
+
+    await prisma.profileAssertion.update({
+      where: { id: a.id },
+      data: {
+        confidence: newConfidence,
+        ...(assertionDisputed ? { user_disputed: true } : {}),
+      },
+    })
+
+    affectedAssertionIds.push(a.id)
+  }
+
+  // 4. 反查 LongTermMemoryCache:含这些 assertion.id 的 cache 删掉(下次重新生成)
+  if (affectedAssertionIds.length > 0) {
+    await prisma.longTermMemoryCache.deleteMany({
+      where: {
+        relationship_id: input.relationship_id,
+        source_assertion_ids: { hasSome: affectedAssertionIds },
+      },
+    })
+  }
+}
+
 // ============= 内部工具 =============
 
 /**

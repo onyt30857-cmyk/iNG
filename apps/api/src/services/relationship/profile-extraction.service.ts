@@ -284,6 +284,33 @@ export async function extractRelationshipProfile(
   const highFacts = added.filter((f) => f.confidence === 'high')
   const lowFacts = added.filter((f) => f.confidence === 'low')
 
+  // M3.0 Item 3 Scope 4(2026-05-12):为每条 highFact 查 evidence_quote 关联的 observations
+  // 字面相似度 ≥ 0.5 即认为是 evidence;最近 30 天 obs 范围
+  const evidenceMap = new Map<string, string[]>()
+  if (highFacts.length > 0) {
+    try {
+      const { textSimilarity } = await import('./observation-similarity.service.js')
+      const since = new Date(Date.now() - 30 * 86400_000)
+      const recentObs = await prisma.relationshipObservation.findMany({
+        where: {
+          relationship_id: relationshipId,
+          created_at: { gt: since },
+          user_disputed: false,
+        },
+        select: { id: true, observation_text: true },
+        take: 200,
+      })
+      for (const f of highFacts) {
+        const matched = recentObs
+          .filter((o) => textSimilarity(f.evidence_quote, o.observation_text) >= 0.5)
+          .map((o) => o.id)
+        evidenceMap.set(f.text, matched)
+      }
+    } catch {
+      /* 找 evidence 失败 → source_observation_ids 留空,不阻塞写入 */
+    }
+  }
+
   // 原子性:high facts 进 ProfileAssertion + low facts 进 RelationshipObservation 一个 transaction
   try {
     await prisma.$transaction([
@@ -294,7 +321,8 @@ export async function extractRelationshipProfile(
             assertion_text: f.text,
             confidence: 0.85, // M2-000 暂用固定值,M3 引入频次累积时动态算
             priority: 50, // 默认优先级
-            source_observation_ids: [], // M2-000 暂空,M3 接通"observation 升级 assertion"时填
+            // M3.0 Item 3 Scope 4:evidence_quote 反查 30 天 obs 填充
+            source_observation_ids: evidenceMap.get(f.text) ?? [],
           },
         }),
       ),

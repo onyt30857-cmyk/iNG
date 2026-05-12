@@ -162,18 +162,48 @@ export async function runObservationExtractor(
 
   if (observations.length === 0) return
 
-  try {
-    await prisma.relationshipObservation.createMany({
-      data: observations.map((o) => ({
-        relationship_id: input.relationshipId,
-        observation_text: o.text,
-        observation_type: 'laoke_realtime_observation',
-        confidence: 0.6,
-        source_message_ids: [input.userMessageId, input.laokeMessageId],
-      })),
+  // M3.0 Item 3 Scope 1(2026-05-12):createMany 改用 create + 拿 id,因为升级逻辑需要 obs.id
+  // 写入失败 catch + skip,不影响主流程
+  const createdIds: string[] = []
+  for (const o of observations) {
+    try {
+      const r = await prisma.relationshipObservation.create({
+        data: {
+          relationship_id: input.relationshipId,
+          observation_text: o.text,
+          observation_type: 'laoke_realtime_observation',
+          confidence: 0.6,
+          source_message_ids: [input.userMessageId, input.laokeMessageId],
+        },
+        select: { id: true },
+      })
+      createdIds.push(r.id)
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('[observation-extractor] DB write failed:', e)
+    }
+  }
+
+  // M3.0 Item 3 Scope 1:每条新 obs 异步触发升级判定(fire-and-forget,不阻塞)
+  if (createdIds.length > 0) {
+    setImmediate(() => {
+      void (async () => {
+        const { considerUpgradeToAssertion } = await import(
+          '../../services/relationship/assertion-upgrade.service.js'
+        )
+        for (let i = 0; i < createdIds.length; i++) {
+          const id = createdIds[i]
+          const obs = observations[i]
+          if (!id || !obs) continue
+          await considerUpgradeToAssertion({
+            relationshipId: input.relationshipId,
+            newObservationId: id,
+            newObservationText: obs.text,
+            newObservationConfidence: 0.6,
+            userId: input.userId,
+          })
+        }
+      })()
     })
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.warn('[observation-extractor] DB write failed:', e)
   }
 }

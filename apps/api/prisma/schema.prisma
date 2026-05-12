@@ -1254,6 +1254,10 @@ model LongTermMemoryCache {
   // 下次调用比较当前 history.length:相等→用缓存 大于→增量摘要 小于→全量重算
   covered_until_count   Int
 
+  // M3.0 Item 3(2026-05-12)— 摘要生成基于哪些 assertions
+  // admin/dispute 删除 assertion 时反查此字段删 cache,防止 cache 含已删除的画像信息
+  source_assertion_ids  String[] @default([])
+
   // 元数据
   model_version         String   @default("haiku-4.5")
   generated_at          DateTime @default(now()) @db.Timestamptz
