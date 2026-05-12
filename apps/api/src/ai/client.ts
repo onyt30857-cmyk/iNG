@@ -54,9 +54,26 @@ export interface AiCallContext {
     | 'feedback_classifier'
 }
 
+/**
+ * Anthropic SDK 原生支持的 system 内容块,允许在 system 段插 cache_control 断点。
+ * 2026-05-12 Item 2(prompt cache):用 ephemeral 把 LAOKE_CORE_PERSONA + LaokePersona
+ * 整段缓存,5min TTL,命中按 0.10x 计价。
+ *
+ * SDK type: Anthropic.TextBlockParam(此处自定义保持独立,不强绑 SDK 类型升级)
+ */
+export type SystemContentBlock = {
+  type: 'text'
+  text: string
+  cache_control?: { type: 'ephemeral' }
+}
+
 export interface CallClaudeParams {
-  /** system prompt 文本(从 promptLoader 拿到的标准 prompt) */
-  system: string
+  /**
+   * system prompt 文本。
+   * - string: 老调用方式(无 cache)
+   * - Array<SystemContentBlock>: 新调用方式,可在块末加 cache_control 缓存到此块为止
+   */
+  system: string | Array<SystemContentBlock>
   /** 对话消息数组 */
   messages: Array<{ role: 'user' | 'assistant'; content: string }>
   max_tokens?: number
@@ -191,6 +208,16 @@ export async function callClaude(
 
   const duration_ms = Date.now() - start
 
+  // Item 2 prompt cache 监控:SDK 0.30 的 Usage 类型还不含 cache_* 字段
+  // (Anthropic 后端 2024 已返回这些字段,SDK 类型定义滞后)
+  // type cast 绕过类型限制,runtime 安全(null/undefined 兜 0)
+  const usageWithCache = response.usage as Anthropic.Usage & {
+    cache_creation_input_tokens?: number | null
+    cache_read_input_tokens?: number | null
+  }
+  const cache_creation = usageWithCache.cache_creation_input_tokens ?? 0
+  const cache_read = usageWithCache.cache_read_input_tokens ?? 0
+
   logger.info(
     {
       event: 'ai.callClaude.done',
@@ -201,6 +228,8 @@ export async function callClaude(
       model,
       input_tokens: response.usage.input_tokens,
       output_tokens: response.usage.output_tokens,
+      cache_creation_input_tokens: cache_creation,
+      cache_read_input_tokens: cache_read,
       duration_ms,
       persona_passed: persona_check.passed,
     },
@@ -217,7 +246,15 @@ export async function callClaude(
     model,
     input_tokens: response.usage.input_tokens,
     output_tokens: response.usage.output_tokens,
-    cost_usd: estimateCostUsd(model, response.usage.input_tokens, response.usage.output_tokens),
+    cache_creation_input_tokens: cache_creation,
+    cache_read_input_tokens: cache_read,
+    cost_usd: estimateCostUsd(
+      model,
+      response.usage.input_tokens,
+      response.usage.output_tokens,
+      cache_creation,
+      cache_read,
+    ),
     duration_ms,
     persona_passed: persona_check.passed,
   })
@@ -278,6 +315,8 @@ export async function callClaudeStream(
   let fullText = ''
   let inputTokens = 0
   let outputTokens = 0
+  let cacheCreation = 0
+  let cacheRead = 0
   let messageId = ''
 
   try {
@@ -298,6 +337,13 @@ export async function callClaudeStream(
         handlers.onChunk(chunk)
       } else if (event.type === 'message_start') {
         inputTokens = event.message.usage.input_tokens
+        // Item 2 prompt cache 监控:同步 callClaude 同一 cast 模式
+        const usageWithCache = event.message.usage as Anthropic.Usage & {
+          cache_creation_input_tokens?: number | null
+          cache_read_input_tokens?: number | null
+        }
+        cacheCreation = usageWithCache.cache_creation_input_tokens ?? 0
+        cacheRead = usageWithCache.cache_read_input_tokens ?? 0
         messageId = event.message.id
       } else if (event.type === 'message_delta') {
         outputTokens = event.usage.output_tokens
@@ -338,6 +384,8 @@ export async function callClaudeStream(
       model,
       input_tokens: inputTokens,
       output_tokens: outputTokens,
+      cache_creation_input_tokens: cacheCreation,
+      cache_read_input_tokens: cacheRead,
       duration_ms,
       persona_passed: persona_check.passed,
     },
@@ -354,7 +402,9 @@ export async function callClaudeStream(
     model,
     input_tokens: inputTokens,
     output_tokens: outputTokens,
-    cost_usd: estimateCostUsd(model, inputTokens, outputTokens),
+    cache_creation_input_tokens: cacheCreation,
+    cache_read_input_tokens: cacheRead,
+    cost_usd: estimateCostUsd(model, inputTokens, outputTokens, cacheCreation, cacheRead),
     duration_ms,
     persona_passed: persona_check.passed,
   })

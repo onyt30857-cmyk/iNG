@@ -25,6 +25,16 @@ export interface AiCallLogPayload {
   model: string
   input_tokens: number
   output_tokens: number
+  /**
+   * Item 2 prompt cache(2026-05-12)— 写入 cache 的 input token 数(第一次,1.25x 计价)
+   * 老调用不传时默认 0
+   */
+  cache_creation_input_tokens?: number
+  /**
+   * 命中 cache 的 input token 数(后续读取,0.10x 计价)
+   * 老调用不传时默认 0
+   */
+  cache_read_input_tokens?: number
   cost_usd: number
   duration_ms: number
   persona_passed: boolean
@@ -49,6 +59,8 @@ export async function recordAiCallLog(payload: AiCallLogPayload): Promise<void> 
         model: payload.model,
         input_tokens: payload.input_tokens,
         output_tokens: payload.output_tokens,
+        cache_creation_input_tokens: payload.cache_creation_input_tokens ?? 0,
+        cache_read_input_tokens: payload.cache_read_input_tokens ?? 0,
         cost_usd: payload.cost_usd,
         duration_ms: payload.duration_ms,
         persona_passed: payload.persona_passed,
@@ -82,10 +94,26 @@ const PRICING_PER_MILLION: Record<string, { input: number; output: number }> = {
   'gemini-2.5-flash': { input: 0.3, output: 2.5 },
 }
 
+/**
+ * 计算单次调用成本(USD)。
+ *
+ * 2026-05-12 Item 2 prompt cache 改造:
+ *   Anthropic 定价规则(参考 https://www.anthropic.com/pricing):
+ *     - cache_write(创建缓存): 1.25 × base_input_price
+ *     - cache_read(命中缓存): 0.10 × base_input_price
+ *     - regular_input(未进 cache): 1.00 × base_input_price
+ *
+ *   input_tokens 是总输入 token(包含 cache_creation 和 cache_read),
+ *   未进 cache 的 = input_tokens - cache_creation - cache_read。
+ *
+ *   老调用不传 cache 参数 → 全按 regular 计价(向后兼容)。
+ */
 export function estimateCostUsd(
   model: string,
   input_tokens: number,
   output_tokens: number,
+  cache_creation_input_tokens = 0,
+  cache_read_input_tokens = 0,
 ): number {
   // 找最匹配的价格条目(模型 ID 可能带版本后缀,fallback 用 Sonnet 价)
   const exact = PRICING_PER_MILLION[model]
@@ -94,7 +122,15 @@ export function estimateCostUsd(
     Object.entries(PRICING_PER_MILLION).find(([k]) => model.startsWith(k.split('-').slice(0, 3).join('-')))?.[1] ??
     PRICING_PER_MILLION['claude-sonnet-4-20250514']!
 
-  const cost = (input_tokens / 1_000_000) * matched.input + (output_tokens / 1_000_000) * matched.output
+  // input_tokens 是总 input,扣掉 cache 部分得到 regular input
+  const regular_input = Math.max(0, input_tokens - cache_creation_input_tokens - cache_read_input_tokens)
+
+  const cost =
+    (regular_input / 1_000_000) * matched.input +
+    (cache_creation_input_tokens / 1_000_000) * matched.input * 1.25 +
+    (cache_read_input_tokens / 1_000_000) * matched.input * 0.10 +
+    (output_tokens / 1_000_000) * matched.output
+
   // 6 位小数,跟 schema Decimal(10, 6) 一致
   return Math.round(cost * 1_000_000) / 1_000_000
 }

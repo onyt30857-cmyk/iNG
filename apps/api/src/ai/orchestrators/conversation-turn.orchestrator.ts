@@ -419,7 +419,16 @@ export async function runConversationTurn(
   return callClaudeStream(
     ctx,
     {
-      system: systemPrompt,
+      // Item 2 prompt cache(2026-05-12):把 TURN_SYSTEM_PROMPT_PREFIX + persona 整段(~2,500 token)
+      // 用 ephemeral cache_control 缓存,5min TTL,命中按 0.10x 计价。
+      // userMessage 不进 cache(每轮都变),Phase 2 重排顺序后再扩大缓存范围。
+      system: [
+        {
+          type: 'text',
+          text: systemPrompt,
+          cache_control: { type: 'ephemeral' },
+        },
+      ],
       messages: [{ role: 'user', content: userMessage }],
       // 2026-05-11 v2 修正:回滚 512 限制,该长就长,该短就短(真人感)
       // 慢的体感问题通过前端"深思"等待 UI 解决,不靠强行短回复

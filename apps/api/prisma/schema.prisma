@@ -982,6 +982,11 @@ model AiCallLog {
 
   input_tokens  Int
   output_tokens Int
+  // Item 2 prompt cache(2026-05-12)— 写入 cache 的 input token(1.25x 计价,第一次)
+  // 老记录默认 0,新记录从 response.usage.cache_creation_input_tokens 来
+  cache_creation_input_tokens Int @default(0)
+  // 命中 cache 的 input token(0.10x 计价,后续读取)
+  cache_read_input_tokens     Int @default(0)
   // 单次成本可能很小(~0.001 USD),用 6 位小数
   cost_usd      Decimal @db.Decimal(10, 6)
   duration_ms   Int
