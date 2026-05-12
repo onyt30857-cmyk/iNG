@@ -129,7 +129,7 @@ export async function runOcr(input: OcrInput): Promise<OcrOutput> {
     user_id: input.user_id,
     relationship_id: input.relationship_id,
     ...(input.session_id !== undefined ? { session_id: input.session_id } : {}),
-    scene: 'parsing', // OCR 服务于 PARSING 阶段,scene 借用 parsing(用于 audit_logs 分类)
+    scene: 'ocr', // M3.0 Item 1 Scope 3:从借用 'parsing' 改为真实 scene 名
   }
 
   const params: CallClaudeVisionParams = {

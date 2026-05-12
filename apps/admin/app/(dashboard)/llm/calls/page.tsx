@@ -133,14 +133,22 @@ export default function LlmCallsPage() {
           >
             <option value="">全部 scene</option>
             <option value="conversation_turn">conversation_turn</option>
-            <option value="parsing">parsing</option>
-            <option value="reflecting">reflecting</option>
-            <option value="diagnosing">diagnosing</option>
-            <option value="planning">planning</option>
-            <option value="drafting">drafting</option>
+            <option value="red_line_guard">red_line_guard</option>
             <option value="ocr">ocr</option>
-            <option value="intent_classifier">intent_classifier</option>
+            <option value="intent_classify">intent_classify</option>
+            <option value="observation_extraction">observation_extraction</option>
+            <option value="fingerprint_extraction">fingerprint_extraction</option>
             <option value="long_term_memory">long_term_memory</option>
+            <option value="feedback_classifier">feedback_classifier</option>
+            <option value="profile_update">profile_update</option>
+            <option value="greeting">greeting</option>
+            <option value="auto_lint">auto_lint</option>
+            {/* M3.0 Item 1 Scope 3:legacy scene 保留可选(过滤历史数据 ≤ 5/12 之前的) */}
+            <option value="parsing">parsing (legacy)</option>
+            <option value="reflecting">reflecting (legacy)</option>
+            <option value="diagnosing">diagnosing (legacy)</option>
+            <option value="planning">planning (legacy)</option>
+            <option value="drafting">drafting (legacy)</option>
           </select>
           <select
             value={persona}

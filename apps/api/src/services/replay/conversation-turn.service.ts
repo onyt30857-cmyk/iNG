@@ -125,7 +125,7 @@ export async function runConversationTurnForRelationship(
     {
       user_id: userId,
       relationship_id: current.id,
-      scene: 'parsing', // 借用现有 scene 做 audit 分类
+      scene: 'red_line_guard', // M3.0 Item 1 Scope 3:从借用 'parsing' 改为真实 scene 名
     },
     input.user_text,
   )

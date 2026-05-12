@@ -31,27 +31,21 @@ export interface AiCallContext {
   user_id: string
   relationship_id: string
   session_id?: string
+  // M3.0 Item 1 Scope 3(2026-05-12):严格枚举 — 去掉 spec-005 死 scene
+  // (parsing/reflecting/diagnosing/planning/drafting/crisis 已删 orchestrator 后无人用)
+  // 新 scene 必须先加进此 union 才能运行时使用(防止再"借用 scene"污染)
   scene:
-    | 'parsing'
-    | 'reflecting'
-    | 'diagnosing'
-    | 'planning'
-    | 'drafting'
-    | 'crisis'
-    | 'profile_update'
-    | 'intent_classify'
-    // spec-013 模块 C 抽样用:Layer B 老白主对话(原本借用 'parsing',2026-05-09 拆分)
-    | 'conversation_turn'
-    // 2026-05-10:个性化回归问候(冷启动时显示老白迎接气泡)
-    | 'greeting'
-    // spec-m2-000 任务 2(2026-05-12):老白每轮回复后异步抽取的"实时观察"
-    // (写入 RelationshipObservation, observation_type='laoke_realtime_observation')
-    | 'observation_extraction'
-    // spec-m2-000 任务 3(2026-05-12):每 20 条 user 消息异步抽用户语气指纹
-    // (写入 UserLanguageFingerprint, user 维度跨关系)
-    | 'fingerprint_extraction'
-    // M3+ FEEDBACK SPEC(2026-05-11):用户产品级反馈 Haiku 分类
-    | 'feedback_classifier'
+    | 'conversation_turn'           // 主对话路径(Layer B)
+    | 'red_line_guard'              // 红线 Haiku 二次确认(从借用 'parsing' 拆分)
+    | 'ocr'                         // 截图理解(Sonnet vision,从借用 'parsing' 拆分)
+    | 'intent_classify'             // 意图分类
+    | 'observation_extraction'      // 老白每轮回复后异步抽"实时观察"
+    | 'fingerprint_extraction'      // 每 20 条 user 消息异步抽用户语气指纹
+    | 'long_term_memory'            // history > 100 时 Haiku 摘要长期记忆
+    | 'feedback_classifier'         // 用户产品级反馈 Haiku 分类
+    | 'profile_update'              // 关系画像更新(spec-008)
+    | 'greeting'                    // 个性化回归问候
+    | 'auto_lint'                   // Item 4 Module 1 quality-self-check(留位)
 }
 
 /**
