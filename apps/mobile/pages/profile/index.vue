@@ -26,7 +26,7 @@ const pointsDisplay = computed(() => {
   if (s.subscribed) return { label: '订阅中 · 无限用', detail: '感谢支持', accent: false }
   return {
     label: `${s.points_remaining} / ${s.points_limit}`,
-    detail: '明早 0:00 重置',
+    detail: '明早 0 点回血',
     accent: s.points_remaining < 20,
   }
 })
@@ -239,7 +239,9 @@ async function onConfirmRecover() {
       </view>
 
       <!-- v4 (2026-05-11):品牌 footer,slogan 强化记忆 -->
+      <!-- 2026-05-12:在 slogan 顶上加一行反话术 tagline,作为品牌主张 -->
       <view class="brand-footer">
+        <text class="brand-footer-tagline">不教模板,陪你练到还是你自己。</text>
         <text class="brand-footer-slogan">想脱单,先练爱</text>
         <text class="brand-footer-mark">练爱 · 老白陪你慢慢看</text>
       </view>
@@ -579,6 +581,15 @@ async function onConfirmRecover() {
   flex-direction: column;
   align-items: center;
   gap: 12rpx;
+}
+.brand-footer-tagline {
+  // 反话术钩子:比 slogan 轻、比 mark 重 — 作为品牌主张前置展示
+  font-size: $font-footnote;
+  color: $color-text-secondary;
+  letter-spacing: 0.5rpx;
+  line-height: 1.5;
+  text-align: center;
+  margin-bottom: 8rpx;
 }
 .brand-footer-slogan {
   font-size: $font-body-small;

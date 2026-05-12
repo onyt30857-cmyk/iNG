@@ -605,7 +605,7 @@ export const useConversationStore = defineStore('conversation', () => {
       cur.push({
         id: `kt-${Date.now()}`,
         type: 'laoke_text',
-        text: '正在看你的截图...',
+        text: '让我看看...',
         is_thinking: true,
         created_at: new Date().toISOString(),
       })

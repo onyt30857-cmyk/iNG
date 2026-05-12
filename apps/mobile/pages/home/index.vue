@@ -201,8 +201,8 @@ const greeting = computed(() => {
       <view class="empty-icon">
         <text class="empty-icon-text">+</text>
       </view>
-      <text class="empty-title">还没记下任何关系</text>
-      <text class="empty-hint">先建一段。我帮你慢慢看、慢慢想。</text>
+      <text class="empty-title">对着对话框删了又改?</text>
+      <text class="empty-hint">先记一段关系,我陪你慢慢看。</text>
       <button class="empty-cta" @tap="goCreate">
         <text class="empty-cta-text">新建第一段关系</text>
       </button>

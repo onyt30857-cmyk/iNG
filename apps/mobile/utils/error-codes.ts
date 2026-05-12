@@ -60,7 +60,7 @@ export const ERROR_DICT: Record<ErrorCode, ErrorEntry> = {
   },
   QU01: {
     code: 'QU01',
-    user_message: '今天的积分用完了,明早 0 点重置',
+    user_message: '今天先聊到这儿,明早再继续。',
     internal_description: '免费用户每日积分上限达到(spec-019)',
     troubleshoot:
       '查 daily_usage 表对应用户当日 points_used;如果是异常(用得太快)看 ai_call_logs 是否被刷',
