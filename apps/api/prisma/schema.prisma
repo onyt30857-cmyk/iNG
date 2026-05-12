@@ -1243,6 +1243,43 @@ model SystemConfig {
 // 替代 M1 每轮重算 Haiku 的应急方案。
 // 缓存 key = relationship_id(每段关系一份摘要)
 // covered_until_count = 缓存生成时 history.length(用于判断是否需增量更新)
+// M3.0 Item 12 Module 4(2026-05-12)— Persona Auto-Suggestion
+// 周分析 auto_lint + failure case → 生成 LaokePersona 字段更新建议
+// 经 constitution-check 5 铁律预审通过 → 写入此表 admin 审核队列
+// admin 接受 → 应用到 LaokePersona;拒绝 → 标 rejected;待审 → pending
+model PersonaSuggestion {
+  id              String   @id @default(cuid())
+
+  // 'add_signature_phrase' / 'add_forbidden_phrase' / 'modify_judgment_style' / ...
+  field           String
+  // 'add' / 'modify' / 'remove'
+  action          String
+  // 建议内容(JSON,根据 field/action 不同结构不同)
+  content         String   @db.Text
+  // LLM 给的理由
+  reason          String   @db.Text
+
+  // 数据出处(Module 4 分析的来源)
+  source_window_days   Int     @default(7)
+  source_auto_lint_ids String[] @default([])
+  source_failure_ids   String[] @default([])
+
+  // 'pending' / 'approved' / 'rejected' / 'auto_applied'
+  status          String   @default("pending")
+  reviewed_by     String? // admin user id
+  review_note     String?  @db.Text
+  reviewed_at     DateTime? @db.Timestamptz
+
+  // 老白宪法 5 铁律预审结果(JSON: { passed: boolean, violations: [...] })
+  constitution_check Json?
+
+  created_at      DateTime @default(now()) @db.Timestamptz
+  updated_at      DateTime @updatedAt @db.Timestamptz
+
+  @@index([status, created_at])
+  @@map("persona_suggestions")
+}
+
 // M3.0 Item 10(2026-05-12)— 时序里程碑,M3.2 D2 季度档案的替代设计
 // 每 7 天异步跑"本周里程碑提取",老白把当周对话提炼成 0-3 个里程碑事件
 // 用途:admin 看时间线 + 用户"我的关系故事"页
