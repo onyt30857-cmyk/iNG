@@ -10,7 +10,7 @@ import { PromptLeakError } from '../ai/prompt-audit.js'
 const ctx: AiCallContext = {
   user_id: 'u1',
   relationship_id: 'r1',
-  scene: 'parsing',
+  scene: 'conversation_turn', // M3.0 Item 1 Scope 3:scene union 缩窄后,'parsing' 已去掉
 }
 
 const goodSystemPrompt = '你是老白。'

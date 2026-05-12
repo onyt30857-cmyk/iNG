@@ -157,22 +157,7 @@ export async function callClaude(
       messages: params.messages,
     })
   } catch (err) {
-    logger.error(
-      {
-        event: 'ai.callClaude.api_error',
-        scene: ctx.scene,
-        user_id: ctx.user_id,
-        relationship_id: ctx.relationship_id,
-        err,
-      },
-      'Anthropic API 调用失败',
-    )
-    throw new AppError({
-      code: ErrorCodes.AI_CALL_FAILED,
-      message: '老白这边出了点意外,你重新试一下',
-      statusCode: 502,
-      detail: err instanceof Error ? err.message : String(err),
-    })
+    throw wrapSdkError(ctx, 'ai.callClaude.api_error', '老白这边出了点意外,你重新试一下', err)
   }
 
   // 解析响应文本(只拿 text block,忽略 tool_use 等)
@@ -202,15 +187,8 @@ export async function callClaude(
 
   const duration_ms = Date.now() - start
 
-  // Item 2 prompt cache 监控:SDK 0.30 的 Usage 类型还不含 cache_* 字段
-  // (Anthropic 后端 2024 已返回这些字段,SDK 类型定义滞后)
-  // type cast 绕过类型限制,runtime 安全(null/undefined 兜 0)
-  const usageWithCache = response.usage as Anthropic.Usage & {
-    cache_creation_input_tokens?: number | null
-    cache_read_input_tokens?: number | null
-  }
-  const cache_creation = usageWithCache.cache_creation_input_tokens ?? 0
-  const cache_read = usageWithCache.cache_read_input_tokens ?? 0
+  // Item 2 prompt cache 监控(Item 1 Scope 4 提炼)
+  const { cache_creation, cache_read } = extractCacheUsage(response.usage)
 
   logger.info(
     {
@@ -331,35 +309,17 @@ export async function callClaudeStream(
         handlers.onChunk(chunk)
       } else if (event.type === 'message_start') {
         inputTokens = event.message.usage.input_tokens
-        // Item 2 prompt cache 监控:同步 callClaude 同一 cast 模式
-        const usageWithCache = event.message.usage as Anthropic.Usage & {
-          cache_creation_input_tokens?: number | null
-          cache_read_input_tokens?: number | null
-        }
-        cacheCreation = usageWithCache.cache_creation_input_tokens ?? 0
-        cacheRead = usageWithCache.cache_read_input_tokens ?? 0
+        // Item 2 prompt cache 监控(Item 1 Scope 4 提炼)
+        const cache = extractCacheUsage(event.message.usage)
+        cacheCreation = cache.cache_creation
+        cacheRead = cache.cache_read
         messageId = event.message.id
       } else if (event.type === 'message_delta') {
         outputTokens = event.usage.output_tokens
       }
     }
   } catch (err) {
-    logger.error(
-      {
-        event: 'ai.callClaudeStream.api_error',
-        scene: ctx.scene,
-        user_id: ctx.user_id,
-        relationship_id: ctx.relationship_id,
-        err,
-      },
-      'Anthropic Stream API 调用失败',
-    )
-    throw new AppError({
-      code: ErrorCodes.AI_CALL_FAILED,
-      message: '老白这边出了点意外,你重新试一下',
-      statusCode: 502,
-      detail: err instanceof Error ? err.message : String(err),
-    })
+    throw wrapSdkError(ctx, 'ai.callClaudeStream.api_error', '老白这边出了点意外,你重新试一下', err)
   }
 
   const persona_check = params.skipPersonaCheck
@@ -419,6 +379,52 @@ export async function callClaudeStream(
  */
 function composeAuditTarget(params: CallClaudeParams): string {
   return params.messages.map((m) => m.content).join('\n')
+}
+
+/**
+ * 包装 SDK 错误为 AppError + 写 logger(M3.0 Item 1 Scope 4 提炼)
+ * 3 处 SDK try-catch 共用:callClaude / callClaudeStream / callClaudeVision
+ */
+function wrapSdkError(
+  ctx: AiCallContext,
+  event: string,
+  friendlyMsg: string,
+  err: unknown,
+): AppError {
+  logger.error(
+    {
+      event,
+      scene: ctx.scene,
+      user_id: ctx.user_id,
+      relationship_id: ctx.relationship_id,
+      err,
+    },
+    'Anthropic API 调用失败',
+  )
+  return new AppError({
+    code: ErrorCodes.AI_CALL_FAILED,
+    message: friendlyMsg,
+    statusCode: 502,
+    detail: err instanceof Error ? err.message : String(err),
+  })
+}
+
+/**
+ * 从 SDK response.usage 提取 cache 字段(M3.0 Item 1 Scope 4 提炼 + Item 2 cache 监控)
+ * SDK 0.30 Usage 类型还不含 cache_* 字段,用 type cast 兜底(null/undefined → 0)
+ */
+function extractCacheUsage(usage: Anthropic.Usage): {
+  cache_creation: number
+  cache_read: number
+} {
+  const u = usage as Anthropic.Usage & {
+    cache_creation_input_tokens?: number | null
+    cache_read_input_tokens?: number | null
+  }
+  return {
+    cache_creation: u.cache_creation_input_tokens ?? 0,
+    cache_read: u.cache_read_input_tokens ?? 0,
+  }
 }
 
 
@@ -495,22 +501,7 @@ export async function callClaudeVision(
       ],
     })
   } catch (err) {
-    logger.error(
-      {
-        event: 'ai.callClaudeVision.api_error',
-        scene: ctx.scene,
-        user_id: ctx.user_id,
-        relationship_id: ctx.relationship_id,
-        err,
-      },
-      'Anthropic Vision API 调用失败',
-    )
-    throw new AppError({
-      code: ErrorCodes.AI_CALL_FAILED,
-      message: '老白看图出了点意外,你重新试一下',
-      statusCode: 502,
-      detail: err instanceof Error ? err.message : String(err),
-    })
+    throw wrapSdkError(ctx, 'ai.callClaudeVision.api_error', '老白看图出了点意外,你重新试一下', err)
   }
 
   const text = response.content
