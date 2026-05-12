@@ -165,7 +165,42 @@ function safeParseJson(raw: string): IntentResult {
   }
 }
 
+// M3.0 Item 13(2026-05-12)成本 Phase 3' — 意图分类正则快路径
+// 80% 走正则(0 成本),20% Haiku fallback(模糊场景)
+// 不动红线检测(法律风险);本快路径只覆盖 intent,不覆盖 other_tone
+//
+// 命中规则:用户文字明显是 ASK_DRAFT / FRUSTRATED 的硬关键词
+// 不命中:复杂语境 / 需要看 history 判断 → 走 Haiku
+const REGEX_FAST_PATH_RULES: Array<{ intent: UserIntent; pattern: RegExp; evidence: string }> = [
+  // ASK_DRAFT 硬关键词(80% 的"要话术"场景)
+  { intent: 'ASK_DRAFT', pattern: /(帮我(?:编|写|说|想|润色|改|调)|我该怎么(?:回|说)|给我[个一一]?[句版]|直接给(?:我)?|再来[一个]+版|换个(?:表达|说法)|你说点啥我能用|接下来怎么说|你看怎么回|这[条句]怎么回|怎么接.{0,3}话)/, evidence: 'ASK_DRAFT 硬关键词' },
+  // FRUSTRATED 硬关键词
+  { intent: 'FRUSTRATED', pattern: /(说重点|别问了|行了|别废话|快点|你倒是说啊|又问.{0,5}问|问了好多次|别绕了|废话少说)/, evidence: 'FRUSTRATED 硬关键词' },
+]
+
+/** 正则快路径:命中则跳过 Haiku,直接返回结果(other_tone 不填,Sonnet 自己看 history) */
+function classifyByRegex(input: ClassifyIntentInput): IntentResult | null {
+  const text = input.user_text
+  for (const rule of REGEX_FAST_PATH_RULES) {
+    const m = text.match(rule.pattern)
+    if (m) {
+      return {
+        intent: rule.intent,
+        confidence: 0.9, // 硬关键词置信度高,但留 0.1 给"语境反讽"边界场景
+        evidence: m[0],
+      }
+    }
+  }
+  return null
+}
+
 export async function classifyUserIntent(input: ClassifyIntentInput): Promise<IntentResult | null> {
+  // M3.0 Item 13 快路径:命中正则直接返回,跳过 Haiku 调用(降本 ~80%)
+  const fastResult = classifyByRegex(input)
+  if (fastResult) {
+    return fastResult
+  }
+
   const ctx: AiCallContext = {
     user_id: input.user_id,
     relationship_id: input.relationship_id,

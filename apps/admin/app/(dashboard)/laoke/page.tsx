@@ -23,7 +23,6 @@ import {
   Power,
   History,
   User,
-  Brain,
 } from 'lucide-react'
 import { adminFetch, adminGet } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
