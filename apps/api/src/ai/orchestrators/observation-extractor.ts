@@ -13,6 +13,7 @@
 import { z } from 'zod'
 import { callClaude, type AiCallContext } from '../client.js'
 import { prisma } from '../../lib/prisma.js'
+import { logger } from '../../lib/logger.js'
 
 const HAIKU_MODEL_ID = 'claude-haiku-4-5'
 
@@ -136,6 +137,32 @@ export async function runObservationExtractor(
     if (cfg && cfg.observation_extractor_enabled === false) return
   } catch {
     /* 配置失败默认继续 */
+  }
+
+  // Phase 1 P1.5(2026-05-14)— WORK 类型隐私脱敏(Round 2.1 漏洞修复)
+  // 工作关系不生成对第三方的画像(法律合规),早退不调 LLM 不写库
+  // 查询失败默认继续(保守:不脱敏 > 漏抽,失败时记 warn)
+  try {
+    const rel = await prisma.relationship.findUnique({
+      where: { id: input.relationshipId },
+      select: { type: true },
+    })
+    if (rel?.type === 'WORK') {
+      logger.info(
+        {
+          event: 'observation_extractor.skip_work',
+          relationship_id: input.relationshipId,
+          user_id: input.userId,
+        },
+        'observation 提取跳过(WORK 类型关系,隐私合规)',
+      )
+      return
+    }
+  } catch (e) {
+    logger.warn(
+      { event: 'observation_extractor.check_type_failed', err: e instanceof Error ? e.message : String(e) },
+      '查 relationship.type 失败,默认继续抽取',
+    )
   }
 
   const ctx: AiCallContext = {

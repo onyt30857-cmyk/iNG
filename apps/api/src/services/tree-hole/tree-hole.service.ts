@@ -3,13 +3,14 @@
 //
 // 老白树洞场景:用户跟老白聊心情,无 relationship 关联。
 // 跨自然日(Asia/Shanghai)新建 TreeHoleSession。
-// 红线处理跟 conversation-turn 模式一致(落 ModerationLog + buildRefusalReply)。
+// 红线处理跟 conversation-turn 模式一致:落 ModerationLog + 用 guardResult.refusal_reply
+// (P1.5 后:guardUserInput 根据 ctx.scene='tree_hole' 选 refusal_reply_tree_hole 版本)
 // 积分扣费 P1.2 才接(P1.1 暂不扣)。
 
 import { prisma } from '../../lib/prisma.js'
 import { callClaude, type AiCallContext } from '../../ai/client.js'
 import { loadLaokePersona } from '../../ai/laoke-persona-loader.js'
-import { guardUserInput, buildRefusalReply } from '../../ai/red-line-guard.js'
+import { guardUserInput } from '../../ai/red-line-guard.js'
 
 /**
  * 算 Asia/Shanghai 时区的今天 00:00(UTC Date 对象)。
@@ -87,9 +88,10 @@ export async function processTreeHoleTurn(
       },
     }).catch(() => { /* moderation log 失败不阻断拒绝回应 */ })
 
-    // 1b. 拒绝文案 — P1.1 暂用陪练版(buildRefusalReply 当前只接 category)
-    // P1.5 后改成 buildRefusalReply(v.category, 'TREE_HOLE') 用树洞版文案
-    const refusal = buildRefusalReply(v.category)
+    // P1.5(2026-05-14):直接用 guardUserInput 返回的 refusal_reply
+    // guardUserInput 内部已根据 ctx.scene='tree_hole' 选用 refusal_reply_tree_hole 版
+    // (SELF_HARM 有树洞版,其他 fallback 到 refusal_reply 陪练版)
+    const refusal = guardResult.refusal_reply
 
     // 1c. 写 USER + LAOKE refusal 到 TreeHoleMessage(让用户看历史)
     const session = await getOrCreateTodayTreeHoleSession(userId)

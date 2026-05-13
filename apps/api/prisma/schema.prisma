@@ -733,6 +733,10 @@ model RedLineRule {
   // 触发后的拒绝文案(老白回给用户的话)
   refusal_reply String @db.Text
 
+  // Phase 1 P1.5(2026-05-14)— 树洞场景专用关怀文案
+  // ctx.scene='tree_hole' 时优先用此版;null fallback 到 refusal_reply
+  refusal_reply_tree_hole String? @db.Text
+
   // 是否启用(false 时跳过这条规则的检测)
   enabled Boolean @default(true)
 

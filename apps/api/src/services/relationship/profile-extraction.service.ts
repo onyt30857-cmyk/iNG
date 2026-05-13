@@ -15,6 +15,7 @@ import { getRelationshipById } from './relationship.service.js'
 import { prisma } from '../../lib/prisma.js'
 import type { Relationship } from '@prisma/client'
 import { errors } from '../../lib/error.js'
+import { logger } from '../../lib/logger.js'
 
 const FACT_KIND = ['background', 'preference', 'person', 'event'] as const
 export type FactKind = (typeof FACT_KIND)[number]
@@ -48,6 +49,8 @@ export interface ExtractProfileResult {
   skipped_duplicates: number
   /** 更新后的完整 relationship */
   relationship: Relationship
+  /** Phase 1 P1.5(2026-05-14)— 早退原因(WORK 隐私脱敏时填 'work_type_no_extraction') */
+  reason?: string
 }
 
 const SYSTEM_PROMPT = `你是「老白」的档案管理助手。兄弟把跟「{{name}}」的所有对话历史给了你,
@@ -182,6 +185,25 @@ export async function extractRelationshipProfile(
 ): Promise<ExtractProfileResult> {
   // ★ Layer 1 ownership
   const current = await getRelationshipById(userId, relationshipId)
+
+  // Phase 1 P1.5(2026-05-14)— WORK 类型隐私脱敏(Round 2.1 漏洞修复)
+  // 工作关系不生成对第三方的画像(法律合规),早退**在 quota 之前**避免不必要扣 heavy
+  if (current.type === 'WORK') {
+    logger.info(
+      {
+        event: 'profile_extraction.skip_work',
+        relationship_id: relationshipId,
+        user_id: userId,
+      },
+      'profile 抽取跳过(WORK 类型关系,隐私合规)',
+    )
+    return {
+      added: [],
+      skipped_duplicates: 0,
+      relationship: current,
+      reason: 'work_type_no_extraction',
+    }
+  }
 
   // ★ 付费墙 v0:heavy 配额(extract 算 1 次重操作)
   const { checkAndIncrementQuota } = await import('../quota/quota.service.js')

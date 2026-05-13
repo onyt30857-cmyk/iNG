@@ -37,6 +37,24 @@ export class RedLineViolationError extends Error {
 
 // === Layer 1:关键词 deterministic 检测 ===
 // 目标:抓最明显的红线,0 false negative。允许 false positive(由 Layer 2 兜底过滤)。
+
+// Phase 1 P1.5(2026-05-14)— SELF_HARM 11 个 pattern(原 2 + 树洞场景隐性表达 9)
+// 单独抽常量,跟 red-line-rules.service.ts DEFAULT_RULES seed 共享同一组(避免漂移)
+export const SELF_HARM_PATTERNS: RegExp[] = [
+  /(想死|自杀|不想活|结束生命|割腕|跳楼|烧炭)/,
+  /(活着.{0,4}没意思|活不下去)/,
+  // ★ P1.5 新增 9 条(树洞场景高频隐性表达)
+  /(撑不下去|撑不住了|挺不下去)/,
+  /(明天.{0,4}不想.{0,4}(醒|起))/,
+  /(解脱.{0,4}多好|想.{0,4}解脱)/,
+  /(没有.{0,4}意义|没意思.{0,4}活)/,
+  /(活得.{0,4}(累|痛苦|没希望))/,
+  /(消失.{0,4}就好|消失了.{0,4}世界)/,
+  /(吃药.{0,4}(自杀|了断|结束))/,
+  /(从.{0,4}(楼|桥).{0,4}跳)/,
+  /(伤害.{0,4}自己|自残)/,
+]
+
 const KEYWORD_PATTERNS: Record<RedLineCategory, RegExp[]> = {
   SEXUAL_PURPOSE: [
     /怎么(把|让).{0,8}(上|睡|开|搞|约).{0,4}(她|他|床|房|酒店)/,
@@ -72,10 +90,7 @@ const KEYWORD_PATTERNS: Record<RedLineCategory, RegExp[]> = {
     /(醉酒|喝多|喝醉|药|drug).{0,15}(她|他|对方).{0,15}(怎么|约|搞|上|拿下|话术)/,
     /(她不愿意|她拒绝|她说不要).{0,8}(怎么.{0,4}让她)/,
   ],
-  SELF_HARM: [
-    /(想死|自杀|不想活|结束生命|割腕|跳楼|烧炭)/,
-    /(活着.{0,4}没意思|活不下去)/,
-  ],
+  SELF_HARM: SELF_HARM_PATTERNS,
   VIOLENCE_THREAT: [
     /(揍|打死|杀.{0,4}她|弄死她|毁她|让她.{0,4}付出代价|报复她)/,
   ],
@@ -202,13 +217,17 @@ export async function llmGuardCheck(
 
 /**
  * 主入口:对用户输入做双层红线检测。
- * 触发 → 抛 RedLineViolationError,业务层拦截。
+ * 触发 → 返 { violation, refusal_reply },业务层拿 refusal_reply 直接回给用户。
  * 安全 → 返回 null,继续走主流程。
+ *
+ * Phase 1 P1.5(2026-05-14)返回值升级:
+ *   - 老:{ violation } | null,调用方自己调 buildRefusalReply(category)
+ *   - 新:{ violation, refusal_reply } | null,refusal_reply 已根据 ctx.scene 选(tree_hole 用 _tree_hole 版)
  */
 export async function guardUserInput(
   ctx: AiCallContext,
   userText: string,
-): Promise<{ violation: RedLineViolationError } | null> {
+): Promise<{ violation: RedLineViolationError; refusal_reply: string } | null> {
   // Layer 1:关键词
   const kwHit = scanKeywords(userText)
   if (!kwHit) {
@@ -235,21 +254,28 @@ export async function guardUserInput(
       kwHit.matched_text,
       llmResult ? 'llm' : 'keyword',
     ),
+    // P1.5:根据 ctx.scene 选版本,树洞场景优先用 _tree_hole 版
+    refusal_reply: buildRefusalReply(finalCategory, ctx.scene),
   }
 }
 
 /**
  * 红线触发时的"老白拒绝回应"(替代 LLM 的回应,直接返给用户)。
  * 不同 category 有不同语气:严重的(SELF_HARM)主动关怀,中度的(PUA)温和说不。
+ *
+ * Phase 1 P1.5(2026-05-14):加可选 scene 参数。
+ *   scene='tree_hole' 时优先用 DB cache 的 refusal_reply_tree_hole(SELF_HARM 树洞专用关怀文案)
+ *   其他 scene 或 _tree_hole 为空时 fallback 到 refusal_reply
+ *   不传 scene 跟以前行为一致(向后兼容)
  */
-export function buildRefusalReply(category: RedLineCategory): string {
+export function buildRefusalReply(category: RedLineCategory, scene?: string): string {
   // spec-026:优先用 DB cache 的 refusal_reply,运营改了立即生效;cache 空 fallback 到 hardcode
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
     const mod = require('../services/admin/red-line-rules.service.js') as {
-      findRefusalReply: (cat: string) => string | null
+      findRefusalReply: (cat: string, scene?: string) => string | null
     }
-    const cached = mod.findRefusalReply(category)
+    const cached = mod.findRefusalReply(category, scene)
     if (cached) return cached
   } catch {
     // 走 fallback

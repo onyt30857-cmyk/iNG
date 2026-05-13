@@ -23,7 +23,6 @@ import {
 } from '../feedback/feedback.service.js'
 import {
   guardUserInput,
-  buildRefusalReply,
 } from '../../ai/red-line-guard.js'
 import { prisma } from '../../lib/prisma.js'
 import { checkAndIncrementQuota, decrementPoints } from '../quota/quota.service.js'
@@ -145,8 +144,9 @@ export async function runConversationTurnForRelationship(
       },
     }).catch(() => {/* moderation log 失败不阻断拒绝回应 */})
 
-    // 流式回应预制拒绝文本
-    const refusal = buildRefusalReply(v.category)
+    // P1.5(2026-05-14):直接用 guardUserInput 返回的 refusal_reply
+    // (guardUserInput 内部已根据 ctx.scene 选好版本,陪练场景 = 默认 refusal_reply)
+    const refusal = guardResult.refusal_reply
     handlers.onChunk(refusal)
     // spec-019:红线触发 → 用户没获得服务,退积分
     await decrementPoints(userId, 'turn').catch(() => {/* 退分失败不阻断 */})

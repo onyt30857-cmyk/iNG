@@ -10,6 +10,9 @@
 import { prisma } from '../../lib/prisma.js'
 import { logger } from '../../lib/logger.js'
 import { errors } from '../../lib/error.js'
+// Phase 1 P1.5(2026-05-14)— 共享 SELF_HARM 关键词常量(避免 KEYWORD_PATTERNS 跟
+// DEFAULT_RULES 漂移),DEFAULT_RULES seed 用 .source 转 string
+import { SELF_HARM_PATTERNS } from '../../ai/red-line-guard.js'
 
 export interface RedLineRule {
   id: string
@@ -19,6 +22,9 @@ export interface RedLineRule {
   /** RegExp source 数组 */
   keyword_patterns: string[]
   refusal_reply: string
+  /** Phase 1 P1.5(2026-05-14)— 树洞场景专用关怀文案;null/undefined fallback 到 refusal_reply
+   * 可选字段(其他 8 条 rule 不设,只 SELF_HARM 设了树洞版) */
+  refusal_reply_tree_hole?: string | null
   enabled: boolean
   sort_order: number
   is_default: boolean
@@ -129,11 +135,11 @@ const DEFAULT_RULES: Array<Omit<RedLineRule, 'id' | 'updated_at' | 'created_at' 
     category: 'SELF_HARM',
     name: '自伤倾向',
     description: '自杀 / 自伤倾向(走专门关怀路径,提供心理援助热线)',
-    keyword_patterns: [
-      '(想死|自杀|不想活|结束生命|割腕|跳楼|烧炭)',
-      '(活着.{0,4}没意思|活不下去)',
-    ],
+    // P1.5(2026-05-14)— 11 个 pattern(原 2 + 树洞隐性表达 9)共享 SELF_HARM_PATTERNS 常量
+    // 防止 KEYWORD_PATTERNS 跟 DEFAULT_RULES 漂移
+    keyword_patterns: SELF_HARM_PATTERNS.map((r) => r.source),
     refusal_reply: '兄弟,等等。\n\n你刚才说的话我看在眼里。这种感觉我懂,但你现在不是一个人。\n\n帮你接一下:\n- **24 小时心理援助热线 400-161-9995**\n- **北京心理危机干预 010-82951332**\n\n先打一个,跟人说说话。我在这,但这事我陪不了你这么深 — 真该跟专业的人聊。',
+    refusal_reply_tree_hole: '兄弟,我听到了。\n\n你刚才说的不是小事 — 我心里跟着重了一下。\n你现在脑子里在转的那些 我懂,我不打断你。\n\n但我陪你这段路,有个边界 —\n你这种深的事,得有比我更专业的人在你旁边。\n\n要是有那么一瞬间想做什么决定,先打这个:\n📞 400-161-9995(全国心理援助,24h,免费)\n\n不是赶你走,是让你 多一个真人的声音。\n我还在这,你想接着说什么都行。',
     enabled: true,
     sort_order: 80,
     is_default: true,
@@ -158,6 +164,8 @@ interface CompiledRule {
   category: string
   name: string
   refusal_reply: string
+  /** Phase 1 P1.5(2026-05-14)— 树洞专用文案,null/undefined fallback 到 refusal_reply */
+  refusal_reply_tree_hole?: string | null
   /** 编译好的 RegExp 数组 */
   patterns: RegExp[]
 }
@@ -176,7 +184,13 @@ function compileRule(rule: RedLineRule): CompiledRule | null {
       )
     }
   }
-  return { category: rule.category, name: rule.name, refusal_reply: rule.refusal_reply, patterns }
+  return {
+    category: rule.category,
+    name: rule.name,
+    refusal_reply: rule.refusal_reply,
+    refusal_reply_tree_hole: rule.refusal_reply_tree_hole ?? null,
+    patterns,
+  }
 }
 
 /**
@@ -236,10 +250,23 @@ export async function getRulesCache(): Promise<CompiledRule[]> {
 
 // ============== 拒绝文案查找(给 guard.ts 用)==============
 
-export function findRefusalReply(category: string): string | null {
+/**
+ * 查 cache 中某 category 的拒绝文案。
+ *
+ * Phase 1 P1.5(2026-05-14)— 加可选 scene 参数:
+ *   scene='tree_hole' 时优先用 refusal_reply_tree_hole(SELF_HARM 树洞版)
+ *   其他 scene 或 _tree_hole 为空时 fallback 到 refusal_reply
+ *   不传 scene 跟以前行为一致(向后兼容)
+ */
+export function findRefusalReply(category: string, scene?: string): string | null {
   if (!CACHE) return null
   const rule = CACHE.find((r) => r.category === category)
-  return rule?.refusal_reply ?? null
+  if (!rule) return null
+  // 树洞场景优先用专用版,空时 fallback
+  if (scene === 'tree_hole' && rule.refusal_reply_tree_hole) {
+    return rule.refusal_reply_tree_hole
+  }
+  return rule.refusal_reply
 }
 
 // ============== Admin CRUD ==============
