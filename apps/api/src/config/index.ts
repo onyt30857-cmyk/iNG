@@ -81,6 +81,19 @@ const envSchema = z.object({
   WECHAT_APP_ID: z.string().optional(),
   WECHAT_APP_SECRET: z.string().optional(),
 
+  // Phase 1 P1.3(2026-05-14)— 微信支付 Mock 模式
+  // MOCK_PAYMENT_MODE=true 时走完整 Mock 链路(create-order 返 fake prepay_id,
+  // /v1/billing/mock/complete-payment 触发 deliverProduct),真实模式抛 NOT_IMPLEMENTED
+  // 默认 false(prod 安全),Railway 在 Mock 阶段把 env 设 true
+  MOCK_PAYMENT_MODE: z
+    .preprocess((v) => (typeof v === 'string' ? v.trim() : v), z.string().optional())
+    .transform((v) => v === 'true'),
+  WECHAT_MERCHANT_ID: z.string().optional(),
+  WECHAT_MERCHANT_CERT_SERIAL: z.string().optional(),
+  WECHAT_MERCHANT_PRIVATE_KEY_PATH: z.string().optional(),
+  WECHAT_APIV3_KEY: z.string().optional(),
+  BASE_URL: z.string().default('http://localhost:3000'),
+
   // 监控
   SENTRY_DSN: z.string().optional(),
 

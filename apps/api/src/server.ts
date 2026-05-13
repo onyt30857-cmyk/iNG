@@ -28,6 +28,12 @@ import { archiveRoutes } from './routes/v1/archives.route.js'
 import { deepReportRoutes } from './routes/v1/deep-reports.route.js'
 // Phase 1 P1.2(2026-05-14)— billing(balance + transactions)
 import { billingRoutes } from './routes/v1/billing.route.js'
+// Phase 1 P1.3(2026-05-14)— 支付 Mock + webhook + admin 商品 / 退款
+import { billingMockRoutes } from './routes/v1/billing-mock.route.js'
+import { wechatPayWebhookRoutes } from './routes/v1/webhooks/wechat-pay.route.js'
+import { adminBillingRoutes } from './routes/v1/admin/billing.route.js'
+import { adminRefundRoutes } from './routes/v1/admin/refund.route.js'
+import { seedBillingProductsOnBoot } from './services/billing/billing-products.service.js'
 import { quotaRoutes } from './routes/v1/quota.route.js'
 import { storageRoutes } from './routes/v1/storage.route.js'
 import { adminAuthRoutes } from './routes/v1/admin/auth.route.js'
@@ -122,6 +128,10 @@ async function buildApp() {
   await app.register(deepReportRoutes)
   // Phase 1 P1.2(2026-05-14)— billing
   await app.register(billingRoutes)
+  // Phase 1 P1.3(2026-05-14)— 支付 Mock + webhook
+  // billingMockRoutes 内部按 MOCK_PAYMENT_MODE 守门,非 Mock 直接 noop
+  await app.register(billingMockRoutes)
+  await app.register(wechatPayWebhookRoutes)
   await app.register(quotaRoutes)
   await app.register(storageRoutes)
   await app.register(laokeRoutes)
@@ -144,6 +154,9 @@ async function buildApp() {
   await app.register(adminLaokeRoutes)
   await app.register(adminClientErrorRoutes)
   await app.register(adminProfileRoutes)
+  // Phase 1 P1.3(2026-05-14)— admin 商品 / 退款管理
+  await app.register(adminBillingRoutes)
+  await app.register(adminRefundRoutes)
   await app.register(behaviorRoutes)
 
   // 远程诊断端点(给 Claude 自主排查用,prod 必须带 DEBUG_PROBE_SECRET)
@@ -182,6 +195,10 @@ async function main() {
     // spec-026:启动时加载红线 cache(空 DB 自动 seed 9 条默认)
     reloadRedLineCache().catch((e) => {
       logger.error({ err: e, event: 'red_line_cache.startup_failed' }, '启动加载红线 cache 失败')
+    })
+    // Phase 1 P1.3(2026-05-14):启动时 seed 4 个默认商品(upsert,已存在不覆盖 admin 改动)
+    seedBillingProductsOnBoot().catch((e) => {
+      logger.error({ err: e, event: 'billing_products.startup_seed_failed' }, '商品 seed 失败')
     })
     // 一次性清理 dev seed 数据(2026-05-08,Sam 反馈"新用户看到默认 3 关系")
     // 第一次启动后 dev-user-1 已删,后续启动 noop。不阻塞启动。

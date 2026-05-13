@@ -627,10 +627,17 @@ model Payment {
   // 原始 webhook 数据(用于审计)
   raw_data Json?
 
+  // Phase 1 P1.3(2026-05-14)— 商品 DB 化 + 微信下单
+  product_type     ProductType?
+  credit_pack_size Int?
+  out_trade_no     String?      @unique // 我方生成的订单号
+  wechat_prepay_id String?              // 微信 JSAPI 下单返回
+
   created_at DateTime @default(now()) @db.Timestamptz
   updated_at DateTime @updatedAt @db.Timestamptz
 
-  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user           User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  refund_tickets RefundTicket[]
 
   @@index([user_id])
   @@index([platform_transaction_id])
@@ -1075,6 +1082,9 @@ model RefundTicket {
 
   created_at DateTime @default(now()) @db.Timestamptz
   updated_at DateTime @updatedAt @db.Timestamptz
+
+  // Phase 1 P1.3(2026-05-14)— admin 退款列表 include payment
+  payment Payment @relation(fields: [payment_id], references: [id], onDelete: Cascade)
 
   @@index([status, created_at])
   @@index([user_id])
@@ -1730,4 +1740,44 @@ model PointsPricing {
 
   @@unique([action_kind, chat_type])
   @@map("points_pricing")
+}
+
+// ============================================================
+// Phase 1 P1.3(2026-05-14)— 商品定价 DB 化
+// ============================================================
+// admin 可调价格 / 上下架 / 改文案,seed 4 个商品(年费 + 30/100/300 积分包)
+model BillingProduct {
+  id           String      @id @default(cuid())
+  product_type ProductType @unique
+
+  name        String
+  description String  @db.Text
+
+  // 元,Decimal(10,2)
+  price          Decimal  @db.Decimal(10, 2)
+  // 原价(划线显示用)
+  original_price Decimal? @db.Decimal(10, 2)
+
+  // 积分包大小(SUBSCRIPTION_YEARLY = null)
+  credit_pack_size Int?
+  // 订阅天数(CREDIT_PACK_* = null)
+  duration_days    Int?
+
+  enabled    Boolean @default(true)
+  sort_order Int     @default(100)
+
+  admin_note String? @db.Text
+
+  created_at DateTime @default(now()) @db.Timestamptz
+  updated_at DateTime @updatedAt @db.Timestamptz
+  updated_by String?
+
+  @@map("billing_products")
+}
+
+enum ProductType {
+  SUBSCRIPTION_YEARLY
+  CREDIT_PACK_30
+  CREDIT_PACK_100
+  CREDIT_PACK_300
 }
