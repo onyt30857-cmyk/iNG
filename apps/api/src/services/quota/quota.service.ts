@@ -12,6 +12,9 @@
 
 import { prisma } from '../../lib/prisma.js'
 import { loadSystemConfig } from '../system-config.service.js'
+// Phase 1 P1.2(2026-05-14)— 积分定价 + 流水
+import { getPointsCost } from '../billing/points-pricing.service.js'
+import { consumePurchasedPoints } from '../billing/credit-transaction.service.js'
 
 export type QuotaKind = 'turn' | 'ocr' | 'heavy'
 
@@ -32,7 +35,15 @@ export interface QuotaCheckResult {
   points_limit: number
   /** 剩余积分(订阅 / bypass 时为 -1)*/
   points_remaining: number
-  reason?: 'free_quota_exceeded' | 'subscribed' | 'bypass'
+  /** Phase 1 P1.2(2026-05-14)— 走 paid_from_purchased 路径时,返扣减后的购买积分余额 */
+  purchased_points?: number
+  reason?:
+    | 'free_quota_exceeded' // 老版兼容(免费扣完 + 没 purchased)— P1.2 后 insufficient_balance 覆盖
+    | 'subscribed' // 订阅 bypass
+    | 'bypass' // 全局 bypass / temp_unlimited
+    | 'chat_type_bypass' // Phase 1 P1.2:quota_bypass_chat_types 命中(树洞)
+    | 'paid_from_purchased' // Phase 1 P1.2:免费扣完,扣购买积分
+    | 'insufficient_balance' // Phase 1 P1.2:免费 + 购买都不够
 }
 
 function todayStr(): string {
@@ -68,23 +79,45 @@ async function hasTempUnlimited(userId: string): Promise<boolean> {
 
 /**
  * 检查 + 扣积分(原子)
- * 订阅用户 / bypass 直接 allowed=true 不扣分。
- * 超额 allowed=false,业务层抛 402 由前端弹付费墙。
+ *
+ * Phase 1 P1.2(2026-05-14)三层余额 — 优先级(从上到下,命中即返回):
+ *   1. quota_bypass_chat_types 命中(TREE_HOLE)→ chat_type_bypass
+ *   2. SystemConfig.quota_bypass_enabled=true(M1 默认)→ bypass
+ *   3. Subscription ACTIVE → subscribed
+ *   4. UserTag 'temp_unlimited' → bypass
+ *   5. DailyUsage 免费够 → 扣 daily(spec-019 行为不变)
+ *   6. 免费不够 + purchased_points 够 → 扣 purchased + 写流水(reason=paid_from_purchased)
+ *   7. 都不够 → reason=insufficient_balance,allowed=false
  *
  * 失败时调用方应 decrementPoints 退回(API 调用失败/红线触发等)
+ * 注:decrementPoints 当前只退 daily,P1.3 补 purchased 路径退分(见 decrementPoints TODO)
+ *
+ * 向后兼容:不传 chatType → 行为跟 spec-019 完全一致(走 [5][6][7] 路径,没 [1] 触发)
  */
 export async function checkAndIncrementQuota(
   userId: string,
   kind: QuotaKind,
+  chatType?: string | null, // ★ Phase 1 P1.2 新增可选参数,向后兼容
 ): Promise<QuotaCheckResult> {
   const config = await loadSystemConfig()
-  const cost = POINTS_PER_ACTION[kind]
 
-  // 全局 bypass(运营在 /admin/settings/quota 切换)
+  // [1] Phase 1 P1.2 — quota_bypass_chat_types 命中(树洞场景免费引流)
+  if (chatType && config.quota_bypass_chat_types?.includes(chatType)) {
+    return {
+      allowed: true,
+      points_cost: 0,
+      points_used: 0,
+      points_limit: -1,
+      points_remaining: -1,
+      reason: 'chat_type_bypass',
+    }
+  }
+
+  // [2] 全局 bypass(运营在 /admin/settings/quota 切换,M1 默认 true)
   if (config.quota_bypass_enabled) {
     return {
       allowed: true,
-      points_cost: cost,
+      points_cost: 0,
       points_used: 0,
       points_limit: -1,
       points_remaining: -1,
@@ -92,13 +125,13 @@ export async function checkAndIncrementQuota(
     }
   }
 
-  // 订阅 / 临时补偿 bypass
+  // [3][4] 订阅 / 临时补偿 bypass
   if ((await hasActiveSubscription(userId)) || (await hasTempUnlimited(userId))) {
     // 也累加 turn_count/ocr_count/heavy_count(用于行为分析,不影响付费)
     await incrementCounters(userId, kind, /* incrementPoints */ false)
     return {
       allowed: true,
-      points_cost: cost,
+      points_cost: 0,
       points_used: 0,
       points_limit: -1,
       points_remaining: -1,
@@ -106,56 +139,129 @@ export async function checkAndIncrementQuota(
     }
   }
 
+  // 算 cost(PointsPricing 表覆盖,fallback POINTS_PER_ACTION)
+  // P1.2:chat_type 差异化(如 TREE_HOLE turn=0,作为 quota_bypass_chat_types 没命中的兜底)
+  const cost = await getPointsCost(kind, chatType ?? null)
+  if (cost === 0) {
+    // 兜底:PointsPricing 配置为 0(如 TREE_HOLE turn=0,但 quota_bypass_chat_types 没含 chatType)
+    return {
+      allowed: true,
+      points_cost: 0,
+      points_used: 0,
+      points_limit: config.daily_free_points,
+      points_remaining: config.daily_free_points,
+      reason: 'chat_type_bypass',
+    }
+  }
+
   const day = todayStr()
   const limit = config.daily_free_points
+  const counterField =
+    kind === 'turn' ? 'turn_count' : kind === 'ocr' ? 'ocr_count' : 'heavy_count'
 
-  const updated = await prisma.$transaction(async (tx) => {
+  // 事务:免费够 → 扣 daily / 不够 → 看 purchased / 都不够 → 拒绝
+  return await prisma.$transaction(async (tx) => {
     const existing = await tx.dailyUsage.findUnique({
       where: { user_id_day: { user_id: userId, day } },
     })
+    const currentDailyUsed = existing?.points_used ?? 0
 
-    const currentPoints = existing?.points_used ?? 0
-    if (currentPoints + cost > limit) {
-      return { allowed: false, points_used: currentPoints }
+    // [5] 免费够 — spec-019 行为不变
+    if (currentDailyUsed + cost <= limit) {
+      if (existing) {
+        await tx.dailyUsage.update({
+          where: { id: existing.id },
+          data: {
+            points_used: { increment: cost },
+            [counterField]: { increment: 1 },
+          },
+        })
+      } else {
+        await tx.dailyUsage.create({
+          data: {
+            user_id: userId,
+            day,
+            points_used: cost,
+            [counterField]: 1,
+          },
+        })
+      }
+      return {
+        allowed: true,
+        points_cost: cost,
+        points_used: currentDailyUsed + cost,
+        points_limit: limit,
+        points_remaining: Math.max(0, limit - (currentDailyUsed + cost)),
+      }
     }
 
-    const counterField =
-      kind === 'turn' ? 'turn_count' : kind === 'ocr' ? 'ocr_count' : 'heavy_count'
+    // [6] 免费不够 → 看 purchased_points
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: { purchased_points: true },
+    })
+    const purchasedBalance = user?.purchased_points ?? 0
 
-    if (existing) {
-      await tx.dailyUsage.update({
-        where: { id: existing.id },
-        data: {
-          points_used: { increment: cost },
-          [counterField]: { increment: 1 },
-        },
+    if (purchasedBalance >= cost) {
+      // 扣 purchased + 写流水(在事务内,传 tx 进去不嵌套)
+      await consumePurchasedPoints(tx, userId, cost, {
+        action: kind,
+        chat_type: chatType ?? null,
       })
-    } else {
-      await tx.dailyUsage.create({
-        data: {
-          user_id: userId,
-          day,
-          points_used: cost,
-          [counterField]: 1,
-        },
-      })
+
+      // DailyUsage 也记 turn_count / ocr_count / heavy_count(运营审计)
+      // ★ 关键:points_used 不 increment(没用免费)
+      if (existing) {
+        await tx.dailyUsage.update({
+          where: { id: existing.id },
+          data: {
+            [counterField]: { increment: 1 },
+            // 不动 points_used
+          },
+        })
+      } else {
+        await tx.dailyUsage.create({
+          data: {
+            user_id: userId,
+            day,
+            points_used: 0, // 没用免费
+            [counterField]: 1,
+          },
+        })
+      }
+
+      return {
+        allowed: true,
+        points_cost: cost,
+        points_used: currentDailyUsed,
+        points_limit: limit,
+        points_remaining: Math.max(0, limit - currentDailyUsed),
+        purchased_points: purchasedBalance - cost,
+        reason: 'paid_from_purchased',
+      }
     }
-    return { allowed: true, points_used: currentPoints + cost }
+
+    // [7] 都不够
+    return {
+      allowed: false,
+      points_cost: cost,
+      points_used: currentDailyUsed,
+      points_limit: limit,
+      points_remaining: Math.max(0, limit - currentDailyUsed),
+      purchased_points: purchasedBalance,
+      reason: 'insufficient_balance',
+    }
   })
-
-  return {
-    allowed: updated.allowed,
-    points_cost: cost,
-    points_used: updated.points_used,
-    points_limit: limit,
-    points_remaining: Math.max(0, limit - updated.points_used),
-    reason: updated.allowed ? undefined : 'free_quota_exceeded',
-  }
 }
 
 /**
  * 退回积分(spec-019)— AI 调用失败 / 红线触发时调用
  * 不退 turn_count(那是行为统计,失败也算尝试过一次)
+ *
+ * TODO(P1.3): 现在只退 DailyUsage.points_used,不退 purchased_points
+ * 如果用户走 paid_from_purchased 路径(免费扣完用购买积分),LLM 失败时该 cost 不退
+ * 影响轻微(corner case 且不破坏数据完整性),P1.3 接入支付链路时补
+ * 修复方向:根据当前 user 是否走了 purchased 路径(查 CreditTransaction 最近一条)决定退哪边
  */
 export async function decrementPoints(userId: string, kind: QuotaKind): Promise<void> {
   const cost = POINTS_PER_ACTION[kind]

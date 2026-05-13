@@ -58,6 +58,10 @@ model User {
   usage_stage    UsageStage @default(NEWBIE)
   total_sessions Int        @default(0)
 
+  // Phase 1 P1.2(2026-05-14)— 购买积分余额(不重置,只增减)
+  // 免费(DailyUsage)用完后才动这层;支付完成 grant + 消耗 consume 全经 CreditTransaction
+  purchased_points Int @default(0)
+
   // Onboarding(spec-018):
   // null = 还没走完 Welcome→填昵称头像 流程,前端检测到要跳转 onboarding 页
   // 有值 = 已经走完,直接进主页
@@ -88,6 +92,8 @@ model User {
   interpret_sessions   InterpretSession[]
   archive_reports      ArchiveReport[]
   deep_reports         DeepReport[]
+  // Phase 1 P1.2(2026-05-14)— 积分流水
+  credit_transactions  CreditTransaction[]
 
   @@index([deleted_at])
   @@map("users")
@@ -1232,6 +1238,11 @@ model SystemConfig {
   // 实际扣分 = POINTS_PER_ACTION (turn=5 / ocr=20 / heavy=30,定义在 quota.service)
   daily_free_points Int @default(100)
 
+  // Phase 1 P1.2(2026-05-14)— quota bypass 的 chat_type 列表
+  // 命中此列表的 chat_type 直接 bypass(零成本),用于树洞免费引流
+  // 跟 PointsPricing 表的 (action, chat_type) → cost=0 双保险(quota 优先级最高)
+  quota_bypass_chat_types String[] @default(["TREE_HOLE"])
+
   // Anthropic 账户余额基准(spec-billing v1):
   // Anthropic 不提供"剩余余额"API,只有 cost_report 累计花费。
   // 所以让 admin 手动填"某时点的余额快照",运行时算 baseline - 自此累计花费 = 估算余额。
@@ -1651,4 +1662,72 @@ model DeepReport {
   @@index([user_id, generated_at])
   @@index([relationship_id])
   @@map("deep_reports")
+}
+
+// ============================================================
+// Phase 1 P1.2(2026-05-14)— 三层余额(基于 spec-019 增量)
+// 见 lianai-phase1-spec-v2/02-SPEC-P1.2-CREDIT-LAYERS.md
+//
+// 三层余额优先级:
+//   1. quota_bypass_chat_types 命中(TREE_HOLE)→ chat_type_bypass
+//   2. SystemConfig.quota_bypass_enabled=true(M1 默认)→ bypass
+//   3. Subscription.status='ACTIVE' → subscribed
+//   4. UserTag 'temp_unlimited' → bypass
+//   5. DailyUsage.points_used + cost ≤ daily_free_points(免费层)→ 扣 daily
+//   6. User.purchased_points ≥ cost(购买层)→ paid_from_purchased
+//   7. 都不够 → insufficient_balance
+// ============================================================
+
+// 积分流水
+model CreditTransaction {
+  id      String @id @default(cuid())
+  user_id String
+
+  type CreditTxType
+
+  amount        Int // 正=加 / 负=扣
+  balance_after Int // 操作后的 purchased_points
+
+  // 关联(可选)
+  payment_id       String?
+  source_action    String? // 'turn' / 'ocr' / 'heavy'
+  source_chat_type String? // ChatType 值
+
+  note String? @db.Text
+
+  created_at DateTime @default(now()) @db.Timestamptz
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, created_at])
+  @@index([type, created_at])
+  @@map("credit_transactions")
+}
+
+enum CreditTxType {
+  PURCHASE // 购买
+  CONSUME // 消耗(走 paid_from_purchased 路径时)
+  GRANT // 系统赠送(反向试用 Phase 2)
+  REFUND // 退款扣回(P1.3)
+}
+
+// 积分消耗规则(chat_type 差异化覆盖,默认沿用 POINTS_PER_ACTION)
+// action_kind / chat_type 用 String 不用 enum,避免类型耦合 + 允许 null = 通用
+model PointsPricing {
+  id String @id @default(cuid())
+
+  action_kind String // 'turn' / 'ocr' / 'heavy'
+  chat_type   String? // ChatType 值 / null = 通用 fallback
+
+  points_cost Int
+  enabled     Boolean @default(true)
+
+  admin_note String? @db.Text
+
+  created_at DateTime  @default(now()) @db.Timestamptz
+  updated_at DateTime  @updatedAt @db.Timestamptz
+  updated_by String?
+
+  @@unique([action_kind, chat_type])
+  @@map("points_pricing")
 }

@@ -13,6 +13,8 @@ export interface SystemConfig {
   quota_bypass_enabled: boolean
   /** spec-019:每日免费积分上限(替代 quota_turn/ocr/heavy 三独立上限)*/
   daily_free_points: number
+  /** Phase 1 P1.2(2026-05-14):quota bypass 的 chat_type 列表(默认 ['TREE_HOLE']) */
+  quota_bypass_chat_types: string[]
   updated_by: string | null
   updated_at: Date
 }
@@ -46,6 +48,7 @@ export async function loadSystemConfig(): Promise<SystemConfig> {
     quota_heavy: row.quota_heavy,
     quota_bypass_enabled: row.quota_bypass_enabled,
     daily_free_points: row.daily_free_points,
+    quota_bypass_chat_types: row.quota_bypass_chat_types,
     updated_by: row.updated_by,
     updated_at: row.updated_at,
   }
@@ -108,6 +111,7 @@ export async function updateSystemConfig(
     quota_heavy: row.quota_heavy,
     quota_bypass_enabled: row.quota_bypass_enabled,
     daily_free_points: row.daily_free_points,
+    quota_bypass_chat_types: row.quota_bypass_chat_types,
     updated_by: row.updated_by,
     updated_at: row.updated_at,
   }

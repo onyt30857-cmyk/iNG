@@ -26,6 +26,8 @@ import { treeHoleRoutes } from './routes/v1/tree-hole.route.js'
 import { interpretRoutes } from './routes/v1/interpret.route.js'
 import { archiveRoutes } from './routes/v1/archives.route.js'
 import { deepReportRoutes } from './routes/v1/deep-reports.route.js'
+// Phase 1 P1.2(2026-05-14)— billing(balance + transactions)
+import { billingRoutes } from './routes/v1/billing.route.js'
 import { quotaRoutes } from './routes/v1/quota.route.js'
 import { storageRoutes } from './routes/v1/storage.route.js'
 import { adminAuthRoutes } from './routes/v1/admin/auth.route.js'
@@ -118,6 +120,8 @@ async function buildApp() {
   await app.register(interpretRoutes)
   await app.register(archiveRoutes)
   await app.register(deepReportRoutes)
+  // Phase 1 P1.2(2026-05-14)— billing
+  await app.register(billingRoutes)
   await app.register(quotaRoutes)
   await app.register(storageRoutes)
   await app.register(laokeRoutes)
