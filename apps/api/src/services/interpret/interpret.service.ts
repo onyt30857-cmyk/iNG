@@ -116,8 +116,10 @@ export async function runInterpret(userId: string, sessionId: string, input: Int
  * LLM 偶尔会包围栏 / 偶尔不包,两种都接受。
  */
 export function parseInterpretOutput(raw: string): InterpretOutput {
-  // strip markdown 围栏(开头 ```json 或 ``` + 结尾 ```)
+  // 先 trim 外层空白(避免 input 有前导空格时围栏 strip 不匹配)
+  // 再 strip markdown 围栏(开头 ```json 或 ``` + 结尾 ```)
   const stripped = raw
+    .trim()
     .replace(/^```(?:json)?\s*\n?/i, '')
     .replace(/\n?```\s*$/, '')
     .trim()
