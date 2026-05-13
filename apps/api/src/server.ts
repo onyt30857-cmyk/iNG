@@ -21,6 +21,11 @@ import { ocrRoutes } from './routes/v1/ocr.route.js'
 import { conversationRoutes } from './routes/v1/conversation.route.js'
 import { feedbackRoutes } from './routes/v1/feedback.route.js'
 import { accountRoutes } from './routes/v1/account.route.js'
+// Phase 1 P1.1(2026-05-14)— 4 类新场景路由
+import { treeHoleRoutes } from './routes/v1/tree-hole.route.js'
+import { interpretRoutes } from './routes/v1/interpret.route.js'
+import { archiveRoutes } from './routes/v1/archives.route.js'
+import { deepReportRoutes } from './routes/v1/deep-reports.route.js'
 import { quotaRoutes } from './routes/v1/quota.route.js'
 import { storageRoutes } from './routes/v1/storage.route.js'
 import { adminAuthRoutes } from './routes/v1/admin/auth.route.js'
@@ -108,6 +113,11 @@ async function buildApp() {
   await app.register(conversationRoutes)
   await app.register(feedbackRoutes)
   await app.register(accountRoutes)
+  // Phase 1 P1.1(2026-05-14)— 4 类新场景
+  await app.register(treeHoleRoutes)
+  await app.register(interpretRoutes)
+  await app.register(archiveRoutes)
+  await app.register(deepReportRoutes)
   await app.register(quotaRoutes)
   await app.register(storageRoutes)
   await app.register(laokeRoutes)

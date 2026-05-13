@@ -29,6 +29,11 @@ import { checkPersona, type PersonaCheckResult } from './persona-check.js'
  */
 export interface AiCallContext {
   user_id: string
+  /**
+   * 关联的 relationship。主对话场景传实际 ID;
+   * tree_hole / interpret 等无关系场景 传 '' 空字符串。
+   * 内部 audit / log 用 if (ctx.relationship_id) 判断。
+   */
   relationship_id: string
   session_id?: string
   // M3.0 Item 1 Scope 3(2026-05-12):严格枚举 — 去掉 spec-005 死 scene
@@ -46,6 +51,10 @@ export interface AiCallContext {
     | 'profile_update'              // 关系画像更新(spec-008)
     | 'greeting'                    // 个性化回归问候
     | 'auto_lint'                   // Item 4 Module 1 quality-self-check(留位)
+    // Phase 1 P1.1(2026-05-14)— 4 类新场景
+    | 'tree_hole'                   // 老白树洞(无关系,relationship_id 传 '')
+    | 'interpret'                   // 解读神器(可选关系)
+    | 'icebreaker'                  // 破冰生成器(Phase 2 实施,scene 先加)
 }
 
 /**

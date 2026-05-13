@@ -83,6 +83,11 @@ model User {
   // M3+ FEEDBACK
   product_feedback     ProductFeedback[]
   feedback_triggers    FeedbackTriggerLog[]
+  // Phase 1 P1.1(2026-05-14)— 4 类新场景
+  tree_hole_sessions   TreeHoleSession[]
+  interpret_sessions   InterpretSession[]
+  archive_reports      ArchiveReport[]
+  deep_reports         DeepReport[]
 
   @@index([deleted_at])
   @@map("users")
@@ -178,6 +183,10 @@ model Relationship {
   // 关系阶段(用户填,产品识别)
   stage RelationshipStage @default(INIT)
 
+  // Phase 1 P1.1(2026-05-14)— 关系类型(Round 1.3 漏洞修复)
+  // P1.5 WORK 类型不生成 observation/assertion(隐私合规)
+  type RelationshipType @default(ROMANTIC)
+
   // 用户填写的基础事实(JSON)
   // 例: { how_met: "朋友介绍", first_met_at: "2024-03", key_facts: ["喜欢爵士乐"] }
   basic_facts Json @default("{}")
@@ -194,10 +203,13 @@ model Relationship {
   deleted_at DateTime? @db.Timestamptz
 
   // 关系
-  user         User                      @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  sessions     Session[]
-  observations RelationshipObservation[]
-  assertions   ProfileAssertion[]
+  user               User                      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  sessions           Session[]
+  observations       RelationshipObservation[]
+  assertions         ProfileAssertion[]
+  interpret_sessions InterpretSession[]
+  archive_reports    ArchiveReport[]
+  deep_reports       DeepReport[]
 
   @@index([user_id, archived, deleted_at])
   @@map("relationships")
@@ -210,6 +222,29 @@ enum RelationshipStage {
   CONFLICT // 冲突中
   RECOVERY // 挽回中
   ENDED // 已结束
+}
+
+// Phase 1 P1.1(2026-05-14)— 关系类型 enum
+enum RelationshipType {
+  ROMANTIC // 恋爱 / 暧昧 / 前任(默认)
+  FAMILY // 家人
+  WORK // 工作(P1.5 不生成 observation/assertion)
+  FRIEND // 朋友
+  OTHER // 其他 / 未分类
+}
+
+// Phase 1 P1.1(2026-05-14)— 4 类对话/工具场景
+enum ChatType {
+  CHAT // 老白陪练(关联具体 relationship,主对话流)
+  TREE_HOLE // 老白树洞(无 relationship)
+  INTERPRET // 解读神器(可选 relationship)
+  ICEBREAKER // 破冰生成器(Phase 2 实施,enum 先加)
+}
+
+// Phase 1 P1.1(2026-05-14)— 树洞专用 message role(不复用主 MessageRole 避免污染)
+enum TreeHoleMessageRole {
+  USER
+  LAOKE
 }
 
 // 关系观察:每条带 source 追溯
@@ -1477,4 +1512,139 @@ model ClientErrorLog {
   @@index([path, created_at])
   @@index([created_at])
   @@map("client_error_logs")
+}
+
+// ============================================================
+// Phase 1 P1.1(2026-05-14)— 新场景数据骨架
+// 见 lianai-phase1-spec-v2/01-SPEC-P1.1-DATA-SKELETON.md
+//
+// 4 类对话/工具场景的数据基础:
+//   - TreeHoleSession + TreeHoleMessage 老白树洞
+//   - InterpretSession + InterpretMessage 解读神器
+//   - ArchiveReport 她档案完整版(Phase 2 写实际生成逻辑)
+//   - DeepReport 深度复盘(Phase 2 写实际生成逻辑)
+// ============================================================
+
+// 树洞 session — 跨自然日(Asia/Shanghai)新建
+model TreeHoleSession {
+  id      String @id @default(cuid())
+  user_id String
+
+  // 跨自然日新建,基于 Asia/Shanghai 时区
+  date DateTime @db.Date
+
+  started_at DateTime  @default(now()) @db.Timestamptz
+  ended_at   DateTime? @db.Timestamptz
+
+  created_at DateTime @default(now()) @db.Timestamptz
+  updated_at DateTime @updatedAt @db.Timestamptz
+
+  user     User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  messages TreeHoleMessage[]
+
+  @@unique([user_id, date])
+  @@index([user_id, date])
+  @@map("tree_hole_sessions")
+}
+
+// 树洞 message — 不关联主 Message 表(树洞业务独立)
+model TreeHoleMessage {
+  id                   String @id @default(cuid())
+  tree_hole_session_id String
+  user_id              String // 冗余便于查询
+
+  role    TreeHoleMessageRole
+  content String              @db.Text
+
+  // Phase 2 才填:类型识别异步写入
+  mentioned_person Json?
+  mentioned_type   Json?
+
+  // Phase 2 才用:桥接到 relationship
+  linked_relationship_id String?
+
+  created_at DateTime @default(now()) @db.Timestamptz
+
+  tree_hole_session TreeHoleSession @relation(fields: [tree_hole_session_id], references: [id], onDelete: Cascade)
+
+  @@index([tree_hole_session_id, created_at])
+  @@index([user_id, created_at])
+  @@map("tree_hole_messages")
+}
+
+// 解读 session — 30 分钟过期
+model InterpretSession {
+  id      String @id @default(cuid())
+  user_id String
+
+  relationship_id String?
+
+  expires_at DateTime @db.Timestamptz
+
+  created_at DateTime @default(now()) @db.Timestamptz
+
+  user         User               @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  relationship Relationship?      @relation(fields: [relationship_id], references: [id])
+  messages     InterpretMessage[]
+
+  @@index([user_id, created_at])
+  @@map("interpret_sessions")
+}
+
+// 解读 message — JSON 输入 + JSON 输出
+model InterpretMessage {
+  id                   String @id @default(cuid())
+  interpret_session_id String
+
+  // { her_text, context_optional, screenshot_url_optional }
+  user_input Json
+  // { suggested_reply, why_brief, detected_intent, alternative_replies[] }
+  output_interpretation Json
+
+  points_cost Int @default(0) // P1.2 接入后填真值
+
+  created_at DateTime @default(now()) @db.Timestamptz
+
+  interpret_session InterpretSession @relation(fields: [interpret_session_id], references: [id], onDelete: Cascade)
+
+  @@index([interpret_session_id, created_at])
+  @@map("interpret_messages")
+}
+
+// 她档案完整版 — Phase 1 只建表骨架,生成逻辑 Phase 2
+model ArchiveReport {
+  id              String @id @default(cuid())
+  user_id         String
+  relationship_id String
+
+  content     String @db.Text // Phase 2 写入实际内容
+  points_cost Int    @default(0)
+
+  generated_at DateTime @default(now()) @db.Timestamptz
+
+  user         User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  relationship Relationship @relation(fields: [relationship_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, generated_at])
+  @@index([relationship_id])
+  @@map("archive_reports")
+}
+
+// 深度复盘 — Phase 1 只建表骨架,生成逻辑 Phase 2
+model DeepReport {
+  id              String @id @default(cuid())
+  user_id         String
+  relationship_id String
+
+  content     String @db.Text
+  points_cost Int    @default(0)
+
+  generated_at DateTime @default(now()) @db.Timestamptz
+
+  user         User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  relationship Relationship @relation(fields: [relationship_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, generated_at])
+  @@index([relationship_id])
+  @@map("deep_reports")
 }
