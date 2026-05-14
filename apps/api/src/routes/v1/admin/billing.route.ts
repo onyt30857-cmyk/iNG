@@ -30,7 +30,7 @@ export async function adminBillingRoutes(app: FastifyInstance): Promise<void> {
     return { ok: true, data: products }
   })
 
-  app.put('/v1/admin/billing/products/:id', async (request) => {
+  app.patch('/v1/admin/billing/products/:id', async (request) => {
     const { id } = request.params as { id: string }
     const body = updateProductSchema.parse(request.body)
     const adminId = request.admin!.id

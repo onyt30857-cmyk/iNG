@@ -20,6 +20,8 @@ import {
   History,
   Sparkles,
   ShieldAlert,
+  ShoppingBag,
+  Undo2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -73,12 +75,20 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    group: '营收',
+    hint: '商品 / 退款 / API 余额',
+    items: [
+      { href: '/billing/products', label: '商品定价', icon: ShoppingBag },
+      { href: '/billing/refunds', label: '退款工单', icon: Undo2 },
+      { href: '/settings/billing', label: 'Claude 余额', icon: Wallet },
+    ],
+  },
+  {
     group: '系统',
     hint: '全局配置 + 工具',
     items: [
       { href: '/settings/quota', label: '系统配置', icon: Settings },
       { href: '/settings/data-flow', label: '数据流配置', icon: Settings2 },
-      { href: '/settings/billing', label: 'Claude 余额', icon: Wallet },
       { href: '/changelog', label: '迭代记录', icon: History },
       { href: '/errors', label: '错误码字典', icon: AlertCircle },
     ],
