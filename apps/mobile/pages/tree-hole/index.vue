@@ -41,7 +41,9 @@ const isReadonly = computed(() => viewingSessionDate.value !== null)
 
 // 翻翻 bottomsheet
 const historyOpen = ref(false)
-const historySessions = ref<Array<{ id: string; date: string; preview: string; count: number }>>([])
+const historySessions = ref<
+  Array<{ id: string; date: string; preview: string; count: number; isToday: boolean }>
+>([])
 const historyLoading = ref(false)
 
 // 情绪 chip(empty state 启发用户聊情绪,不聊具体的人)
@@ -49,6 +51,14 @@ const EMOTION_CHIPS = ['累', '烦', '空', '委屈', '难过', '闷']
 
 function toLocal(m: TreeHoleMessage): LocalMessage {
   return { id: m.id, role: m.role, content: m.content }
+}
+
+/**
+ * Backend TreeHoleSession.date 是 Prisma @db.Date 字段,JSON 序列化后是 ISO 串
+ * "2026-05-13T00:00:00.000Z"。前端比较前必须截到 "YYYY-MM-DD" 才能跟 shanghaiDateStr() 对齐。
+ */
+function normalizeDate(raw: string): string {
+  return raw.length > 10 ? raw.slice(0, 10) : raw
 }
 
 async function loadTodayHistory() {
@@ -64,9 +74,9 @@ async function loadTodayHistory() {
 
   const latest = res.data[0]
   if (!latest) return
-  // 判断是不是今天的 session(用 Shanghai 时区比较)
+  // 判断是不是今天的 session(用 Shanghai 时区比较;backend date 是 ISO 串要 normalize)
   const todayShanghai = shanghaiDateStr()
-  if (latest.date !== todayShanghai) return // 不是今天就不显示历史(后端会新建)
+  if (normalizeDate(latest.date) !== todayShanghai) return // 不是今天就不显示历史(后端会新建)
 
   const msgsRes = await getTreeHoleMessages(latest.id)
   if (msgsRes.ok) {
@@ -169,12 +179,13 @@ async function openHistory() {
       const msgsRes = await getTreeHoleMessages(s.id)
       const msgs = msgsRes.ok ? msgsRes.data : []
       const first = msgs[0]
+      const dateStr = normalizeDate(s.date)
       return {
         id: s.id,
-        date: s.date,
+        date: dateStr,
         preview: first?.content?.slice(0, 30) ?? '(空)',
         count: msgs.length,
-        isToday: s.date === todayStr,
+        isToday: dateStr === todayStr,
       }
     }),
   )
@@ -189,7 +200,7 @@ function closeHistory() {
 // 点条目:今天的 → 关闭 sheet 不操作;过去的 → 加载历史 + 切只读
 async function viewHistorySession(item: { id: string; date: string }) {
   const todayStr = shanghaiDateStr()
-  if (item.date === todayStr) {
+  if (normalizeDate(item.date) === todayStr) {
     historyOpen.value = false
     return
   }
@@ -197,7 +208,7 @@ async function viewHistorySession(item: { id: string; date: string }) {
   const msgsRes = await getTreeHoleMessages(item.id)
   if (msgsRes.ok) {
     messages.value = msgsRes.data.map(toLocal)
-    viewingSessionDate.value = item.date
+    viewingSessionDate.value = normalizeDate(item.date)
     historyOpen.value = false
     await nextTick()
     scrollToBottom()
@@ -214,6 +225,21 @@ async function backToToday() {
 }
 
 const isEmpty = computed(() => !loading.value && messages.value.length === 0)
+
+// 历史 session 日期友好显示("YYYY-MM-DD" → "M月D日 周X")
+const formattedViewingDate = computed(() => {
+  const raw = viewingSessionDate.value
+  if (!raw) return ''
+  // 接受两种格式:"YYYY-MM-DD" 或 ISO string "YYYY-MM-DDT00:00:00.000Z"
+  const dateStr = raw.length > 10 ? raw.slice(0, 10) : raw
+  const parts = dateStr.split('-')
+  if (parts.length !== 3) return dateStr
+  const [, m, d] = parts
+  const dt = new Date(dateStr)
+  const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+  const day = dayNames[dt.getDay()]
+  return `${Number(m)}月${Number(d)}日 ${day}`
+})
 </script>
 
 <template>
@@ -225,11 +251,16 @@ const isEmpty = computed(() => !loading.value && messages.value.length === 0)
       </view>
       <view class="header-title">
         <text class="title-text">找老白聊聊</text>
-        <text class="title-hint">{{ isReadonly ? `${viewingSessionDate} 的对话` : '不关联谁,就是说说心情' }}</text>
+        <text class="title-hint">{{ isReadonly ? formattedViewingDate : '不关联谁,就是说说心情' }}</text>
       </view>
       <view class="header-history-btn" @tap="openHistory">
         <text class="history-btn-text">翻翻</text>
       </view>
+    </view>
+
+    <!-- AI 内容合规提示条(跟主对话同款,sticky 在 header 下方)-->
+    <view v-if="!isReadonly" class="ai-disclaimer">
+      <text class="ai-disclaimer-text">本对话包含 AI 生成内容,仅供参考</text>
     </view>
 
     <!-- 只读模式 banner(看过去 session)-->
@@ -336,7 +367,7 @@ const isEmpty = computed(() => !loading.value && messages.value.length === 0)
           >
             <view class="history-item-head">
               <text class="history-date">{{ item.date }}</text>
-              <text v-if="item.date === shanghaiDateStr()" class="history-today-tag">今天</text>
+              <text v-if="item.isToday" class="history-today-tag">今天</text>
               <text class="history-count">{{ item.count }} 条</text>
             </view>
             <text class="history-preview">{{ item.preview }}</text>
@@ -361,13 +392,33 @@ const isEmpty = computed(() => !loading.value && messages.value.length === 0)
   overflow: hidden;
 }
 
+/* 跟主对话(relationship/conversation)同款 header — 白底 sticky + 灰底线 */
 .header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display: flex;
   align-items: center;
-  padding: 24rpx 32rpx;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(20rpx);
-  border-bottom: 1rpx solid $color-border;
+  padding: calc(env(safe-area-inset-top, 16rpx) + 16rpx) 24rpx 16rpx;
+  background-color: $color-surface;
+  border-bottom: 1rpx solid $color-divider;
+  gap: 8rpx;
+}
+
+/* AI 内容合规提示条 — 跟主对话同款,sticky 在 header 下方 */
+.ai-disclaimer {
+  position: sticky;
+  top: calc(env(safe-area-inset-top, 16rpx) + 88rpx);
+  z-index: 9;
+  padding: 8rpx 32rpx 12rpx;
+  background-color: $color-surface-subtle;
+  border-bottom: 1rpx solid $color-divider;
+  text-align: center;
+}
+.ai-disclaimer-text {
+  font-size: 22rpx;
+  color: $color-text-tertiary;
+  line-height: 1.4;
 }
 
 .back-btn {
