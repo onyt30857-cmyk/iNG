@@ -143,6 +143,10 @@ export default function LlmCallsPage() {
             <option value="profile_update">profile_update</option>
             <option value="greeting">greeting</option>
             <option value="auto_lint">auto_lint</option>
+            {/* Phase 1 P1.1(2026-05-14)— 4 类新场景 */}
+            <option value="tree_hole">tree_hole</option>
+            <option value="interpret">interpret</option>
+            <option value="icebreaker">icebreaker</option>
             {/* M3.0 Item 1 Scope 3:legacy scene 保留可选(过滤历史数据 ≤ 5/12 之前的) */}
             <option value="parsing">parsing (legacy)</option>
             <option value="reflecting">reflecting (legacy)</option>
