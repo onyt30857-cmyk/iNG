@@ -197,6 +197,11 @@ model Relationship {
   // P1.5 WORK 类型不生成 observation/assertion(隐私合规)
   type RelationshipType @default(ROMANTIC)
 
+  // M3.1(2026-05-14)— 跨语言场景:她说什么语言
+  // zh = 默认(中国对中国);en/th/vi = 英/泰/越
+  // 非 zh 时,老白话术用对方语言并附中文括注;判断/解释仍用中文
+  her_language String @default("zh")
+
   // 用户填写的基础事实(JSON)
   // 例: { how_met: "朋友介绍", first_met_at: "2024-03", key_facts: ["喜欢爵士乐"] }
   basic_facts Json @default("{}")

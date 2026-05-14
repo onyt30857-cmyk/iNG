@@ -64,11 +64,18 @@ const formattedTime = computed(() => formatBubbleTime(props.createdAt))
 // 解释段里 inline quote 对方原话(如"她那句'有啥好事'")保持原文渲染。
 // 这样避免 false positive 把解释里的引用错做成 chip。
 interface Segment {
-  type: 'quote' | 'plain'
+  type: 'quote' | 'plain' | 'bilingual_quote'
   text: string
+  // M3.1 双语:bilingual_quote 用 sub 装中文括注,text 装目标语言主体(复制只复制 text)
+  sub?: string
 }
 // 整行只有引号片段(允许两端空白)
 const FULL_QUOTE_LINE = /^[\s]*["""「『]([^"""「」『』\n]{2,200})["""」』][\s]*$/
+
+// M3.1(2026-05-14)双语话术:「目标语言主体」(中文意思)
+// 兼容半角 () 和全角 (()(LLM 输出有概率漂移)
+// 主体限定 1-200 字,中文括注 1-200 字,中文括注内不能再含括号
+const FULL_QUOTE_LINE_BILINGUAL = /^[\s]*["""「『]([^"""「」『』\n]{1,200})["""」』]\s*[(((]\s*([^)))\n]{1,200})\s*[)))][\s]*$/
 
 // 2026-05-14:Sam 反馈老白回复出现 ** 字符(LLM 残留 markdown)。
 // 显示前 strip:**bold** / __bold__ / *italic* / _italic_ 全去掉,只剩内容文字。
@@ -95,6 +102,13 @@ const segments = computed<Segment[]>(() => {
   }
 
   for (const line of lines) {
+    // M3.1:先试双语格式 「英文」(中文) — 优先级高于单 quote
+    const biMatch = line.match(FULL_QUOTE_LINE_BILINGUAL)
+    if (biMatch) {
+      flushPlain()
+      out.push({ type: 'bilingual_quote', text: biMatch[1]!, sub: biMatch[2]! })
+      continue
+    }
     const fullMatch = line.match(FULL_QUOTE_LINE)
     if (fullMatch) {
       flushPlain()
@@ -263,8 +277,26 @@ async function onLongPress() {
         <template v-else>
           <view class="text-segments">
             <template v-for="(seg, i) in segments" :key="i">
+              <!-- M3.1 双语话术:主体大字(目标语言)+ 中文括注小字,复制只取主体 -->
               <view
-                v-if="seg.type === 'quote'"
+                v-if="seg.type === 'bilingual_quote'"
+                class="quote-chip quote-chip-bilingual"
+                @tap="copyQuote(seg.text)"
+              >
+                <view class="quote-chip-bilingual-stack">
+                  <text class="quote-chip-text quote-chip-text-bilingual">{{ seg.text }}</text>
+                  <text class="quote-chip-sub">{{ seg.sub }}</text>
+                </view>
+                <view class="quote-chip-action">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <rect x="9" y="9" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.8" />
+                    <path d="M5 15V5a2 2 0 012-2h10" stroke="currentColor" stroke-width="1.8" />
+                  </svg>
+                  <text class="quote-chip-action-text">复制</text>
+                </view>
+              </view>
+              <view
+                v-else-if="seg.type === 'quote'"
                 class="quote-chip"
                 @tap="copyQuote(seg.text)"
               >
@@ -457,6 +489,29 @@ async function onLongPress() {
   line-height: 1.5;
   font-weight: $weight-medium;
   letter-spacing: 0.5rpx;
+}
+
+// M3.1 双语 quote:主体 + 中文括注垂直堆叠
+.quote-chip-bilingual {
+  align-items: flex-start;
+}
+.quote-chip-bilingual-stack {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+.quote-chip-text-bilingual {
+  flex: none;
+  // 英文 / 越文 / 泰文 — 字号略小,跟中文混排更协调
+  font-size: 30rpx;
+  letter-spacing: 0.3rpx;
+}
+.quote-chip-sub {
+  font-size: 22rpx;
+  color: $color-text-tertiary;
+  line-height: 1.4;
+  letter-spacing: 0.2rpx;
 }
 .quote-chip-action {
   display: flex;

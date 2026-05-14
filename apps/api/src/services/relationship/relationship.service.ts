@@ -65,6 +65,7 @@ export async function createRelationship(
       avatar_seed: input.avatar_seed ?? deriveAvatarSeed(input.name),
       basic_facts: (input.basic_facts ?? {}) as Prisma.InputJsonValue,
       user_reminders: (input.user_reminders ?? []) as Prisma.InputJsonValue,
+      ...(input.her_language ? { her_language: input.her_language } : {}),
     },
   })
 }
@@ -91,6 +92,7 @@ export async function updateRelationship(
   if (input.user_reminders !== undefined) {
     data.user_reminders = input.user_reminders as Prisma.InputJsonValue
   }
+  if (input.her_language !== undefined) data.her_language = input.her_language
 
   return prisma.relationship.update({
     where: { id: relationshipId }, // 上一步已验过 ownership,这里用 id 直接 update

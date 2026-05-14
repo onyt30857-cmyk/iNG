@@ -9,7 +9,10 @@ import { onLoad } from '@dcloudio/uni-app'
 import { useRelationshipStore } from '../../stores/relationship'
 import {
   RELATIONSHIP_STAGE_LABELS,
+  HER_LANGUAGE_LABELS,
+  HER_LANGUAGE_HINT,
   type RelationshipStage,
+  type HerLanguage,
   type CreateRelationshipInput,
 } from '../../types/relationship'
 
@@ -21,8 +24,10 @@ const name = ref('')
 const stage = ref<RelationshipStage | ''>('')
 const howWeMet = ref('')
 const keyFactsText = ref('') // 多行,空行分隔成数组
+const herLanguage = ref<HerLanguage>('zh')
 
 const stageOptions: RelationshipStage[] = ['INIT', 'FLIRTING', 'COMMITTED', 'CONFLICT', 'RECOVERY', 'ENDED']
+const herLanguageOptions: HerLanguage[] = ['zh', 'en', 'th', 'vi']
 
 const nameCount = computed(() => name.value.length)
 const howWeMetCount = computed(() => howWeMet.value.length)
@@ -43,9 +48,14 @@ onMounted(async () => {
       stage.value = r.stage
       howWeMet.value = r.basic_facts.how_we_met ?? ''
       keyFactsText.value = (r.basic_facts.key_facts ?? []).join('\n')
+      herLanguage.value = r.her_language ?? 'zh'
     }
   }
 })
+
+function selectHerLanguage(l: HerLanguage) {
+  herLanguage.value = l
+}
 
 function selectStage(s: RelationshipStage) {
   stage.value = s
@@ -64,6 +74,7 @@ function buildInput(): CreateRelationshipInput | null {
       ...(howWeMet.value.trim() ? { how_we_met: howWeMet.value.trim() } : {}),
       ...(keyFacts.length > 0 ? { key_facts: keyFacts } : {}),
     },
+    her_language: herLanguage.value,
   }
 }
 
@@ -126,6 +137,31 @@ function scheduleAutoSave() {
               {{ RELATIONSHIP_STAGE_LABELS[s] }}
             </text>
           </view>
+        </view>
+      </view>
+
+      <!-- M3.1 跨语言:她说什么语言 -->
+      <view class="field">
+        <view class="label-row">
+          <text class="label">她说什么语言</text>
+        </view>
+        <view class="chips">
+          <view
+            v-for="l in herLanguageOptions"
+            :key="l"
+            :class="['chip', herLanguage === l && 'chip-selected']"
+            @tap="() => { selectHerLanguage(l); scheduleAutoSave(); }"
+          >
+            <text :class="['chip-text', herLanguage === l && 'chip-text-selected']">
+              {{ HER_LANGUAGE_LABELS[l] }}
+            </text>
+            <text v-if="l !== 'zh'" :class="['chip-hint', herLanguage === l && 'chip-hint-selected']">
+              {{ HER_LANGUAGE_HINT[l] }}
+            </text>
+          </view>
+        </view>
+        <view v-if="herLanguage !== 'zh'" class="lang-hint-row">
+          <text class="lang-hint-text">老白会用{{ HER_LANGUAGE_LABELS[herLanguage] }}写话术,附中文意思</text>
         </view>
       </view>
 
@@ -259,6 +295,24 @@ function scheduleAutoSave() {
 .chip-text-selected {
   color: $color-background;
   font-weight: $weight-medium;
+}
+.chip-hint {
+  font-size: 20rpx;
+  color: $color-text-disabled;
+  margin-left: 8rpx;
+}
+.chip-hint-selected {
+  color: $color-background;
+  opacity: 0.7;
+}
+
+// === Lang hint row ===
+.lang-hint-row {
+  margin-top: 16rpx;
+}
+.lang-hint-text {
+  font-size: 24rpx;
+  color: $color-text-tertiary;
 }
 
 // === Auto save hint ===

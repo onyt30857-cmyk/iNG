@@ -232,6 +232,8 @@ export async function runConversationTurnForRelationship(
           uses_emoji: languageFingerprint.uses_emoji,
         }
       : null,
+    // M3.1(2026-05-14)— 跨语言场景:她说什么语言
+    her_language: current.her_language,
   }
   return runConversationTurn(turnInput, handlers)
 }

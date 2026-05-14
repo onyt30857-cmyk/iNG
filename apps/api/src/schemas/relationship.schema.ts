@@ -13,6 +13,11 @@ export const relationshipStageSchema = z.enum([
   'ENDED',      // 已结束(M1 仅作为终态展示)
 ])
 
+// M3.1 多语言场景:她说什么语言
+// zh = 默认;en/th/vi 触发跨语言模式(老白话术用对方语言+中文括注)
+export const herLanguageSchema = z.enum(['zh', 'en', 'th', 'vi'])
+export type HerLanguage = z.infer<typeof herLanguageSchema>
+
 // basic_facts JSON 内部 schema(放 how_we_met / age_range / key_facts 等自由字段)
 // spec-008 Phase 2.2:加 pending_facts 待确认区,low confidence 抽取进这里,
 // 用户在档案页 ✓ 后转入 key_facts(高 confidence 抽取直接进 key_facts)
@@ -48,6 +53,7 @@ export const createRelationshipSchema = z.object({
   avatar_seed: z.string().max(50).optional(),
   basic_facts: basicFactsSchema.optional(),
   user_reminders: userRemindersSchema.optional(),
+  her_language: herLanguageSchema.optional(),
 })
 
 // 更新:所有字段 optional,但 name 仍要校验长度(空字符串排除)
@@ -60,6 +66,7 @@ export const updateRelationshipSchema = z.object({
   avatar_url: z.string().max(250_000, '头像太大,换张小一点的').nullable().optional(),
   basic_facts: basicFactsSchema.optional(),
   user_reminders: userRemindersSchema.optional(),
+  her_language: herLanguageSchema.optional(),
 })
 
 // 列表查询参数

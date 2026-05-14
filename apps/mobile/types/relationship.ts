@@ -17,6 +17,23 @@ export const RELATIONSHIP_STAGE_LABELS: Record<RelationshipStage, string> = {
   ENDED: '已结束',
 }
 
+// M3.1(2026-05-14)— 跨语言场景:她说什么语言
+export type HerLanguage = 'zh' | 'en' | 'th' | 'vi'
+
+export const HER_LANGUAGE_LABELS: Record<HerLanguage, string> = {
+  zh: '中文',
+  en: '英语',
+  th: '泰语',
+  vi: '越南语',
+}
+
+export const HER_LANGUAGE_HINT: Record<HerLanguage, string> = {
+  zh: '默认',
+  en: 'English',
+  th: 'ภาษาไทย',
+  vi: 'Tiếng Việt',
+}
+
 export interface PendingFact {
   text: string
   evidence_quote: string
@@ -46,6 +63,8 @@ export interface Relationship {
   created_at: string
   updated_at: string
   deleted_at: string | null
+  /** M3.1 跨语言:她说什么语言,默认 zh */
+  her_language?: HerLanguage
 }
 
 export interface CreateRelationshipInput {
@@ -53,6 +72,7 @@ export interface CreateRelationshipInput {
   stage: RelationshipStage
   basic_facts?: BasicFacts
   user_reminders?: string[]
+  her_language?: HerLanguage
 }
 
 export interface UpdateRelationshipInput {
@@ -63,6 +83,7 @@ export interface UpdateRelationshipInput {
   avatar_url?: string | null
   basic_facts?: BasicFacts
   user_reminders?: string[]
+  her_language?: HerLanguage
 }
 
 // 复盘历史(spec-005 后才有内容)

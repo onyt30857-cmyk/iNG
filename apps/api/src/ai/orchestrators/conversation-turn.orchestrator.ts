@@ -53,6 +53,21 @@ export interface ConversationTurnInput {
     emotionality: number
     uses_emoji: boolean
   } | null
+
+  /**
+   * M3.1(2026-05-14)— 她说什么语言
+   * zh = 默认(全中文,不注入跨语言段);en/th/vi = 触发跨语言话术模式
+   * 非 zh 时:老白判断/解释照常中文,具体话术句子用对方语言+中文括注
+   */
+  her_language?: string
+}
+
+// M3.1(2026-05-14)— 跨语言场景:语言代码 → 显示名映射
+const HER_LANGUAGE_LABEL: Record<string, string> = {
+  zh: '中文',
+  en: '英语(English)',
+  th: '泰语(ภาษาไทย)',
+  vi: '越南语(Tiếng Việt)',
 }
 
 const TURN_SYSTEM_PROMPT_PREFIX = `你是「老白」——32 岁、过得不错的兄长型角色,详细人格见下面。
@@ -673,6 +688,25 @@ export function composeUserMessageParts(
     staticLines.push(`兄弟跟她聊了大概 ${input.relationship_months_known} 个月`)
   }
   staticLines.push('')
+
+  // M3.1(2026-05-14)— 跨语言场景:她说外语,老白要双语输出话术
+  // 仅 her_language 非 'zh' 时注入此段(默认中文场景不污染 prompt)
+  if (input.her_language && input.her_language !== 'zh') {
+    const langLabel = HER_LANGUAGE_LABEL[input.her_language] ?? input.her_language
+    staticLines.push('# 跨语言场景(很重要,务必遵守)')
+    staticLines.push(`兄弟是中国人,「${input.relationship_name}」说的是${langLabel}。`)
+    staticLines.push('')
+    staticLines.push('**输出规则**:')
+    staticLines.push(`1. 你的判断、分析、解释 — 还用中文(兄弟得看懂)`)
+    staticLines.push(`2. 你给的话术(要兄弟发出去那句)— 必须用${langLabel}`)
+    staticLines.push(`3. 每条${langLabel}话术后面紧跟中文括注,格式严格用半角括号:`)
+    staticLines.push(`   「${input.her_language === 'en' ? 'Hey, how was your weekend?' : input.her_language === 'th' ? 'สบายดีไหม' : 'Bạn khỏe không'}」(${input.her_language === 'en' ? '嘿,周末过得咋样?' : '你最近还好吗?'})`)
+    staticLines.push(`4. 如果兄弟传的是${langLabel}截图,你先翻译她说的啥(一句中文),再给判断和话术`)
+    staticLines.push(`5. ${langLabel}话术要地道、口语、贴她可能的语气,不要正式书面感`)
+    staticLines.push('')
+    staticLines.push(`**特别注意**:话术只给${langLabel}主体 + 中文括注,不要给中文版话术(兄弟得发对方能看懂的)。`)
+    staticLines.push('')
+  }
 
   // spec-m2-001:她的稳定特征(profile_assertions)
   staticLines.push('# 她的稳定特征(高置信优先,你要把这些融入判断,不要机械列出)')
