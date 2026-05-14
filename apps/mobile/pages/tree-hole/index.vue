@@ -9,6 +9,10 @@
 
 import { computed, nextTick, onMounted, ref } from 'vue'
 import LaokeAvatar from '../../components/LaokeAvatar.vue'
+// 复用主对话标准气泡组件,跟 /pages/relationship/conversation 视觉一致
+// LaokeBubble 不传 relationshipId 时反馈通道 / 收藏功能自动跳过
+import LaokeBubble from '../../components/conversation/LaokeBubble.vue'
+import UserBubble from '../../components/conversation/UserBubble.vue'
 import {
   getTreeHoleMessages,
   getTreeHoleSessions,
@@ -168,20 +172,14 @@ const isEmpty = computed(() => !loading.value && messages.value.length === 0)
         v-for="m in messages"
         :key="m.id"
         :id="`msg-${m.id}`"
-        class="row"
-        :class="m.role === 'USER' ? 'row-user' : 'row-laoke'"
       >
-        <view v-if="m.role === 'LAOKE'" class="laoke-avatar-wrap">
-          <LaokeAvatar :size="36" />
-        </view>
-
-        <view
-          class="bubble"
-          :class="m.role === 'USER' ? 'bubble-user' : 'bubble-laoke'"
-        >
-          <text v-if="m.thinking" class="thinking-text">老白想想…</text>
-          <text v-else class="bubble-text">{{ m.content }}</text>
-        </view>
+        <LaokeBubble
+          v-if="m.role === 'LAOKE'"
+          :text="m.content"
+          :is-thinking="m.thinking"
+          :message-id="m.thinking ? undefined : m.id"
+        />
+        <UserBubble v-else :text="m.content" />
       </view>
 
       <view v-if="errorMsg" class="error-row">
@@ -307,62 +305,7 @@ const isEmpty = computed(() => !loading.value && messages.value.length === 0)
   color: $color-text-tertiary;
 }
 
-.row {
-  display: flex;
-  align-items: flex-end;
-  margin-bottom: 24rpx;
-  gap: 12rpx;
-}
-
-.row-user {
-  flex-direction: row-reverse;
-}
-
-.row-laoke {
-  flex-direction: row;
-}
-
-.laoke-avatar-wrap {
-  flex-shrink: 0;
-}
-
-.bubble {
-  max-width: 540rpx;
-  padding: 20rpx 24rpx;
-  border-radius: $radius-xl;
-  word-break: break-word;
-}
-
-.bubble-user {
-  background: $color-primary;
-  border-bottom-right-radius: $radius-bubble-tail;
-}
-
-.bubble-laoke {
-  background: $color-laoke-subtle;
-  border-left: 4rpx solid $color-laoke;
-  border-bottom-left-radius: $radius-bubble-tail;
-}
-
-.bubble-text {
-  font-size: 30rpx;
-  line-height: 1.6;
-  white-space: pre-wrap;
-}
-
-.bubble-user .bubble-text {
-  color: #fff;
-}
-
-.bubble-laoke .bubble-text {
-  color: $color-text-primary;
-}
-
-.thinking-text {
-  font-size: 28rpx;
-  color: $color-text-tertiary;
-  font-style: italic;
-}
+/* 旧自定义气泡 / row / bubble 样式已废,改用 LaokeBubble + UserBubble 标准组件 */
 
 .error-row {
   padding: 16rpx 24rpx;

@@ -316,6 +316,7 @@ function goBack() {
 }
 
 .cta {
+  width: 100%;
   height: 96rpx;
   display: flex;
   align-items: center;
@@ -325,6 +326,7 @@ function goBack() {
   margin-top: 16rpx;
   transition: opacity 0.2s, background 0.2s;
   box-shadow: 0 8rpx 24rpx rgba(255, 125, 149, 0.25);
+  box-sizing: border-box;
 }
 
 /* disabled:保留主色但降透明度 + 去阴影,视觉明确"未激活但是个按钮" */
