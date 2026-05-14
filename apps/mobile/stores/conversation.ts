@@ -244,10 +244,15 @@ export const useConversationStore = defineStore('conversation', () => {
   const savedDrafts = ref<Record<string, ReplyDraft[]>>({})        // relationshipId → drafts
   const savedPlannings = ref<Record<string, Array<{ id: string; content: PlanningContent; saved_at: string }>>>({})
 
-  // spec-009 audit:老白free text 回复的收藏(spec-006 之后老白主要是 free text,
-  // ReplyDraft/PlanningContent 几乎不再出现,工具箱永远空。加这个让收藏闭环)
+  /**
+   * @deprecated 2026-05-14 Nikita audit:删工具箱 tab + 收藏功能
+   * 理由:AI 对话天然不需要收藏,历史本身就是档案;用户行为是"复制就发"不是"存起来事后翻"
+   * 保留 state + 函数接口,旧数据 localStorage 仍保留(用户数据不丢)
+   * UI 入口已删,函数 zero call site,M4 物理删 state + 函数 + persist
+   */
   const savedQuotes = ref<Record<string, Array<{ id: string; text: string; saved_at: string }>>>({})
 
+  /** @deprecated 见 savedQuotes */
   function saveQuote(relationshipId: string, messageId: string, text: string): void {
     const cur = savedQuotes.value[relationshipId] ?? []
     if (cur.find((q) => q.id === messageId)) return
@@ -255,15 +260,17 @@ export const useConversationStore = defineStore('conversation', () => {
       ...cur,
       { id: messageId, text, saved_at: new Date().toISOString() },
     ]
-    uni.showToast({ title: '收藏了', icon: 'none', duration: 1200 })
   }
+  /** @deprecated 见 savedQuotes */
   function unsaveQuote(relationshipId: string, messageId: string): void {
     const cur = savedQuotes.value[relationshipId] ?? []
     savedQuotes.value[relationshipId] = cur.filter((q) => q.id !== messageId)
   }
+  /** @deprecated 见 savedQuotes */
   function isQuoteSaved(relationshipId: string, messageId: string): boolean {
     return !!savedQuotes.value[relationshipId]?.find((q) => q.id === messageId)
   }
+  /** @deprecated 见 savedQuotes */
   function getSavedQuotes(relationshipId: string) {
     return savedQuotes.value[relationshipId] ?? []
   }

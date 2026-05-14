@@ -30,7 +30,8 @@ onLoad((opts) => {
   id.value = (opts?.id as string) ?? ''
   // 从 conversation.vue 顶部 ⋯ 跳过来时,带 tab=us 直接落到"我们"Tab(老白看到的)
   const t = (opts?.tab as string) ?? ''
-  if (t === 'her' || t === 'us' || t === 'toolbox' || t === 'grow') activeTab.value = t
+  // 2026-05-14 删工具箱 tab(Nikita audit);老 deeplink ?tab=toolbox 自动落 'us' 不报错
+  if (t === 'her' || t === 'us' || t === 'grow') activeTab.value = t
 })
 
 onMounted(async () => {
@@ -73,7 +74,8 @@ const lastTalkAgo = computed(() => {
 // === Tab 切换 ===
 // 默认 'us'(我们):整页核心是关系演变 + "老白看到的",这是产品独有价值,
 // "她"是档案、"工具箱"是收藏、"成长"是北极星 + 被见证叙事,都不该是 first impression。
-type Tab = 'her' | 'us' | 'toolbox' | 'grow'
+// 2026-05-14 Nikita audit:删工具箱 tab,4 → 3
+type Tab = 'her' | 'us' | 'grow'
 const activeTab = ref<Tab>('us')
 
 // === Tab 4: 成长 — 被见证型叙事(2026-05-12 加)===
@@ -505,20 +507,9 @@ async function regenerateInsights() {
 }
 
 
-// === Tab 3: 工具箱 - 收藏 ===
-// spec-006 重构后,savedDrafts / savedPlannings 几乎不再产生(对应旧 6 状态机产物)
-// 工具箱只保留"收藏的回复"(savedQuotes) — 用户在老白气泡点 ☆ 触发
-const savedQuotes = computed(() => conversationStore.getSavedQuotes(id.value))
-function unsaveQuote(qid: string) {
-  conversationStore.unsaveQuote(id.value, qid)
-}
-
-function copyDraftText(text: string) {
-  uni.setClipboardData({
-    data: text,
-    success: () => uni.showToast({ title: '复制了', icon: 'none' }),
-  })
-}
+// 2026-05-14 Nikita audit:删工具箱 tab + 收藏功能
+// savedQuotes computed / unsaveQuote / copyDraftText 已移除
+// convStore.saveQuote / getSavedQuotes / unsaveQuote 保留接口 + 老数据,标 @deprecated M4 物理删
 
 function goEdit() {
   uni.navigateTo({ url: `/pages/relationship/edit?mode=edit&id=${id.value}` })
@@ -614,19 +605,13 @@ async function deleteIt() {
       </view>
     </view>
 
-    <!-- ============ Tabs ============ -->
+    <!-- ============ Tabs(2026-05-14 删工具箱,4 → 3)============ -->
     <view class="tabs">
       <view :class="['tab', activeTab === 'her' && 'active']" @tap="activeTab = 'her'">
         <text class="tab-text">她</text>
       </view>
       <view :class="['tab', activeTab === 'us' && 'active']" @tap="activeTab = 'us'">
         <text class="tab-text">我们</text>
-      </view>
-      <view :class="['tab', activeTab === 'toolbox' && 'active']" @tap="activeTab = 'toolbox'">
-        <text class="tab-text">工具箱</text>
-        <text v-if="savedQuotes.length > 0" class="tab-count">
-          {{ savedQuotes.length }}
-        </text>
       </view>
       <view :class="['tab', activeTab === 'grow' && 'active']" @tap="activeTab = 'grow'">
         <text class="tab-text">成长</text>
@@ -782,33 +767,8 @@ async function deleteIt() {
 
     </view>
 
-    <!-- ============ Tab 3: 工具箱 ============ -->
-    <view v-if="activeTab === 'toolbox'" class="content">
-      <!-- spec-009 audit:收藏的老白一段话(对话流上点 ☆ 触发) -->
-      <view class="section">
-        <text class="section-title">收藏的回复 ({{ savedQuotes.length }})</text>
-        <view v-if="savedQuotes.length === 0" class="empty-line">
-          <text class="empty-line-text">和老白聊的时候,在他回复下面点 ☆ 收藏,这里能找到。</text>
-        </view>
-        <view v-else>
-          <view v-for="q in savedQuotes" :key="q.id" class="saved-card">
-            <view class="saved-card-head">
-              <text class="saved-card-direction">老白说的</text>
-              <view class="saved-card-unsave" @tap="unsaveQuote(q.id)">
-                <text class="saved-card-unsave-icon">★</text>
-              </view>
-            </view>
-            <view class="saved-card-text" @tap="copyDraftText(q.text)">
-              <text class="saved-text">{{ q.text }}</text>
-              <text class="saved-copy">点击复制 ⧉</text>
-            </view>
-          </view>
-        </view>
-      </view>
-
-    </view>
-
-    <!-- ============ Tab 4: 成长(北极星 + 被见证叙事) ============ -->
+    <!-- ============ Tab 3: 成长(北极星 + 被见证叙事) ============ -->
+    <!-- (2026-05-14 删工具箱 tab,Nikita audit:AI 对话天然不需要收藏)-->
     <view v-if="activeTab === 'grow'" class="content">
       <!-- 北极星三段式:学会聊天 · 学会相处 · 学会好好爱人 — 来自练爱官方简介 -->
       <view class="section">

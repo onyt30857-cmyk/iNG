@@ -20,22 +20,14 @@ const userStore = useUserStore()
 const showNickname = computed(() => !props.subtle && !props.isOtherQuote)
 const nickname = computed(() => userStore.user?.nickname?.trim() || null)
 
-// Q2 E:长按菜单(微信经典)— 复制全文 + 收藏(M2 接 backend 时打通)
+// 长按菜单(2026-05-14 Nikita audit:删收藏,只留复制)
 async function onLongPress() {
   if (props.subtle) return // 系统消息不允许复制操作
-  const res = await uni.showActionSheet({
-    itemList: ['复制', '收藏'],
-    itemColor: '#1F2433',
+  uni.setClipboardData({
+    data: props.text,
+    showToast: false,
   })
-  if (res.tapIndex === 0) {
-    uni.setClipboardData({
-      data: props.text,
-      showToast: false,
-    })
-    uni.showToast({ title: '已复制', icon: 'none', duration: 1200 })
-  } else if (res.tapIndex === 1) {
-    uni.showToast({ title: '收藏功能下版本接通', icon: 'none', duration: 1500 })
-  }
+  uni.showToast({ title: '已复制', icon: 'none', duration: 1200 })
 }
 </script>
 

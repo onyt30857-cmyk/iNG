@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue'
 import type { FeedbackType } from '../../api/feedback.api'
-import { useConversationStore } from '../../stores/conversation'
 import { formatBubbleTime } from '../../utils/format-time'
 import LaokeAvatar from '../LaokeAvatar.vue'
 
@@ -106,22 +105,9 @@ function copyQuote(text: string) {
   })
 }
 
-const convStore = useConversationStore()
-const isSaved = computed(() =>
-  !!props.messageId &&
-  !!props.relationshipId &&
-  convStore.isQuoteSaved(props.relationshipId, props.messageId),
-)
-function toggleSave() {
-  if (!props.messageId || !props.relationshipId) return
-  if (isSaved.value) {
-    convStore.unsaveQuote(props.relationshipId, props.messageId)
-  } else {
-    convStore.saveQuote(props.relationshipId, props.messageId, props.text)
-  }
-}
-
 // === spec-009 反馈状态 ===
+// 2026-05-14 Nikita audit:删收藏功能(AI 对话天然不需要),原 isSaved / toggleSave 已移除
+// useConversationStore 保留 saveQuote 接口标 @deprecated,数据不丢,M4 物理删
 const submittingFeedback = ref(false)
 const feedbackGiven = ref<FeedbackType | null>(null)
 const commentModalOpen = ref(false)
@@ -192,19 +178,18 @@ async function confirmComment() {
   closeCommentModal()
 }
 
-// Q2 E:长按菜单(微信经典)— 复制全文 / 收藏(M2 接通后端)/ 不喜欢(快捷反馈)
+// 长按菜单(2026-05-14 Nikita audit:删收藏功能)— 复制全文 / 不喜欢(快捷反馈)
+// 原因:AI 对话天然不需要"收藏单条",历史本身就是档案
 async function onLongPress() {
-  if (props.isThinking || props.isStreaming) return // 加载中不响应
+  if (props.isThinking || props.isStreaming) return
   const res = await uni.showActionSheet({
-    itemList: ['复制', '收藏', '不喜欢这条'],
+    itemList: ['复制', '不喜欢这条'],
     itemColor: '#1F2433',
   })
   if (res.tapIndex === 0) {
     uni.setClipboardData({ data: props.text, showToast: false })
     uni.showToast({ title: '已复制', icon: 'none', duration: 1200 })
   } else if (res.tapIndex === 1) {
-    uni.showToast({ title: '收藏功能下版本接通', icon: 'none', duration: 1500 })
-  } else if (res.tapIndex === 2) {
     if (feedbackGiven.value !== 'dislike') {
       void submit('dislike')
       uni.showToast({ title: '记下了', icon: 'none', duration: 1200 })
@@ -260,13 +245,8 @@ async function onLongPress() {
         </template>
       </view>
 
-      <!-- spec-009 反馈区 + 收藏(完成态才显示),单行文字链风,跟整页低饱和调一致 -->
+      <!-- spec-009 反馈区(2026-05-14 Nikita audit:删收藏,只留有用/不行/说哪不对)-->
       <view v-if="showFeedback" class="feedback-row">
-        <text
-          :class="['fb-link', isSaved && 'fb-link-saved']"
-          @tap="toggleSave"
-        >{{ isSaved ? '已收藏' : '收藏' }}</text>
-        <text class="fb-sep">·</text>
         <text
           :class="['fb-link', feedbackGiven === 'like' && 'fb-link-like']"
           @tap="onLike"
