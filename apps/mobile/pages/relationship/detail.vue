@@ -16,7 +16,13 @@ import { useConversationStore } from '../../stores/conversation'
 import { useRelationshipSignalsStore } from '../../stores/relationship-signals'
 import { useAppDialog } from '../../composables/useAppDialog'
 import RelationshipAvatar from '../../components/RelationshipAvatar.vue'
-import { RELATIONSHIP_STAGE_LABELS, type Relationship } from '../../types/relationship'
+import {
+  RELATIONSHIP_STAGE_LABELS,
+  HER_LANGUAGE_LABELS,
+  HER_LANGUAGE_HINT,
+  type Relationship,
+  type HerLanguage,
+} from '../../types/relationship'
 import type { RelationshipSignalSnapshot, SignalDimension } from '../../utils/signal-computer'
 
 const store = useRelationshipStore()
@@ -305,6 +311,34 @@ async function confirmRename() {
   }
   await store.update(id.value, { name })
   closeRenameModal()
+}
+
+// === M3.1 跨语言:语言切换 ===
+const herLanguage = computed<HerLanguage>(() => relationship.value?.her_language ?? 'zh')
+const herLanguageLabel = computed(() => HER_LANGUAGE_LABELS[herLanguage.value])
+const langModalOpen = ref(false)
+const langOptions: HerLanguage[] = ['zh', 'en', 'th', 'vi']
+
+function openLangModal() {
+  if (!relationship.value) return
+  langModalOpen.value = true
+}
+function closeLangModal() {
+  langModalOpen.value = false
+}
+async function pickLanguage(lang: HerLanguage) {
+  if (!relationship.value) return
+  if (lang === herLanguage.value) {
+    closeLangModal()
+    return
+  }
+  await store.update(id.value, { her_language: lang })
+  closeLangModal()
+  uni.showToast({
+    title: lang === 'zh' ? '改回中文模式' : `老白用${HER_LANGUAGE_LABELS[lang]}写话术`,
+    icon: 'none',
+    duration: 1600,
+  })
 }
 
 // === spec-008 MVP:从对话历史抽取关于"她"的稳定事实 ===
@@ -616,9 +650,43 @@ async function deleteIt() {
             <text class="namecard-label">怎么认识</text>
             <text class="namecard-value">{{ howWeMet }}</text>
           </view>
-          <view v-if="ageRangeLabel" class="namecard-row last">
+          <view v-if="ageRangeLabel" class="namecard-row">
             <text class="namecard-label">年龄段</text>
             <text class="namecard-value">{{ ageRangeLabel }}</text>
+          </view>
+          <!-- M3.1 跨语言:点行弹 modal 4 选 1 切语言 -->
+          <view class="namecard-row last namecard-row-tap" @tap="openLangModal">
+            <text class="namecard-label">语言</text>
+            <view class="namecard-value-row">
+              <text class="namecard-value">{{ herLanguageLabel }}</text>
+              <text v-if="herLanguage !== 'zh'" class="namecard-value-hint">{{ HER_LANGUAGE_HINT[herLanguage] }}</text>
+              <text class="namecard-edit">切</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- M3.1 切语言 modal(复用 rename-modal 视觉,跟"改个称呼"同款 chrome)-->
+      <view v-if="langModalOpen" class="add-modal-overlay" @tap="closeLangModal">
+        <view class="add-modal-scrim"></view>
+        <view class="add-modal" @tap.stop>
+          <view class="add-modal-handle"></view>
+          <text class="add-modal-title">她说什么语言</text>
+          <text class="add-modal-sub">老白会用她的语言写话术,附中文意思</text>
+          <view class="lang-chips">
+            <view
+              v-for="l in langOptions"
+              :key="l"
+              :class="['lang-chip', herLanguage === l && 'lang-chip-selected']"
+              @tap="pickLanguage(l)"
+            >
+              <text :class="['lang-chip-text', herLanguage === l && 'lang-chip-text-selected']">
+                {{ HER_LANGUAGE_LABELS[l] }}
+              </text>
+              <text v-if="l !== 'zh'" :class="['lang-chip-hint', herLanguage === l && 'lang-chip-hint-selected']">
+                {{ HER_LANGUAGE_HINT[l] }}
+              </text>
+            </view>
           </view>
         </view>
       </view>
@@ -1015,6 +1083,73 @@ async function deleteIt() {
   font-size: 28rpx;
   color: $color-text-primary;
   line-height: 1.5;
+}
+// M3.1 跨语言:可点 row 视觉提示
+.namecard-row-tap {
+  transition: background-color 0.15s;
+  &:active { background-color: $color-surface-subtle; }
+}
+.namecard-value-row {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12rpx;
+}
+.namecard-value-hint {
+  font-size: 22rpx;
+  color: $color-text-tertiary;
+}
+.namecard-edit {
+  margin-left: auto;
+  font-size: 22rpx;
+  color: $color-primary;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  background-color: rgba(255, 107, 138, 0.12);
+}
+
+// M3.1 切语言 chip
+.lang-chips {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  margin-top: 8rpx;
+  margin-bottom: 32rpx;
+}
+.lang-chip {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8rpx;
+  padding: 18rpx 28rpx;
+  border-radius: 999rpx;
+  border: 2rpx solid $color-border;
+  background-color: $color-surface;
+  transition: transform 0.12s, background-color 0.15s;
+
+  &:active { transform: scale(0.96); }
+}
+.lang-chip-selected {
+  background-color: $color-primary;
+  border-color: $color-primary;
+}
+.lang-chip-text {
+  font-size: 28rpx;
+  color: $color-text-secondary;
+  font-weight: $weight-medium;
+}
+.lang-chip-text-selected {
+  color: $color-background;
+}
+.lang-chip-hint {
+  font-size: 22rpx;
+  color: $color-text-disabled;
+}
+.lang-chip-hint-selected {
+  color: $color-background;
+  opacity: 0.75;
 }
 
 // === Chips(你告诉老白的) ===
