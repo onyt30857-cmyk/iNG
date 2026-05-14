@@ -58,6 +58,13 @@ jobs:
           DATABASE_URL: postgresql://lianai:lianai@localhost:5432/lianai
         run: pnpm prisma generate
 
+      - name: Apply migrations
+        working-directory: apps/api
+        env:
+          DATABASE_URL: postgresql://lianai:lianai@localhost:5432/lianai
+        # DB-bound tests 依赖最新 schema(P1.2 purchased_points / P1.3 BillingProduct 等)
+        run: pnpm prisma migrate deploy
+
       - name: Lint
         run: pnpm lint
         continue-on-error: true # M1 阶段先放过,补 lint 配置后取消
@@ -70,4 +77,6 @@ jobs:
           DATABASE_URL: postgresql://lianai:lianai@localhost:5432/lianai
           REDIS_URL: redis://localhost:6379
           JWT_SECRET: ci-test-secret-not-for-production-use
+          # config schema 要求 ADMIN_JWT_SECRET ≥32 字符 + 跟 JWT_SECRET 不同(spec-011 §7.1)
+          ADMIN_JWT_SECRET: ci-test-admin-secret-not-for-production-use-32chars
         run: pnpm test
