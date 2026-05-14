@@ -71,6 +71,8 @@ const relationship = ref<Relationship | null>(null)
 // → 后端跳过用户消息写库 + 老白主动用兄长口吻问兄弟"你跟我说说 X 的事"
 // → mobile 不创建用户气泡,只创建 streaming 老白气泡接 stream
 const pendingHint = ref<string | null>(null)
+// home "发她对话截图"入口跳来 → onMounted 后自动触发 ChatInput 的截图选择
+const pendingAutoAction = ref<'screenshot' | null>(null)
 
 onLoad((opts) => {
   relationshipId.value = (opts?.id as string) ?? ''
@@ -81,6 +83,10 @@ onLoad((opts) => {
     } catch {
       pendingHint.value = rawHint
     }
+  }
+  // 直接发她对话截图入口:home + sheet "发她对话截图" 跳来 → 自动触发上传 picker
+  if ((opts?.auto as string | undefined) === 'screenshot') {
+    pendingAutoAction.value = 'screenshot'
   }
 })
 
@@ -100,6 +106,15 @@ onMounted(async () => {
     pendingHint.value = null
     // 微小延迟让用户先看到对话页基本框架,再看到老白气泡冒出
     setTimeout(() => triggerProactiveAsk(hint), 350)
+  }
+
+  // home "发她对话截图"入口跳来 → 等页面 ready 后自动唤起截图选择
+  if (pendingAutoAction.value === 'screenshot') {
+    pendingAutoAction.value = null
+    setTimeout(() => {
+      const ci = chatInputRef.value
+      if (ci) ci.openScreenshotNote()
+    }, 500)
   }
 })
 

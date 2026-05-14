@@ -140,11 +140,32 @@ function openAddSheet() {
 function closeAddSheet() {
   addSheetOpen.value = false
 }
-function pickAddSheet(action: 'tree-hole' | 'interpret' | 'create') {
+function pickAddSheet(action: 'tree-hole' | 'interpret' | 'screenshot' | 'create') {
   addSheetOpen.value = false
   if (action === 'tree-hole') goTreeHole()
   else if (action === 'interpret') goInterpret()
+  else if (action === 'screenshot') goScreenshot()
   else if (action === 'create') goCreate()
+}
+
+// 直接发她对话截图:有关系 → 跳最近一段关系 conversation 页 + auto=screenshot;
+//                  没关系 → 跳建关系页 + 提示先记一段
+function goScreenshot() {
+  if (store.items.length === 0) {
+    uni.showToast({
+      title: '先记一段她,再发截图',
+      icon: 'none',
+      duration: 1800,
+    })
+    setTimeout(() => goCreate(), 600)
+    return
+  }
+  // 取最近一段(items 已按 updated_at desc 排)
+  const recent = store.items[0]
+  if (!recent) return
+  uni.navigateTo({
+    url: `/pages/relationship/conversation?id=${recent.id}&auto=screenshot`,
+  })
 }
 
 // spec-006 之后 home 不再做"复盘入口",所有 OCR 上传 / 复盘流程都在每段关系的
@@ -326,6 +347,21 @@ const greeting = computed(() => {
           <view class="add-item-body">
             <text class="add-item-title">帮我看看一段话</text>
             <text class="add-item-sub">不知道怎么回的时候,贴她说的</text>
+          </view>
+          <text class="add-item-arrow">›</text>
+        </view>
+
+        <view class="add-item add-item-screenshot" @tap="pickAddSheet('screenshot')">
+          <view class="add-item-icon add-icon-screenshot">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+              <rect x="3" y="5" width="18" height="14" rx="3" stroke="currentColor" stroke-width="1.8"/>
+              <circle cx="9" cy="11" r="1.6" fill="currentColor"/>
+              <path d="m3 17 5-5 4 4 3-3 6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </view>
+          <view class="add-item-body">
+            <text class="add-item-title">发她对话截图</text>
+            <text class="add-item-sub">老白帮你看她那边在说什么</text>
           </view>
           <text class="add-item-arrow">›</text>
         </view>
@@ -729,6 +765,10 @@ const greeting = computed(() => {
 .add-icon-interpret {
   background: $color-primary-subtle;
   color: $color-primary-deep;
+}
+.add-icon-screenshot {
+  background: rgba(168, 124, 95, 0.1);
+  color: $color-accent;
 }
 .add-icon-create {
   background: rgba(255, 125, 149, 0.12);
