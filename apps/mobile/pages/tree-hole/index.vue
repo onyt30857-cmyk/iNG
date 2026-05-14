@@ -323,15 +323,17 @@ const formattedViewingDate = computed(() => {
     </view>
     </scroll-view>
 
-    <!-- 输入区 -->
+    <!-- 输入区(跟主对话 ChatInput 同款:白底圆角输入框 + 80×80 圆形按钮)-->
     <view v-if="!isReadonly" class="input-bar">
-      <input
-        v-model="inputText"
-        class="input"
-        placeholder="想说什么,慢慢说"
-        :disabled="sending"
-        @confirm="handleSend"
-      />
+      <view class="input-wrap">
+        <input
+          v-model="inputText"
+          class="input"
+          placeholder="想说什么,慢慢说"
+          :disabled="sending"
+          @confirm="handleSend"
+        />
+      </view>
       <view
         class="send-btn"
         :class="{ 'send-btn-disabled': !inputText.trim() || sending }"
@@ -692,46 +694,60 @@ const formattedViewingDate = computed(() => {
   height: 32rpx;
 }
 
+/* 跟主对话 ChatInput 同款:外层 background 走 page bg + 顶部 1rpx border + 圆形按钮 */
 .input-bar {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 16rpx;
-  padding: 16rpx 24rpx;
-  /* iOS Safari 100vh 包含 home indicator,env() 在 uni-app x H5 不可靠 →
-     显式给足底部 padding(80rpx 覆盖 iPhone 标准 home indicator 34pt 区)+ env() 兜底 */
-  padding-bottom: calc(80rpx + env(safe-area-inset-bottom, 0px));
-  background: rgba(255, 255, 255, 0.95);
+  gap: 12rpx;
+  padding: 16rpx 24rpx calc(env(safe-area-inset-bottom, 16rpx) + 80rpx);
+  background-color: $color-background;
   border-top: 1rpx solid $color-border;
 }
 
-.input {
+/* 输入框包装层:白底 + 圆角 28rpx + 边框,跟 ChatInput 一致 */
+.input-wrap {
   flex: 1;
-  height: 72rpx;
-  padding: 0 24rpx;
-  background: $color-surface;
-  border-radius: $radius-full;
-  font-size: 28rpx;
+  min-height: 80rpx;
+  padding: 16rpx 24rpx;
+  background-color: $color-surface;
+  border: 1rpx solid $color-border;
+  border-radius: 28rpx;
+  display: flex;
+  align-items: center;
+}
+
+.input {
+  width: 100%;
+  font-size: 30rpx;
+  line-height: 1.4;
   color: $color-text-primary;
 }
 
 .send-btn {
-  width: 96rpx;
-  height: 72rpx;
+  width: 80rpx;
+  height: 80rpx;
+  flex-shrink: 0;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: $color-primary;
-  border-radius: $radius-full;
-  transition: background 0.2s;
+  background-color: $color-primary;
+  box-shadow: 0 6rpx 16rpx rgba(255, 125, 149, 0.3);
+  transition: background-color 0.2s, transform 0.15s;
+}
+.send-btn:active {
+  transform: scale(0.94);
 }
 
 .send-btn-disabled {
-  background: $color-primary-soft;
+  background-color: $color-primary-soft;
+  box-shadow: none;
 }
 
 .send-text {
   color: #fff;
   font-size: 28rpx;
-  font-weight: 500;
+  font-weight: 600;
 }
 </style>
