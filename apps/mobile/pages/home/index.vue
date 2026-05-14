@@ -119,6 +119,15 @@ function goProfile() {
   uni.navigateTo({ url: '/pages/profile/index' })
 }
 
+// Phase 1 P1.1(2026-05-14):新场景入口
+function goTreeHole() {
+  uni.navigateTo({ url: '/pages/tree-hole/index' })
+}
+
+function goInterpret() {
+  uni.navigateTo({ url: '/pages/interpret/index' })
+}
+
 // spec-006 之后 home 不再做"复盘入口",所有 OCR 上传 / 复盘流程都在每段关系的
 // 对话页里(/pages/relationship/conversation),用户点关系卡进对话页 → + 按钮 → 选项发截图。
 // 原 goMockReplay / pickOcrFiles / processOcrFiles / replayStore 都删了。
@@ -173,6 +182,18 @@ const greeting = computed(() => {
     <!-- 引导 -->
     <view v-if="store.items.length > 0" class="hint">
       <text class="hint-text">点一段关系,看看她最近</text>
+    </view>
+
+    <!-- Phase 1 P1.1:不关联关系的快捷入口(2 个卡并排)-->
+    <view class="quick-row">
+      <view class="quick-card quick-tree-hole" @tap="goTreeHole">
+        <text class="quick-title">找老白聊聊</text>
+        <text class="quick-hint">不说关系,就说心情</text>
+      </view>
+      <view class="quick-card quick-interpret" @tap="goInterpret">
+        <text class="quick-title">帮我看看这段</text>
+        <text class="quick-hint">贴一段她的话</text>
+      </view>
     </view>
 
     <!-- 关系列表(主入口)— iOS Mail 式 swipe-to-delete reveal -->
@@ -310,6 +331,42 @@ const greeting = computed(() => {
 }
 .hint-text {
   font-size: 24rpx;
+  color: $color-text-tertiary;
+}
+
+// === Quick action 卡(Phase 1 P1.1)===
+.quick-row {
+  display: flex;
+  gap: 16rpx;
+  padding: 0 8rpx 24rpx;
+}
+.quick-card {
+  flex: 1;
+  padding: 24rpx 20rpx;
+  border-radius: $radius-lg;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  transition: transform 0.15s;
+}
+.quick-card:active {
+  transform: scale(0.97);
+}
+.quick-tree-hole {
+  background: linear-gradient(135deg, $color-laoke-subtle 0%, #fff 100%);
+  border-left: 4rpx solid $color-laoke;
+}
+.quick-interpret {
+  background: linear-gradient(135deg, $color-primary-subtle 0%, #fff 100%);
+  border-left: 4rpx solid $color-primary;
+}
+.quick-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: $color-text-primary;
+}
+.quick-hint {
+  font-size: 22rpx;
   color: $color-text-tertiary;
 }
 
