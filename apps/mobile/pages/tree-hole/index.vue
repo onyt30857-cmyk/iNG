@@ -275,6 +275,7 @@ const formattedViewingDate = computed(() => {
       :scroll-into-view="scrollIntoView"
       :scroll-with-animation="true"
     >
+    <view class="messages-inner">
       <view v-if="loading" class="loading">
         <text class="loading-text">老白翻翻你最近写过的…</text>
       </view>
@@ -319,6 +320,7 @@ const formattedViewingDate = computed(() => {
       </view>
 
       <view class="bottom-spacer"></view>
+    </view>
     </scroll-view>
 
     <!-- 输入区 -->
@@ -460,8 +462,16 @@ const formattedViewingDate = computed(() => {
 
 .messages {
   flex: 1;
-  padding: 24rpx 24rpx 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  width: 100%;
+  box-sizing: border-box;
+}
+/* scroll-view 内部 width 100% 限宽容器,防 UserBubble flex-end + max-width 84% 计算溢出 */
+.messages-inner {
+  width: 100%;
+  padding: 24rpx 24rpx 0;
+  box-sizing: border-box;
 }
 
 .loading,
