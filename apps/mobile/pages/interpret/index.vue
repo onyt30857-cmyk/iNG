@@ -178,6 +178,16 @@ function goBack() {
 
       <!-- 结果态 -->
       <view v-else class="result">
+        <!-- 用户当初贴的"她说的"原文回显(看完老白回答能记起当时问的啥)-->
+        <view class="quote-card">
+          <text class="quote-label">她说的</text>
+          <text class="quote-text">{{ herText }}</text>
+          <view v-if="contextText" class="quote-context">
+            <text class="quote-context-label">背景</text>
+            <text class="quote-context-text">{{ contextText }}</text>
+          </view>
+        </view>
+
         <!-- 主推回复(big) -->
         <view class="laoke-row">
           <LaokeAvatar :size="72" />
@@ -546,6 +556,50 @@ function goBack() {
   display: flex;
   flex-direction: column;
   gap: 28rpx;
+}
+
+/* 用户原文回显卡(她说的 + 背景)— 灰底 + 左灰边条,跟主推回复 / 备选视觉区分 */
+.quote-card {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 24rpx 28rpx;
+  background: $color-surface-subtle;
+  border-left: 6rpx solid $color-text-disabled;
+  border-radius: $radius-lg;
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+.quote-label {
+  font-size: 22rpx;
+  color: $color-text-tertiary;
+  font-weight: 500;
+}
+.quote-text {
+  font-size: 30rpx;
+  line-height: 1.55;
+  color: $color-text-primary;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.quote-context {
+  margin-top: 12rpx;
+  padding-top: 12rpx;
+  border-top: 1rpx dashed $color-border;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+.quote-context-label {
+  font-size: 22rpx;
+  color: $color-text-tertiary;
+}
+.quote-context-text {
+  font-size: 26rpx;
+  line-height: 1.5;
+  color: $color-text-secondary;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .main-reply-card {
