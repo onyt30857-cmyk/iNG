@@ -507,9 +507,6 @@ async function regenerateInsights() {
 }
 
 
-// 2026-05-14 Nikita audit:删工具箱 tab + 收藏功能
-// savedQuotes computed / unsaveQuote / copyDraftText 已移除
-// convStore.saveQuote / getSavedQuotes / unsaveQuote 保留接口 + 老数据,标 @deprecated M4 物理删
 
 function goEdit() {
   uni.navigateTo({ url: `/pages/relationship/edit?mode=edit&id=${id.value}` })
@@ -938,11 +935,6 @@ async function deleteIt() {
   font-size: 28rpx;
   color: $color-text-tertiary;
   font-weight: $weight-medium;
-}
-.tab-count {
-  margin-left: 8rpx;
-  font-size: 22rpx;
-  color: $color-text-disabled;
 }
 .tab.active .tab-text {
   color: $color-text-primary;
@@ -1445,65 +1437,7 @@ async function deleteIt() {
   letter-spacing: 0.5rpx;
 }
 
-// === 关键时刻 timeline ===
-// === 工具箱 Tab ===
-.empty-line { padding: 8rpx 0; }
-.empty-line-text {
-  font-size: 26rpx;
-  color: $color-text-tertiary;
-  line-height: 1.6;
-}
-
-.saved-card {
-  background-color: $color-surface;
-  border: 1rpx solid $color-border;
-  border-radius: 24rpx;
-  padding: 28rpx 32rpx;
-  margin-bottom: 20rpx;
-}
-.saved-card-head {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16rpx;
-}
-.saved-card-direction {
-  font-size: 26rpx;
-  font-weight: $weight-semibold;
-  color: $color-primary;
-}
-.saved-card-unsave {
-  width: 56rpx;
-  height: 56rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  &:active { background-color: $color-surface-subtle; }
-}
-.saved-card-unsave-icon {
-  font-size: 32rpx;
-  color: $color-accent;
-  line-height: 1;
-}
-.saved-card-text {
-  background-color: $color-surface-subtle;
-  border-radius: 16rpx;
-  padding: 24rpx 28rpx;
-  &:active { background-color: $color-primary-subtle; }
-}
-.saved-text {
-  display: block;
-  font-size: 30rpx;
-  line-height: 1.55;
-  color: $color-text-primary;
-  margin-bottom: 8rpx;
-}
-.saved-copy {
-  font-size: 22rpx;
-  color: $color-accent;
-}
+/* 2026-05-14 工具箱 Tab CSS 死代码已删(empty-line / saved-card / saved-text 等)*/
 .saved-planning-title {
   display: block;
   font-size: 32rpx;

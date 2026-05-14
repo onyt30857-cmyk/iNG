@@ -244,36 +244,9 @@ export const useConversationStore = defineStore('conversation', () => {
   const savedDrafts = ref<Record<string, ReplyDraft[]>>({})        // relationshipId → drafts
   const savedPlannings = ref<Record<string, Array<{ id: string; content: PlanningContent; saved_at: string }>>>({})
 
-  /**
-   * @deprecated 2026-05-14 Nikita audit:删工具箱 tab + 收藏功能
-   * 理由:AI 对话天然不需要收藏,历史本身就是档案;用户行为是"复制就发"不是"存起来事后翻"
-   * 保留 state + 函数接口,旧数据 localStorage 仍保留(用户数据不丢)
-   * UI 入口已删,函数 zero call site,M4 物理删 state + 函数 + persist
-   */
-  const savedQuotes = ref<Record<string, Array<{ id: string; text: string; saved_at: string }>>>({})
-
-  /** @deprecated 见 savedQuotes */
-  function saveQuote(relationshipId: string, messageId: string, text: string): void {
-    const cur = savedQuotes.value[relationshipId] ?? []
-    if (cur.find((q) => q.id === messageId)) return
-    savedQuotes.value[relationshipId] = [
-      ...cur,
-      { id: messageId, text, saved_at: new Date().toISOString() },
-    ]
-  }
-  /** @deprecated 见 savedQuotes */
-  function unsaveQuote(relationshipId: string, messageId: string): void {
-    const cur = savedQuotes.value[relationshipId] ?? []
-    savedQuotes.value[relationshipId] = cur.filter((q) => q.id !== messageId)
-  }
-  /** @deprecated 见 savedQuotes */
-  function isQuoteSaved(relationshipId: string, messageId: string): boolean {
-    return !!savedQuotes.value[relationshipId]?.find((q) => q.id === messageId)
-  }
-  /** @deprecated 见 savedQuotes */
-  function getSavedQuotes(relationshipId: string) {
-    return savedQuotes.value[relationshipId] ?? []
-  }
+  // 2026-05-14 收藏功能整套物理删(Nikita audit):AI 对话天然不需要收藏
+  // 原 savedQuotes / saveQuote / unsaveQuote / isQuoteSaved / getSavedQuotes 全部删
+  // localStorage 老数据 cleanup 见 persist 配置(savedQuotes 不再写入 storage)
 
   function isFreshConversation(relationshipId: string): boolean {
     const list = messagesByRelationship.value[relationshipId]
@@ -672,9 +645,5 @@ export const useConversationStore = defineStore('conversation', () => {
     savePlanning,
     isPlanningSaved,
     getSavedPlannings,
-    saveQuote,
-    unsaveQuote,
-    isQuoteSaved,
-    getSavedQuotes,
   }
 })
