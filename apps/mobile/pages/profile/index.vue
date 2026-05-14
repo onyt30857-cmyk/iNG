@@ -61,6 +61,9 @@ const recoverModalOpen = ref(false)
 const recoverInput = ref('')
 const recovering = ref(false)
 
+// Nikita #5:设置类(账户 ID / 备份码 / 注销)折叠,默认关闭,常用功能(余额/订阅/充值)上
+const settingsExpanded = ref(false)
+
 function goBack() {
   const pages = getCurrentPages()
   if (pages.length > 1) uni.navigateBack()
@@ -201,7 +204,36 @@ async function onConfirmRecover() {
         </view>
       </view>
 
-      <!-- 积分(spec-019)-->
+      <!-- Phase 1 P1.2:余额 + 订阅 + 充值 — Nikita #5 上提,profile 第 1 屏关键信息 -->
+      <view class="section" v-if="balance">
+        <text class="section-title">余额 · 订阅</text>
+
+        <view v-if="subscriptionLabel" class="sub-card">
+          <view class="sub-card-head">
+            <text class="sub-card-title">年费 Pro · 进行中</text>
+            <text class="sub-card-tag">无限用</text>
+          </view>
+          <text class="sub-card-detail">
+            还有 {{ subscriptionLabel.daysLeft }} 天 · {{ subscriptionLabel.expires }} 到期
+          </text>
+        </view>
+
+        <view class="balance-card" @tap="goBilling">
+          <view class="balance-row">
+            <text class="balance-label">购买积分</text>
+            <text class="balance-value">{{ balance.purchased_points }}</text>
+          </view>
+          <text class="balance-hint">
+            免费用完后自动扣这里 · 点这里加积分 / 开年费
+          </text>
+        </view>
+
+        <view v-if="!subscriptionLabel" class="billing-cta" @tap="goBilling">
+          <text class="billing-cta-text">看看老白这有啥(¥19 起)</text>
+        </view>
+      </view>
+
+      <!-- 今日积分 -->
       <view class="section" v-if="pointsDisplay">
         <text class="section-title">今日积分</text>
         <view class="points-card" :class="{ 'points-low': pointsDisplay.accent }">
@@ -214,38 +246,15 @@ async function onConfirmRecover() {
         <text class="section-tip">说一句话 5 / 截图复盘 20 / 深度画像 30</text>
       </view>
 
-      <!-- Phase 1 P1.2:三层余额(免费 + 充值 + 订阅)+ 充值入口 -->
-      <view class="section" v-if="balance">
-        <text class="section-title">余额 · 订阅</text>
-
-        <!-- 订阅卡(有订阅时显示)-->
-        <view v-if="subscriptionLabel" class="sub-card">
-          <view class="sub-card-head">
-            <text class="sub-card-title">年费 Pro · 进行中</text>
-            <text class="sub-card-tag">无限用</text>
-          </view>
-          <text class="sub-card-detail">
-            还有 {{ subscriptionLabel.daysLeft }} 天 · {{ subscriptionLabel.expires }} 到期
-          </text>
-        </view>
-
-        <!-- 购买积分余额 -->
-        <view class="balance-card" @tap="goBilling">
-          <view class="balance-row">
-            <text class="balance-label">购买积分</text>
-            <text class="balance-value">{{ balance.purchased_points }}</text>
-          </view>
-          <text class="balance-hint">
-            免费用完后自动扣这里 · 点这里加积分 / 开年费
-          </text>
-        </view>
-
-        <!-- 充值 CTA -->
-        <view v-if="!subscriptionLabel" class="billing-cta" @tap="goBilling">
-          <text class="billing-cta-text">看看老白这有啥(¥19 起)</text>
+      <!-- 设置(折叠,默认关闭)— Nikita #5:把不常用的账户信息 / 备份 / 注销收进来 -->
+      <view class="section settings-section">
+        <view class="settings-toggle" @tap="settingsExpanded = !settingsExpanded">
+          <text class="settings-toggle-label">设置 · 备份 · 注销</text>
+          <text class="settings-toggle-arrow" :class="{ 'is-open': settingsExpanded }">›</text>
         </view>
       </view>
 
+      <view v-if="settingsExpanded" class="settings-expand">
       <!-- 当前账户信息 -->
       <view class="section">
         <text class="section-title">当前账户</text>
@@ -294,6 +303,7 @@ async function onConfirmRecover() {
           <text class="action-card-arrow">›</text>
         </view>
       </view>
+      </view><!-- /settings-expand -->
 
       <!-- v4 (2026-05-11):品牌 footer,slogan 强化记忆 -->
       <!-- 2026-05-12:在 slogan 顶上加一行反话术 tagline,作为品牌主张 -->
@@ -390,6 +400,46 @@ async function onConfirmRecover() {
   color: $color-text-tertiary;
   margin-top: 12rpx;
   font-style: italic;
+}
+
+/* Nikita #5:设置折叠 toggle */
+.settings-section {
+  padding: 0;
+}
+.settings-toggle {
+  padding: 28rpx 32rpx;
+  background-color: $color-surface;
+  border-radius: 24rpx;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: $shadow-sm;
+  transition: background 0.15s;
+}
+.settings-toggle:active {
+  background-color: $color-surface-subtle;
+}
+.settings-toggle-label {
+  font-size: 28rpx;
+  color: $color-text-secondary;
+  font-weight: 500;
+}
+.settings-toggle-arrow {
+  font-size: 32rpx;
+  color: $color-text-tertiary;
+  transition: transform 0.2s;
+  transform: rotate(90deg);
+}
+.settings-toggle-arrow.is-open {
+  transform: rotate(-90deg);
+}
+.settings-expand {
+  animation: settings-slide-in 0.22s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@keyframes settings-slide-in {
+  from { opacity: 0; transform: translateY(-8rpx); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* === Phase 1 P1.2:余额 + 订阅卡 === */

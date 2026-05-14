@@ -7,6 +7,7 @@ import { computed } from 'vue'
 import RelationshipAvatar from './RelationshipAvatar.vue'
 import { RELATIONSHIP_STAGE_LABELS, type Relationship } from '../types/relationship'
 import { useConversationStore } from '../stores/conversation'
+import { useRelationshipSignalsStore } from '../stores/relationship-signals'
 
 interface Props {
   relationship: Relationship
@@ -15,8 +16,24 @@ const props = defineProps<Props>()
 const emit = defineEmits<{ tap: [Relationship] }>()
 
 const conversationStore = useConversationStore()
+const signalsStore = useRelationshipSignalsStore()
 
 const stageLabel = computed(() => RELATIONSHIP_STAGE_LABELS[props.relationship.stage])
+
+// Nikita 建议 #3:用 signal store 已计算的 health_status 给每张关系卡加 verdict tag
+// 数据不足(消息 < 12 条)→ 不显示 tag,避免假信号
+const verdictTag = computed(() => {
+  const s = signalsStore.getSignal(props.relationship.id)
+  if (!s || !s.has_enough_data) return null
+  switch (s.health_status) {
+    case 'THRIVING': return { label: '在升温', tone: 'good' }
+    case 'STABLE': return { label: '稳着', tone: 'neutral' }
+    case 'COOLING': return { label: '在退', tone: 'warn' }
+    case 'WITHDRAWING': return { label: '别追了', tone: 'danger' }
+    case 'INACTIVE': return { label: '断了', tone: 'inactive' }
+    default: return null
+  }
+})
 
 // 加载该关系的对话流(获取最新消息)
 conversationStore.loadConversation(props.relationship.id)
@@ -53,6 +70,9 @@ const timeText = computed(() => {
         <text class="name">{{ relationship.name }}</text>
         <view class="stage-tag">
           <text class="stage-tag-text">{{ stageLabel }}</text>
+        </view>
+        <view v-if="verdictTag" class="verdict-tag" :class="`verdict-${verdictTag.tone}`">
+          <text class="verdict-tag-text">{{ verdictTag.label }}</text>
         </view>
         <text class="time">{{ timeText }}</text>
       </view>
@@ -116,6 +136,48 @@ const timeText = computed(() => {
   font-size: 20rpx;
   color: $color-text-tertiary;
   font-weight: $weight-medium;
+}
+
+/* Nikita #3 verdict tag — 5 个 tone 视觉区分,让 home 关系列表本身就是 dashboard */
+.verdict-tag {
+  margin-left: 8rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  flex-shrink: 0;
+}
+.verdict-tag-text {
+  font-size: 20rpx;
+  font-weight: $weight-medium;
+}
+.verdict-good {
+  background-color: rgba(0, 180, 42, 0.12);
+}
+.verdict-good .verdict-tag-text {
+  color: #00B42A;
+}
+.verdict-neutral {
+  background-color: $color-divider;
+}
+.verdict-neutral .verdict-tag-text {
+  color: $color-text-secondary;
+}
+.verdict-warn {
+  background-color: rgba(255, 125, 0, 0.12);
+}
+.verdict-warn .verdict-tag-text {
+  color: #FF7D00;
+}
+.verdict-danger {
+  background-color: rgba(245, 63, 63, 0.12);
+}
+.verdict-danger .verdict-tag-text {
+  color: $color-danger;
+}
+.verdict-inactive {
+  background-color: $color-divider;
+}
+.verdict-inactive .verdict-tag-text {
+  color: $color-text-disabled;
 }
 
 .time {

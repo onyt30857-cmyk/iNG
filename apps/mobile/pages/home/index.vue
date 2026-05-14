@@ -10,11 +10,13 @@ import { apiGet } from '../../api/client'
 import { useRelationshipStore } from '../../stores/relationship'
 import { useUserStore } from '../../stores/user'
 import { useAppSettingsStore } from '../../stores/app-settings'
+import { useConversationStore } from '../../stores/conversation'
 import RelationshipCard from '../../components/RelationshipCard.vue'
 
 const store = useRelationshipStore()
 const userStore = useUserStore()
 const appSettings = useAppSettingsStore()
+const conversationStore = useConversationStore()
 // 没设头像 → admin 配的全局默认头像 → 都没就 null,模板里 fallback 默认 SVG
 const userAvatarUrl = computed(() =>
   appSettings.resolveUserAvatar(userStore.user?.avatar_url),
@@ -128,9 +130,43 @@ function goInterpret() {
   uni.navigateTo({ url: '/pages/interpret/index' })
 }
 
+// Nikita 建议 #4(2026-05-14):顶部 + 收纳 3 个入口,不让用户在 home 做 mode switch
+async function openAddSheet() {
+  const res = await uni.showActionSheet({
+    itemList: ['跟老白说说心情', '帮我看看一段话', '记一段新关系'],
+    itemColor: '#1D2129',
+  })
+  if (res.tapIndex === 0) goTreeHole()
+  else if (res.tapIndex === 1) goInterpret()
+  else if (res.tapIndex === 2) goCreate()
+}
+
 // spec-006 之后 home 不再做"复盘入口",所有 OCR 上传 / 复盘流程都在每段关系的
 // 对话页里(/pages/relationship/conversation),用户点关系卡进对话页 → + 按钮 → 选项发截图。
 // 原 goMockReplay / pickOcrFiles / processOcrFiles / replayStore 都删了。
+
+// Nikita 建议 #2:home 顶部"老白上次说"banner — retention 钩子
+// 找最近一段有 laoke message 的关系,显示"{name}:{老白说的}"
+// 点击 → 跳那段关系对话页(把用户拉回上次的对话上下文)
+const retentionBanner = computed(() => {
+  for (const r of store.items) {
+    const preview = conversationStore.latestPreview(r.id)
+    if (preview.from === 'laoke' && preview.text) {
+      return {
+        id: r.id,
+        name: r.name,
+        text: preview.text,
+      }
+    }
+  }
+  return null
+})
+
+function tapRetentionBanner() {
+  const banner = retentionBanner.value
+  if (!banner) return
+  openRelationshipSpace(banner.id)
+}
 
 // 时段问候 — 计算放 computed 让 nickname 变化(改头像 / 切账号)能立即响应
 const greeting = computed(() => {
@@ -153,8 +189,15 @@ const greeting = computed(() => {
           <text class="laoke-status-text">老白在听</text>
         </view>
       </view>
+      <!-- + 按钮:树洞 / 解读 / 新建关系 收纳到一个 actionSheet,降低 cognitive load(Nikita #4)-->
+      <view class="icon-btn icon-btn-add" @tap="openAddSheet">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+          <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+        </svg>
+      </view>
       <view class="icon-btn" @tap="goManageList">
-        <!-- 关系列表图标:三个点 + 三条线 = "条目列表",比纯汉堡更具语义,跟右侧头像一具体一抽象更平衡 -->
+        <!-- 关系列表图标:三个点 + 三条线 = "条目列表" -->
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
           <circle cx="5" cy="6" r="1.4" fill="currentColor"/>
           <circle cx="5" cy="12" r="1.4" fill="currentColor"/>
@@ -179,24 +222,24 @@ const greeting = computed(() => {
       </view>
     </view>
 
+    <!-- 老白上次说 banner(Nikita #2 retention 钩子)— 仅在有 laoke message 的关系时显示 -->
+    <view v-if="retentionBanner" class="banner" @tap="tapRetentionBanner">
+      <view class="banner-tag">
+        <text class="banner-tag-text">老白上次说</text>
+      </view>
+      <text class="banner-text">
+        <text class="banner-name">{{ retentionBanner.name }}:</text>{{ retentionBanner.text }}
+      </text>
+    </view>
+
     <!-- 引导 -->
     <view v-if="store.items.length > 0" class="hint">
       <text class="hint-text">点一段关系,看看她最近</text>
     </view>
 
-    <!-- Phase 1 P1.1:不关联关系的快捷入口(2 个卡并排)-->
-    <view class="quick-row">
-      <view class="quick-card quick-tree-hole" @tap="goTreeHole">
-        <text class="quick-title">找老白聊聊</text>
-        <text class="quick-hint">不说关系,就说心情</text>
-      </view>
-      <view class="quick-card quick-interpret" @tap="goInterpret">
-        <text class="quick-title">帮我看看这段</text>
-        <text class="quick-hint">贴一段她的话</text>
-      </view>
-    </view>
+    <!-- 关系列表(主入口)— iOS Mail 式 swipe-to-delete reveal
+         Nikita #4(2026-05-14):树洞 / 解读 入口收进顶部 + 按钮,home 只突出关系列表 -->
 
-    <!-- 关系列表(主入口)— iOS Mail 式 swipe-to-delete reveal -->
     <view v-if="store.items.length > 0" class="rel-list">
       <view v-for="r in store.items" :key="r.id" class="rel-row">
         <!-- 红色删除按钮(底层,被卡片挡住,卡片右滑后露出) -->
@@ -326,47 +369,53 @@ const greeting = computed(() => {
 
 
 // === 引导 ===
+/* 老白上次说 retention banner(Nikita #2)— 薄荷蓝渐变 + 点击跳关系页 */
+.banner {
+  margin: 0 8rpx 16rpx;
+  padding: 20rpx 24rpx;
+  background: linear-gradient(135deg, $color-laoke-subtle 0%, $color-surface 100%);
+  border-left: 4rpx solid $color-laoke;
+  border-radius: $radius-lg;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  transition: transform 0.15s;
+}
+.banner:active {
+  transform: scale(0.985);
+}
+.banner-tag {
+  align-self: flex-start;
+  padding: 4rpx 14rpx;
+  background: $color-laoke;
+  border-radius: 9999rpx;
+}
+.banner-tag-text {
+  font-size: 20rpx;
+  color: #fff;
+  font-weight: 500;
+}
+.banner-text {
+  font-size: 26rpx;
+  line-height: 1.5;
+  color: $color-text-primary;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.banner-name {
+  font-weight: 600;
+  color: $color-laoke-deep;
+  margin-right: 4rpx;
+}
+
 .hint {
   padding: 0 8rpx 16rpx;
 }
 .hint-text {
   font-size: 24rpx;
-  color: $color-text-tertiary;
-}
-
-// === Quick action 卡(Phase 1 P1.1)===
-.quick-row {
-  display: flex;
-  gap: 16rpx;
-  padding: 0 8rpx 24rpx;
-}
-.quick-card {
-  flex: 1;
-  padding: 24rpx 20rpx;
-  border-radius: $radius-lg;
-  display: flex;
-  flex-direction: column;
-  gap: 6rpx;
-  transition: transform 0.15s;
-}
-.quick-card:active {
-  transform: scale(0.97);
-}
-.quick-tree-hole {
-  background: linear-gradient(135deg, $color-laoke-subtle 0%, #fff 100%);
-  border-left: 4rpx solid $color-laoke;
-}
-.quick-interpret {
-  background: linear-gradient(135deg, $color-primary-subtle 0%, #fff 100%);
-  border-left: 4rpx solid $color-primary;
-}
-.quick-title {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: $color-text-primary;
-}
-.quick-hint {
-  font-size: 22rpx;
   color: $color-text-tertiary;
 }
 
