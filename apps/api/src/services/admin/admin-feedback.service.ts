@@ -34,6 +34,10 @@ export interface FeedbackDashboard {
     total: number
     dislikes: number
   }>
+  /** Nikita audit:dislike 结构化原因分布(2026-05-14)— Sam 看哪类问题最多 */
+  by_dislike_reason: Array<{ reason: string; count: number }>
+  /** Nikita audit:用户写过"我会怎么回" 总数(corrected_text 不空)*/
+  corrected_count: number
 }
 
 export async function getFeedbackDashboard(
@@ -49,6 +53,25 @@ export async function getFeedbackDashboard(
     by: ['feedback_type'],
     where: { created_at: { gt: windowStart } },
     _count: { _all: true },
+  })
+
+  // Nikita audit:dislike_reason 分布(只统计 feedback_type='dislike' 且 reason 不空)
+  const dislikeReasonRows = await prisma.promptFeedback.groupBy({
+    by: ['dislike_reason'],
+    where: {
+      created_at: { gt: windowStart },
+      feedback_type: 'dislike',
+      dislike_reason: { not: null },
+    },
+    _count: { _all: true },
+  })
+
+  // Nikita audit:用户写过"我会怎么回" 总数
+  const correctedCount = await prisma.promptFeedback.count({
+    where: {
+      created_at: { gt: windowStart },
+      corrected_text: { not: null },
+    },
   })
   const by_type = { like: 0, dislike: 0, comment: 0 }
   let total = 0
@@ -159,6 +182,10 @@ export async function getFeedbackDashboard(
       total: Number(r.total),
       dislikes: Number(r.dislikes),
     })),
+    by_dislike_reason: dislikeReasonRows
+      .filter((r) => r.dislike_reason !== null)
+      .map((r) => ({ reason: r.dislike_reason as string, count: r._count._all })),
+    corrected_count: correctedCount,
   }
 }
 

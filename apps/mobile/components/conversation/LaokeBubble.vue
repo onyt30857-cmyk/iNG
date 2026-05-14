@@ -121,7 +121,19 @@ const showFeedback = computed(() =>
   !!props.text,
 )
 
-async function submit(type: FeedbackType, comment?: string) {
+type DislikeReason = 'oily' | 'off_persona' | 'off_topic' | 'repeated'
+
+// Nikita audit(2026-05-14):dislike 拆 chip / comment 改"我会怎么回"
+// like 仍互斥(用户点了就不点 dislike),但 like + comment 可同时
+const dislikeChipsOpen = ref(false)
+
+interface SubmitExtras {
+  comment?: string
+  dislikeReason?: DislikeReason
+  correctedText?: string
+}
+
+async function submit(type: FeedbackType, extras: SubmitExtras = {}) {
   if (!props.messageId || !props.relationshipId) return
   if (submittingFeedback.value) return
   submittingFeedback.value = true
@@ -132,17 +144,16 @@ async function submit(type: FeedbackType, comment?: string) {
       message_id: props.messageId,
       bubble_text: props.text,
       feedback_type: type,
-      comment: comment ?? null,
+      comment: extras.comment ?? null,
+      dislike_reason: extras.dislikeReason ?? null,
+      corrected_text: extras.correctedText ?? null,
     })
     if (res.ok) {
       feedbackGiven.value = type
     } else {
-      // 静默失败,但记 console
-      // eslint-disable-next-line no-console
       console.warn('[feedback] submit failed:', res.error.message)
     }
   } catch (e) {
-    // eslint-disable-next-line no-console
     console.warn('[feedback] submit threw:', e)
   } finally {
     submittingFeedback.value = false
@@ -154,9 +165,25 @@ function onLike() {
   void submit('like')
 }
 
+// Nikita #1:点"不行" → 弹 chip 选具体原因(4 选 1),不再直接 dislike
 function onDislike() {
   if (feedbackGiven.value === 'dislike') return
-  void submit('dislike')
+  dislikeChipsOpen.value = true
+}
+async function pickDislikeReason(reason: DislikeReason) {
+  dislikeChipsOpen.value = false
+  await submit('dislike', { dislikeReason: reason })
+  uni.showToast({ title: '记下了', icon: 'none', duration: 1200 })
+}
+function closeDislikeChips() {
+  dislikeChipsOpen.value = false
+}
+
+const DISLIKE_REASON_LABEL: Record<DislikeReason, string> = {
+  oily: '油了',
+  off_persona: '不像老白',
+  off_topic: '没答到点',
+  repeated: '重复了',
 }
 
 function onCommentTap() {
@@ -168,13 +195,14 @@ function closeCommentModal() {
   commentModalOpen.value = false
 }
 
+// Nikita #2:"我教你怎么说" — 把用户写的当 corrected_text(黄金训练数据)
 async function confirmComment() {
   const c = commentText.value.trim()
   if (!c) {
     closeCommentModal()
     return
   }
-  await submit('comment', c)
+  await submit('comment', { correctedText: c })
   closeCommentModal()
 }
 
@@ -191,8 +219,8 @@ async function onLongPress() {
     uni.showToast({ title: '已复制', icon: 'none', duration: 1200 })
   } else if (res.tapIndex === 1) {
     if (feedbackGiven.value !== 'dislike') {
-      void submit('dislike')
-      uni.showToast({ title: '记下了', icon: 'none', duration: 1200 })
+      // 长按 → 弹 chip,跟反馈区"不行"一致
+      dislikeChipsOpen.value = true
     }
   }
 }
@@ -245,7 +273,7 @@ async function onLongPress() {
         </template>
       </view>
 
-      <!-- spec-009 反馈区(2026-05-14 Nikita audit:删收藏,只留有用/不行/说哪不对)-->
+      <!-- 反馈区(2026-05-14 Nikita audit:有用 + 不对劲 chip + 我教你怎么说)-->
       <view v-if="showFeedback" class="feedback-row">
         <text
           :class="['fb-link', feedbackGiven === 'like' && 'fb-link-like']"
@@ -255,12 +283,30 @@ async function onLongPress() {
         <text
           :class="['fb-link', feedbackGiven === 'dislike' && 'fb-link-dislike']"
           @tap="onDislike"
-        >不行</text>
+        >不对劲</text>
         <text class="fb-sep">·</text>
         <text
           :class="['fb-link', feedbackGiven === 'comment' && 'fb-link-comment']"
           @tap="onCommentTap"
-        >说哪不对</text>
+        >我教你怎么说</text>
+      </view>
+
+      <!-- Nikita #1:不对劲 → 弹 chip 选具体原因(结构化数据进 dislike_reason)-->
+      <view v-if="dislikeChipsOpen" class="dislike-chips-wrap">
+        <text class="dislike-chips-title">哪不对劲?</text>
+        <view class="dislike-chips-row">
+          <view
+            v-for="r in (['oily', 'off_persona', 'off_topic', 'repeated'] as DislikeReason[])"
+            :key="r"
+            class="dislike-chip"
+            @tap="pickDislikeReason(r)"
+          >
+            <text class="dislike-chip-text">{{ DISLIKE_REASON_LABEL[r] }}</text>
+          </view>
+          <view class="dislike-chip dislike-chip-skip" @tap="closeDislikeChips">
+            <text class="dislike-chip-text">不说了</text>
+          </view>
+        </view>
       </view>
 
       <!-- 时间小字(气泡左下,思考态/流式态不显示避免抖动)-->
@@ -276,12 +322,12 @@ async function onLongPress() {
     <view class="cm-scrim"></view>
     <view class="cm-card" @tap.stop>
       <view class="cm-handle"></view>
-      <text class="cm-title">这条哪不对?</text>
-      <text class="cm-sub">告诉我具体哪里不像兄弟,下次会调</text>
+      <text class="cm-title">换你,会怎么回?</text>
+      <text class="cm-sub">写一句你觉得对的,老白学着,下次往这调</text>
       <textarea
         v-model="commentText"
         class="cm-input"
-        placeholder="比如 太长了 / 太客气 / 这话她肯定觉得我装"
+        placeholder="比如:今天累了吧,早点睡"
         maxlength="500"
         :focus="commentModalOpen"
       />
@@ -510,10 +556,55 @@ async function onLongPress() {
 }
 
 // 选中态只换色,无背景框,保持文字链感
-.fb-link-saved { color: #C68B2E; }      // 收藏:暖金黄
 .fb-link-like { color: $color-success; }
 .fb-link-dislike { color: $color-danger; }
 .fb-link-comment { color: $color-accent; }
+
+/* Nikita #1 dislike chips — 点"不对劲"展开 4 个 chip 选具体原因 */
+.dislike-chips-wrap {
+  margin-top: 16rpx;
+  padding: 16rpx 16rpx 12rpx;
+  background: rgba(245, 63, 63, 0.06);
+  border-radius: 16rpx;
+  animation: dislike-chips-in 0.2s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@keyframes dislike-chips-in {
+  from { opacity: 0; transform: translateY(-4rpx); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.dislike-chips-title {
+  display: block;
+  font-size: 22rpx;
+  color: $color-text-tertiary;
+  margin-bottom: 12rpx;
+}
+.dislike-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+.dislike-chip {
+  padding: 10rpx 22rpx;
+  background: $color-surface;
+  border: 1rpx solid rgba(245, 63, 63, 0.25);
+  border-radius: 9999rpx;
+  transition: transform 0.12s, background 0.15s;
+}
+.dislike-chip:active {
+  transform: scale(0.94);
+  background: rgba(245, 63, 63, 0.08);
+}
+.dislike-chip-skip {
+  border-color: $color-border;
+}
+.dislike-chip-text {
+  font-size: 22rpx;
+  color: $color-danger;
+  font-weight: $weight-medium;
+}
+.dislike-chip-skip .dislike-chip-text {
+  color: $color-text-tertiary;
+}
 
 // 气泡下时间小字(老白气泡左对齐)
 .bubble-time {

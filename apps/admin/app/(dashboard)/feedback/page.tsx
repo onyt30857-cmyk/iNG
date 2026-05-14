@@ -33,6 +33,17 @@ interface FeedbackDashboard {
     total: number
     dislikes: number
   }>
+  /** Nikita audit:dislike 结构化原因分布 */
+  by_dislike_reason: Array<{ reason: string; count: number }>
+  /** Nikita audit:用户写过"我会怎么回" 总数 */
+  corrected_count: number
+}
+
+const DISLIKE_REASON_LABEL: Record<string, string> = {
+  oily: '油了',
+  off_persona: '不像老白',
+  off_topic: '没答到点',
+  repeated: '重复了',
 }
 
 export default function FeedbackDashboardPage() {
@@ -221,6 +232,61 @@ export default function FeedbackDashboardPage() {
               icon={<MessageSquare className="h-4 w-4 text-blue-600" />}
             />
           </div>
+
+          {/* Nikita audit:dislike 原因分布 + corrected_text 总数 */}
+          {(data.by_dislike_reason.length > 0 || data.corrected_count > 0) && (
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">不对劲的原因(本周期)</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {data.by_dislike_reason.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">还没人选具体原因</p>
+                  ) : (
+                    data.by_dislike_reason
+                      .sort((a, b) => b.count - a.count)
+                      .map((r) => {
+                        const total = data.by_dislike_reason.reduce((s, x) => s + x.count, 0)
+                        const pct = total > 0 ? (r.count / total) * 100 : 0
+                        return (
+                          <div key={r.reason} className="space-y-1">
+                            <div className="flex items-center justify-between text-sm">
+                              <span>{DISLIKE_REASON_LABEL[r.reason] ?? r.reason}</span>
+                              <span className="font-medium tabular-nums">
+                                {r.count} ({pct.toFixed(0)}%)
+                              </span>
+                            </div>
+                            <div className="h-1.5 bg-muted rounded">
+                              <div
+                                className="h-full bg-destructive rounded transition-all"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        )
+                      })
+                  )}
+                  <p className="text-xs text-muted-foreground pt-2 border-t mt-3">
+                    📌 选了具体原因的 dislike 才进这里统计 — 用户没选"不说了"的有效信号
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">"我会怎么回"教学样本</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold tabular-nums">{data.corrected_count}</div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    本周期用户写过"我会怎么回"的总数 — 进 LearningCase 当 success case,
+                    Module 3 Few-Shot 会用这版本(直接给老白看用户期待的回复)
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           {/* 24h 趋势 */}
           <Card>

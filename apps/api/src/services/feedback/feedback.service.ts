@@ -8,12 +8,20 @@ import { errors } from '../../lib/error.js'
 
 export type FeedbackType = 'like' | 'dislike' | 'comment'
 
+// Nikita audit(2026-05-14):dislike 升级 — 用户点"不行"后选具体原因(4 选 1)
+export type DislikeReason = 'oily' | 'off_persona' | 'off_topic' | 'repeated'
+
 export interface SubmitFeedbackInput {
   relationship_id: string
   message_id: string
   bubble_text: string
   feedback_type: FeedbackType
+  /** legacy:comment 文字(老 textarea 写的开放评论)*/
   comment?: string | null
+  /** Nikita #2:dislike 时的结构化原因 — 进 dislike_reason 字段 */
+  dislike_reason?: DislikeReason | null
+  /** Nikita #3:comment 时的"我会怎么回"用户教学版本 — 进 corrected_text 字段(黄金训练数据)*/
+  corrected_text?: string | null
 }
 
 export async function submitFeedback(
@@ -37,6 +45,9 @@ export async function submitFeedback(
         feedback_note: input.comment ?? existing.feedback_note,
         bubble_text: input.bubble_text,
         relationship_id: input.relationship_id,
+        // Nikita audit:dislike_reason / corrected_text upsert
+        dislike_reason: input.dislike_reason ?? existing.dislike_reason,
+        corrected_text: input.corrected_text ?? existing.corrected_text,
       },
     })
     return { id: updated.id }
@@ -50,6 +61,9 @@ export async function submitFeedback(
       bubble_text: input.bubble_text,
       feedback_type: input.feedback_type,
       feedback_note: input.comment ?? null,
+      // Nikita audit:dislike_reason / corrected_text
+      dislike_reason: input.dislike_reason ?? null,
+      corrected_text: input.corrected_text ?? null,
     },
   })
 
@@ -66,7 +80,25 @@ export async function submitFeedback(
       laoke_text: input.bubble_text,
       // 评分:like 默认 5,dislike 默认 1(后续 admin 评分可覆盖)
       score: input.feedback_type === 'like' ? 5 : 1,
-      score_reason: input.comment ?? null,
+      // dislike 时 score_reason 优先用 dislike_reason 结构化值
+      score_reason: input.dislike_reason ?? input.comment ?? null,
+    })
+  }
+
+  // Nikita audit(2026-05-14)— "我会怎么回"用户教学版本 = perfect success case
+  // 用户给的 corrected_text 写成额外 LearningCase,laoke_text = corrected_text(用户期待版本)
+  // Module 3 case retrieval 下次会用这版本做 few-shot → 老白真正学到"应该这么说"
+  if (input.feedback_type === 'comment' && input.corrected_text) {
+    void recordLearningCase({
+      type: 'success',
+      source_type: 'user_correction',
+      source_id: created.id,
+      user_id: userId,
+      relationship_id: input.relationship_id,
+      message_id: input.message_id,
+      laoke_text: input.corrected_text,
+      score: 5,
+      score_reason: 'user_corrected',
     })
   }
 
@@ -79,7 +111,8 @@ export async function submitFeedback(
  */
 async function recordLearningCase(input: {
   type: 'success' | 'failure'
-  source_type: 'user_feedback' | 'admin_score' | 'manual'
+  // 2026-05-14 加 'user_correction'(用户写"我会怎么回")
+  source_type: 'user_feedback' | 'admin_score' | 'manual' | 'user_correction'
   source_id: string | null
   user_id: string
   relationship_id: string

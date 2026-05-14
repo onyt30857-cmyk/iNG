@@ -15,6 +15,7 @@ import {
 } from '../../services/feedback/feedback.service.js'
 
 const feedbackTypeSchema = z.enum(['like', 'dislike', 'comment'])
+const dislikeReasonSchema = z.enum(['oily', 'off_persona', 'off_topic', 'repeated'])
 
 const submitBodySchema = z.object({
   relationship_id: z.string().min(1),
@@ -22,6 +23,9 @@ const submitBodySchema = z.object({
   bubble_text: z.string().min(1).max(8000),
   feedback_type: feedbackTypeSchema,
   comment: z.string().max(2000).nullish(),
+  // Nikita audit:dislike 时选择具体原因 + comment 时填"我会怎么回"
+  dislike_reason: dislikeReasonSchema.nullish(),
+  corrected_text: z.string().max(2000).nullish(),
 })
 
 const deleteBodySchema = z.object({
@@ -47,6 +51,8 @@ export async function feedbackRoutes(app: FastifyInstance): Promise<void> {
       bubble_text: body.bubble_text,
       feedback_type: body.feedback_type as FeedbackType,
       comment: body.comment ?? null,
+      dislike_reason: body.dislike_reason ?? null,
+      corrected_text: body.corrected_text ?? null,
     })
     return { ok: true, data: result }
   })

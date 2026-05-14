@@ -890,6 +890,15 @@ model PromptFeedback {
   feedback_type String
   feedback_note String? @db.Text
 
+  // 2026-05-14 Nikita audit:Dislike 升级 + 用户教学版本
+  // dislike_reason:用户点"不行"后选择的具体原因(结构化反馈,4 选 1)
+  //   值:'oily'(油了)/ 'off_persona'(不像老白)/ 'off_topic'(没答到点)/ 'repeated'(重复了)
+  //   只在 feedback_type='dislike' 时填,其他时为 null
+  dislike_reason  String?
+  // corrected_text:用户写的"我会怎么回",黄金训练数据
+  //   只在 feedback_type='comment' 时填(新的"我教你怎么说"),进 LearningCase 作为期待回复
+  corrected_text  String? @db.Text
+
   // 当时的 prompt(用于回溯优化)
   prompt_snapshot Json?
 
@@ -898,6 +907,7 @@ model PromptFeedback {
   @@index([feedback_type])
   @@index([user_id, created_at])
   @@index([relationship_id, feedback_type])
+  @@index([dislike_reason])
   @@map("prompt_feedback")
 }
 
