@@ -62,6 +62,10 @@ model User {
   // 免费(DailyUsage)用完后才动这层;支付完成 grant + 消耗 consume 全经 CreditTransaction
   purchased_points Int @default(0)
 
+  // Phase 1 P1.4(2026-05-14)— 待发的续费提醒(订阅 7 天内到期 cron 写入,
+  // 用户下次开口主对话 / 树洞时老白先说一句,consume 后清空)
+  pending_renewal_notification DateTime? @db.Timestamptz
+
   // Onboarding(spec-018):
   // null = 还没走完 Welcome→填昵称头像 流程,前端检测到要跳转 onboarding 页
   // 有值 = 已经走完,直接进主页

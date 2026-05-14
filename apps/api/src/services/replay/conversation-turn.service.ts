@@ -27,6 +27,7 @@ import {
 import { prisma } from '../../lib/prisma.js'
 import { checkAndIncrementQuota, decrementPoints } from '../quota/quota.service.js'
 import { errors } from '../../lib/error.js'
+import { consumePendingRenewalNotification } from '../billing/renewal-notification.service.js'
 
 export interface RunConversationTurnInput {
   user_text: string
@@ -181,7 +182,16 @@ export async function runConversationTurnForRelationship(
     // 反馈查询失败不阻断主流程
   }
 
-  const directiveBlock = [intentDirective, feedbackDirective].filter(Boolean).join('\n\n')
+  // Phase 1 P1.4(2026-05-14)— 续费提醒 directive(D1A:拼到 user_text,不破坏 cache prefix)
+  // consume 在调 LLM 前,即使 LLM 失败也算已通知,避免反复打扰
+  const renewalNotification = await consumePendingRenewalNotification(userId)
+  const renewalDirective = renewalNotification
+    ? `[本轮开口前先说一句续费提醒:\n${renewalNotification}\n说完再正常回应兄弟的话。]`
+    : ''
+
+  const directiveBlock = [intentDirective, feedbackDirective, renewalDirective]
+    .filter(Boolean)
+    .join('\n\n')
   const userTextWithIntent = directiveBlock
     ? `${input.user_text}\n\n${directiveBlock}`
     : input.user_text

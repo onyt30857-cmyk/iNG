@@ -11,6 +11,7 @@ import { prisma } from '../../lib/prisma.js'
 import { callClaude, type AiCallContext } from '../../ai/client.js'
 import { loadLaokePersona } from '../../ai/laoke-persona-loader.js'
 import { guardUserInput } from '../../ai/red-line-guard.js'
+import { consumePendingRenewalNotification } from '../billing/renewal-notification.service.js'
 
 /**
  * 算 Asia/Shanghai 时区的今天 00:00(UTC Date 对象)。
@@ -136,7 +137,14 @@ export async function processTreeHoleTurn(
   // 4. 拼 prompt 调老白
   const persona = await loadLaokePersona()
   const adapter = getTreeHoleSceneAdapter()
-  const systemPrompt = `${persona.text}\n\n${adapter}`
+  let systemPrompt = `${persona.text}\n\n${adapter}`
+
+  // Phase 1 P1.4(2026-05-14)— 续费提醒 prepend(树洞直接拼 system,无 cache prefix 顾虑)
+  // consume 在调 LLM 前,即使 LLM 失败也算已通知,避免反复打扰
+  const renewalNotification = await consumePendingRenewalNotification(userId)
+  if (renewalNotification) {
+    systemPrompt += `\n\n# 重要:本轮开口前先说一句续费提醒\n${renewalNotification}\n\n说完续费提醒后,再正常接兄弟的情绪。`
+  }
 
   // 5. 拿最近几轮历史(不含刚写的 user message)
   const history = await prisma.treeHoleMessage.findMany({

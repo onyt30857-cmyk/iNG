@@ -61,6 +61,9 @@ import { startDeletionCron } from './workers/deletion-cron.js'
 import { startFeedbackClusteringCron } from './workers/feedback-clustering-cron.js'
 import { cleanupDevSeedIfExists } from './workers/cleanup-dev-seed-on-boot.js'
 import { startUserTagCron } from './services/admin/admin-tag.service.js'
+// Phase 1 P1.4(2026-05-14)— 订阅生命周期 + 支付订单清理
+import { startSubscriptionCron } from './workers/subscription-cron.js'
+import { startPaymentCron } from './workers/payment-cron.js'
 
 async function buildApp() {
   // 把 logger 配置交给 Fastify 内部创建 —— 直接传 Pino 实例和 Fastify 4 的类型签名不兼容
@@ -192,6 +195,9 @@ async function main() {
     startUserTagCron()
     // spec-021 P0-2:反馈聚类 cron(每 24h 跑 LLM 聚类,启动 5 分钟后跑首次)
     startFeedbackClusteringCron()
+    // Phase 1 P1.4(2026-05-14):订阅生命周期 + 支付清理 cron(每 1h,启动立即跑首次)
+    startSubscriptionCron()
+    startPaymentCron()
     // spec-026:启动时加载红线 cache(空 DB 自动 seed 9 条默认)
     reloadRedLineCache().catch((e) => {
       logger.error({ err: e, event: 'red_line_cache.startup_failed' }, '启动加载红线 cache 失败')
