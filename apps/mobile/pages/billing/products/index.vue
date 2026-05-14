@@ -158,7 +158,7 @@ function packLabel(p: BillingProduct): string {
         </view>
         <view class="hero-cta">
           <text class="hero-cta-text">
-            {{ orderingType === 'SUBSCRIPTION_YEARLY' ? '正在下单…' : '开通年费 Pro' }}
+            {{ orderingType === 'SUBSCRIPTION_YEARLY' ? '正在下单…' : '上年费' }}
           </text>
         </view>
       </view>
@@ -195,7 +195,7 @@ function packLabel(p: BillingProduct): string {
           :class="{ 'mock-btn-disabled': mockSubmitting }"
           @tap="handleMockComplete(true)"
         >
-          <text class="mock-btn-text">{{ mockSubmitting ? '处理中…' : '模拟支付成功' }}</text>
+          <text class="mock-btn-text">{{ mockSubmitting ? '处理中…' : '模拟付了' }}</text>
         </view>
         <view
           class="mock-btn mock-btn-cancel"

@@ -251,7 +251,7 @@ const formattedViewingDate = computed(() => {
       </view>
       <view class="header-title">
         <text class="title-text">找老白聊聊</text>
-        <text class="title-hint">{{ isReadonly ? formattedViewingDate : '不关联谁,就是说说心情' }}</text>
+        <text class="title-hint">{{ isReadonly ? formattedViewingDate : '今天想说啥 · 跟谁没关系' }}</text>
       </view>
       <view class="header-history-btn" @tap="openHistory">
         <text class="history-btn-text">翻翻</text>
@@ -265,7 +265,7 @@ const formattedViewingDate = computed(() => {
 
     <!-- 只读模式 banner(看过去 session)-->
     <view v-if="isReadonly" class="readonly-banner" @tap="backToToday">
-      <text class="readonly-text">看着以前的 · 点这回今天</text>
+      <text class="readonly-text">在看以前的 · 点回今天</text>
     </view>
 
     <!-- 消息区 -->
@@ -298,7 +298,7 @@ const formattedViewingDate = computed(() => {
             <text class="chip-text">{{ e }}</text>
           </view>
         </view>
-        <text v-if="!isReadonly" class="chip-hint">想说具体的人 → 去她的对话页深聊</text>
+        <text v-if="!isReadonly" class="chip-hint">想说具体的人 · 去那段关系里慢慢挖</text>
       </view>
 
       <view

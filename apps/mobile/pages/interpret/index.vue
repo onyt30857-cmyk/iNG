@@ -122,7 +122,7 @@ function goBack() {
         <text class="title-hint">不知道怎么回的时候,贴过来</text>
       </view>
       <view class="header-history-btn" @tap="openHistory">
-        <text class="history-btn-text">看过</text>
+        <text class="history-btn-text">翻翻</text>
       </view>
     </view>
 
@@ -172,7 +172,7 @@ function goBack() {
           :class="{ 'cta-disabled': !herText.trim() || !sessionId || submitting }"
           @tap="handleRun"
         >
-          <text class="cta-text">{{ submitting ? '老白看着…' : '让老白帮我看' }}</text>
+          <text class="cta-text">{{ submitting ? '老白读读…' : '让老白看看' }}</text>
         </view>
       </view>
 
@@ -239,7 +239,7 @@ function goBack() {
       <view class="history-sheet" @tap.stop>
         <view class="history-handle"></view>
         <view class="history-header">
-          <text class="history-title">看过</text>
+          <text class="history-title">翻翻看过的</text>
           <view class="history-close" @tap="closeHistory">
             <text class="history-close-text">关</text>
           </view>

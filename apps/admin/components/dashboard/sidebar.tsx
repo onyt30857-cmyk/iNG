@@ -77,7 +77,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     group: '营收',
-    hint: '商品 / 退款 / API 余额',
+    hint: '卖钱的活儿',
     items: [
       { href: '/billing/overview', label: 'Phase 1 概览', icon: LayoutGrid },
       { href: '/billing/products', label: '商品定价', icon: ShoppingBag },
