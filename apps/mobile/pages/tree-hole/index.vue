@@ -35,6 +35,18 @@ const loading = ref(true)
 const errorMsg = ref<string | null>(null)
 const scrollIntoView = ref<string>('')
 
+// 历史 session 浏览状态:null = 看今天(可输入),其他 = 看过去某天(只读)
+const viewingSessionDate = ref<string | null>(null)
+const isReadonly = computed(() => viewingSessionDate.value !== null)
+
+// 翻翻 bottomsheet
+const historyOpen = ref(false)
+const historySessions = ref<Array<{ id: string; date: string; preview: string; count: number }>>([])
+const historyLoading = ref(false)
+
+// 情绪 chip(empty state 启发用户聊情绪,不聊具体的人)
+const EMOTION_CHIPS = ['累', '烦', '空', '委屈', '难过', '闷']
+
 function toLocal(m: TreeHoleMessage): LocalMessage {
   return { id: m.id, role: m.role, content: m.content }
 }
@@ -132,6 +144,75 @@ function goBack() {
   uni.navigateBack()
 }
 
+// 点 chip 自动发"今天有点 X" 开场
+function sendEmotionChip(emotion: string) {
+  if (sending.value) return
+  inputText.value = `今天有点${emotion}`
+  void handleSend()
+}
+
+// 打开"翻翻" bottomsheet
+async function openHistory() {
+  historyOpen.value = true
+  historyLoading.value = true
+  const res = await getTreeHoleSessions()
+  if (!res.ok) {
+    historyLoading.value = false
+    errorMsg.value = res.error.message
+    return
+  }
+
+  // 取每个 session 的首条消息预览(并行)
+  const todayStr = shanghaiDateStr()
+  const items = await Promise.all(
+    res.data.map(async (s) => {
+      const msgsRes = await getTreeHoleMessages(s.id)
+      const msgs = msgsRes.ok ? msgsRes.data : []
+      const first = msgs[0]
+      return {
+        id: s.id,
+        date: s.date,
+        preview: first?.content?.slice(0, 30) ?? '(空)',
+        count: msgs.length,
+        isToday: s.date === todayStr,
+      }
+    }),
+  )
+  historySessions.value = items
+  historyLoading.value = false
+}
+
+function closeHistory() {
+  historyOpen.value = false
+}
+
+// 点条目:今天的 → 关闭 sheet 不操作;过去的 → 加载历史 + 切只读
+async function viewHistorySession(item: { id: string; date: string }) {
+  const todayStr = shanghaiDateStr()
+  if (item.date === todayStr) {
+    historyOpen.value = false
+    return
+  }
+
+  const msgsRes = await getTreeHoleMessages(item.id)
+  if (msgsRes.ok) {
+    messages.value = msgsRes.data.map(toLocal)
+    viewingSessionDate.value = item.date
+    historyOpen.value = false
+    await nextTick()
+    scrollToBottom()
+  } else {
+    errorMsg.value = msgsRes.error.message
+  }
+}
+
+// "返回今天" — 重新 load 今天 session
+async function backToToday() {
+  viewingSessionDate.value = null
+  messages.value = []
+  await loadTodayHistory()
+}
+
 const isEmpty = computed(() => !loading.value && messages.value.length === 0)
 </script>
 
@@ -144,9 +225,16 @@ const isEmpty = computed(() => !loading.value && messages.value.length === 0)
       </view>
       <view class="header-title">
         <text class="title-text">找老白聊聊</text>
-        <text class="title-hint">不关联谁,就是说说心情</text>
+        <text class="title-hint">{{ isReadonly ? `${viewingSessionDate} 的对话` : '不关联谁,就是说说心情' }}</text>
       </view>
-      <view class="header-spacer"></view>
+      <view class="header-history-btn" @tap="openHistory">
+        <text class="history-btn-text">翻翻</text>
+      </view>
+    </view>
+
+    <!-- 只读模式 banner(看过去 session)-->
+    <view v-if="isReadonly" class="readonly-banner" @tap="backToToday">
+      <text class="readonly-text">看着以前的 · 点这回今天</text>
     </view>
 
     <!-- 消息区 -->
@@ -166,6 +254,19 @@ const isEmpty = computed(() => !loading.value && messages.value.length === 0)
         </view>
         <text class="empty-title">嗯,今天怎么了</text>
         <text class="empty-hint">不用想措辞,先说一句</text>
+
+        <!-- 情绪 chip:启发用户聊情绪,不直接聊具体的人 -->
+        <view v-if="!isReadonly" class="chip-row">
+          <view
+            v-for="e in EMOTION_CHIPS"
+            :key="e"
+            class="chip"
+            @tap="sendEmotionChip(e)"
+          >
+            <text class="chip-text">{{ e }}</text>
+          </view>
+        </view>
+        <text v-if="!isReadonly" class="chip-hint">想说具体的人 → 去她的对话页深聊</text>
       </view>
 
       <view
@@ -190,7 +291,7 @@ const isEmpty = computed(() => !loading.value && messages.value.length === 0)
     </scroll-view>
 
     <!-- 输入区 -->
-    <view class="input-bar">
+    <view v-if="!isReadonly" class="input-bar">
       <input
         v-model="inputText"
         class="input"
@@ -204,6 +305,43 @@ const isEmpty = computed(() => !loading.value && messages.value.length === 0)
         @tap="handleSend"
       >
         <text class="send-text">{{ sending ? '…' : '发' }}</text>
+      </view>
+    </view>
+
+    <!-- 翻翻 bottomsheet -->
+    <view v-if="historyOpen" class="history-mask" @tap="closeHistory">
+      <view class="history-sheet" @tap.stop>
+        <view class="history-handle"></view>
+        <view class="history-header">
+          <text class="history-title">翻翻你写过的</text>
+          <view class="history-close" @tap="closeHistory">
+            <text class="history-close-text">关</text>
+          </view>
+        </view>
+
+        <scroll-view class="history-scroll" scroll-y>
+          <view v-if="historyLoading" class="history-loading">
+            <text class="history-loading-text">老白翻翻你之前写过的…</text>
+          </view>
+
+          <view v-else-if="historySessions.length === 0" class="history-empty">
+            <text class="history-empty-text">还没写过几次。今天就当第一次。</text>
+          </view>
+
+          <view
+            v-for="item in historySessions"
+            :key="item.id"
+            class="history-item"
+            @tap="viewHistorySession(item)"
+          >
+            <view class="history-item-head">
+              <text class="history-date">{{ item.date }}</text>
+              <text v-if="item.date === shanghaiDateStr()" class="history-today-tag">今天</text>
+              <text class="history-count">{{ item.count }} 条</text>
+            </view>
+            <text class="history-preview">{{ item.preview }}</text>
+          </view>
+        </scroll-view>
       </view>
     </view>
   </view>
@@ -303,6 +441,173 @@ const isEmpty = computed(() => !loading.value && messages.value.length === 0)
 .empty-hint {
   font-size: 26rpx;
   color: $color-text-tertiary;
+}
+
+/* 顶部右"翻翻"按钮(empty 状态时显示在 header)*/
+.header-history-btn {
+  padding: 8rpx 20rpx;
+  background: $color-laoke-subtle;
+  border: 1rpx solid $color-laoke;
+  border-radius: $radius-full;
+}
+.history-btn-text {
+  font-size: 24rpx;
+  color: $color-laoke-deep;
+  font-weight: 500;
+}
+
+/* 只读模式 banner */
+.readonly-banner {
+  padding: 16rpx 24rpx;
+  background: rgba(255, 125, 149, 0.08);
+  border-bottom: 1rpx solid $color-border;
+  text-align: center;
+}
+.readonly-text {
+  font-size: 24rpx;
+  color: $color-primary-deep;
+  font-weight: 500;
+}
+
+/* 情绪 chip(empty state) */
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  justify-content: center;
+  margin-top: 32rpx;
+  padding: 0 32rpx;
+}
+.chip {
+  padding: 16rpx 32rpx;
+  background: $color-surface;
+  border: 1rpx solid $color-laoke;
+  border-radius: $radius-full;
+  transition: transform 0.15s, background 0.2s;
+}
+.chip:active {
+  transform: scale(0.94);
+  background: $color-laoke-subtle;
+}
+.chip-text {
+  font-size: 30rpx;
+  color: $color-text-primary;
+}
+.chip-hint {
+  margin-top: 24rpx;
+  font-size: 22rpx;
+  color: $color-text-tertiary;
+  padding: 0 32rpx;
+  text-align: center;
+}
+
+/* 翻翻 bottomsheet */
+.history-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: flex-end;
+}
+.history-sheet {
+  width: 100%;
+  max-height: 80vh;
+  background: $color-surface;
+  border-radius: 32rpx 32rpx 0 0;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom, 32rpx);
+}
+.history-handle {
+  width: 80rpx;
+  height: 6rpx;
+  background: $color-text-disabled;
+  border-radius: 9999rpx;
+  margin: 16rpx auto;
+}
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 32rpx;
+  border-bottom: 1rpx solid $color-border;
+}
+.history-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: $color-text-primary;
+}
+.history-close {
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 9999rpx;
+  background: $color-surface-subtle;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.history-close-text {
+  font-size: 24rpx;
+  color: $color-text-secondary;
+}
+.history-scroll {
+  flex: 1;
+  padding: 16rpx 24rpx;
+  overflow-y: auto;
+}
+.history-loading,
+.history-empty {
+  padding: 80rpx 32rpx;
+  text-align: center;
+}
+.history-loading-text,
+.history-empty-text {
+  font-size: 26rpx;
+  color: $color-text-tertiary;
+}
+.history-item {
+  padding: 24rpx 20rpx;
+  border-bottom: 1rpx solid $color-border;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  transition: background 0.15s;
+}
+.history-item:active {
+  background: $color-surface-subtle;
+}
+.history-item-head {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+.history-date {
+  font-size: 26rpx;
+  font-weight: 500;
+  color: $color-text-primary;
+}
+.history-today-tag {
+  padding: 2rpx 12rpx;
+  background: $color-primary;
+  color: #fff;
+  font-size: 20rpx;
+  border-radius: 9999rpx;
+}
+.history-count {
+  margin-left: auto;
+  font-size: 22rpx;
+  color: $color-text-tertiary;
+}
+.history-preview {
+  font-size: 24rpx;
+  color: $color-text-secondary;
+  line-height: 1.5;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* 旧自定义气泡 / row / bubble 样式已废,改用 LaokeBubble + UserBubble 标准组件 */
