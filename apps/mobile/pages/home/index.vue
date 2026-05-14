@@ -131,41 +131,57 @@ function goInterpret() {
   uni.navigateTo({ url: '/pages/interpret/index' })
 }
 
-// Nikita 建议 #4(2026-05-14):顶部 + 收纳 3 个入口,自定义 bottomsheet 跟项目设计规范一致
+// Nikita 建议 #4(2026-05-14):顶部 + 收纳 4 个入口
+// 2026-05-14 修业务逻辑:点"发她对话截图"不能直接跳"最近一段"(串味风险),
+// 切到 step='pick-rel-screenshot' 让用户选具体哪段关系
 const addSheetOpen = ref(false)
+const addSheetStep = ref<'menu' | 'pick-rel-screenshot'>('menu')
 
 function openAddSheet() {
   addSheetOpen.value = true
+  addSheetStep.value = 'menu'
 }
 function closeAddSheet() {
   addSheetOpen.value = false
 }
 function pickAddSheet(action: 'tree-hole' | 'interpret' | 'screenshot' | 'create') {
+  if (action === 'screenshot') {
+    // 不立即关 sheet — 切到关系选择 step(避免串味)
+    openScreenshotPicker()
+    return
+  }
   addSheetOpen.value = false
   if (action === 'tree-hole') goTreeHole()
   else if (action === 'interpret') goInterpret()
-  else if (action === 'screenshot') goScreenshot()
   else if (action === 'create') goCreate()
 }
 
-// 直接发她对话截图:有关系 → 跳最近一段关系 conversation 页 + auto=screenshot;
-//                  没关系 → 跳建关系页 + 提示先记一段
-function goScreenshot() {
+/**
+ * 点"发她对话截图"后的业务:
+ * - 0 关系:不切 step,直接关 sheet + toast 引导建关系
+ * - 1 关系:也切 step 显示这一段(让用户确认是发给这段)
+ * - N 关系:切 step 显示全列表让用户选
+ */
+function openScreenshotPicker() {
   if (store.items.length === 0) {
-    uni.showToast({
-      title: '先记一段她,再发截图',
-      icon: 'none',
-      duration: 1800,
-    })
+    addSheetOpen.value = false
+    uni.showToast({ title: '先记一段她,再发截图', icon: 'none', duration: 1800 })
     setTimeout(() => goCreate(), 600)
     return
   }
-  // 取最近一段(items 已按 updated_at desc 排)
-  const recent = store.items[0]
-  if (!recent) return
+  addSheetStep.value = 'pick-rel-screenshot'
+}
+
+function pickRelationshipForScreenshot(relationshipId: string) {
+  addSheetOpen.value = false
+  addSheetStep.value = 'menu'
   uni.navigateTo({
-    url: `/pages/relationship/conversation?id=${recent.id}&auto=screenshot`,
+    url: `/pages/relationship/conversation?id=${relationshipId}&auto=screenshot`,
   })
+}
+
+function backToAddMenu() {
+  addSheetStep.value = 'menu'
 }
 
 // spec-006 之后 home 不再做"复盘入口",所有 OCR 上传 / 复盘流程都在每段关系的
@@ -318,10 +334,14 @@ const greeting = computed(() => {
 
     <!-- spec-006 之后"复盘"融进每段关系对话页:点关系卡 → 进对话页 → + 按钮上传截图 / 粘贴对方原话 → 老白流式回应 -->
 
-    <!-- + 入口 bottomsheet(Nikita #4)— 跟翻翻 / 看过 sheet 同款 brand 风格 -->
+    <!-- + 入口 bottomsheet(Nikita #4)— 跟翻翻 / 看过 sheet 同款 brand 风格
+         2026-05-14 加 step 2 关系选择(避免"发她截图"串味)-->
     <view v-if="addSheetOpen" class="add-mask" @tap="closeAddSheet">
       <view class="add-sheet" @tap.stop>
         <view class="add-handle"></view>
+
+        <!-- Step 1: 主菜单(4 入口)-->
+        <template v-if="addSheetStep === 'menu'">
         <text class="add-title">想干啥</text>
 
         <view class="add-item add-item-tree-hole" @tap="pickAddSheet('tree-hole')">
@@ -382,6 +402,41 @@ const greeting = computed(() => {
         <view class="add-cancel" @tap="closeAddSheet">
           <text class="add-cancel-text">取消</text>
         </view>
+        </template>
+
+        <!-- Step 2: 选哪段关系发截图 -->
+        <template v-else-if="addSheetStep === 'pick-rel-screenshot'">
+        <view class="add-step-head">
+          <view class="add-step-back" @tap="backToAddMenu">
+            <text class="add-step-back-text">‹</text>
+          </view>
+          <text class="add-title add-title-sub">发哪段的截图?</text>
+          <view class="add-step-spacer"></view>
+        </view>
+        <text class="add-step-hint">选错了对话页能切,但选对避免老白串味</text>
+
+        <view
+          v-for="r in store.items"
+          :key="r.id"
+          class="add-item add-item-relationship"
+          @tap="pickRelationshipForScreenshot(r.id)"
+        >
+          <view class="add-item-icon add-icon-relationship">
+            <text class="add-icon-relationship-text">
+              {{ (r.name || '?').slice(0, 1) }}
+            </text>
+          </view>
+          <view class="add-item-body">
+            <text class="add-item-title">{{ r.name }}</text>
+            <text class="add-item-sub">发给老白看这段</text>
+          </view>
+          <text class="add-item-arrow">›</text>
+        </view>
+
+        <view class="add-cancel" @tap="closeAddSheet">
+          <text class="add-cancel-text">取消</text>
+        </view>
+        </template>
       </view>
     </view>
   </view>
@@ -773,6 +828,50 @@ const greeting = computed(() => {
 .add-icon-create {
   background: rgba(255, 125, 149, 0.12);
   color: $color-primary;
+}
+
+/* Step 2 — 关系选择(2026-05-14)*/
+.add-step-head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+.add-step-back {
+  width: 60rpx;
+  height: 60rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999rpx;
+  &:active { background: $color-surface-subtle; }
+}
+.add-step-back-text {
+  font-size: 44rpx;
+  color: $color-text-secondary;
+  line-height: 1;
+}
+.add-step-spacer {
+  width: 60rpx;
+}
+.add-title-sub {
+  flex: 1;
+  margin-bottom: 0;
+}
+.add-step-hint {
+  display: block;
+  text-align: center;
+  font-size: 22rpx;
+  color: $color-text-tertiary;
+  margin-bottom: 24rpx;
+  padding: 0 16rpx;
+}
+.add-icon-relationship {
+  background: linear-gradient(135deg, $color-laoke-subtle 0%, $color-primary-subtle 100%);
+  color: $color-text-primary;
+}
+.add-icon-relationship-text {
+  font-size: 32rpx;
+  font-weight: 600;
 }
 .add-item-body {
   flex: 1;
