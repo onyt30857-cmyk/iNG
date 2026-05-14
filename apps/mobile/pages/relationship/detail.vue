@@ -30,8 +30,9 @@ onLoad((opts) => {
   id.value = (opts?.id as string) ?? ''
   // 从 conversation.vue 顶部 ⋯ 跳过来时,带 tab=us 直接落到"我们"Tab(老白看到的)
   const t = (opts?.tab as string) ?? ''
-  // 2026-05-14 删工具箱 tab(Nikita audit);老 deeplink ?tab=toolbox 自动落 'us' 不报错
-  if (t === 'her' || t === 'us' || t === 'grow') activeTab.value = t
+  // 2026-05-14 删工具箱 + 成长 tab(Nikita audit:占位无价值,M3.2 真做)
+  // 老 deeplink ?tab=toolbox / ?tab=grow 自动落 'us' 不报错
+  if (t === 'her' || t === 'us') activeTab.value = t
 })
 
 onMounted(async () => {
@@ -74,30 +75,14 @@ const lastTalkAgo = computed(() => {
 // === Tab 切换 ===
 // 默认 'us'(我们):整页核心是关系演变 + "老白看到的",这是产品独有价值,
 // "她"是档案、"工具箱"是收藏、"成长"是北极星 + 被见证叙事,都不该是 first impression。
-// 2026-05-14 Nikita audit:删工具箱 tab,4 → 3
-type Tab = 'her' | 'us' | 'grow'
+// 2026-05-14 Nikita audit:删工具箱 + 成长 tab,4 → 2(她 / 我们)
+// 成长 tab 占位无价值(growthNarrative 5 种 template 字符串),M3.2 接通 milestone-extractor 真做
+type Tab = 'her' | 'us'
 const activeTab = ref<Tab>('us')
 
-// === Tab 4: 成长 — 被见证型叙事(2026-05-12 加)===
-// 注:遵守 detail.vue 顶部原则 — "用户珍视的是被见证 + 叙事可读性,不是成长曲线或健康度评分"
-// 所以不堆"已聊 N 次 / 信号分 / 进度条",只用一个 daysSinceCreated 做语境化叙事
-const growthNarrative = computed(() => {
-  const d = daysSinceCreated.value
-  const name = relationship.value?.name ?? '她'
-  if (d <= 0) {
-    return `你才刚把 ${name} 记下来。能开口愿意试,这就是开始。`
-  }
-  if (d < 7) {
-    return `认识 ${name} 没几天,你已经愿意来这儿想想她、想想自己。这步多数人迈不出来。`
-  }
-  if (d < 30) {
-    return `跟 ${name} 走过这小一个月。你不是去搞她,也没躲着她——这事不容易。`
-  }
-  if (d < 90) {
-    return `跟 ${name} 一来一回这么久,你在练自己。心里那个删了又改的自己,慢慢能放过了。`
-  }
-  return `跟 ${name} 走到现在,你跟当初那个对着对话框删了又改的自己,已经不是同一个人了。`
-})
+// 2026-05-14 Nikita audit:删成长 tab + 占位 growthNarrative computed
+// 原 5 种 template 字符串属"假被见证"(只看 createdAt 天数,没看用户真行为)
+// M3.2 接通 milestone-extractor.service 真做"被见证型叙事"(LLM 读真实数据周期性生成)
 
 // === Tab 1: 她 - 4 个 section(信息架构调研落地) ===
 
@@ -602,16 +587,13 @@ async function deleteIt() {
       </view>
     </view>
 
-    <!-- ============ Tabs(2026-05-14 删工具箱,4 → 3)============ -->
+    <!-- ============ Tabs(2026-05-14 删工具箱 + 成长,4 → 2)============ -->
     <view class="tabs">
       <view :class="['tab', activeTab === 'her' && 'active']" @tap="activeTab = 'her'">
         <text class="tab-text">她</text>
       </view>
       <view :class="['tab', activeTab === 'us' && 'active']" @tap="activeTab = 'us'">
         <text class="tab-text">我们</text>
-      </view>
-      <view :class="['tab', activeTab === 'grow' && 'active']" @tap="activeTab = 'grow'">
-        <text class="tab-text">成长</text>
       </view>
     </view>
 
@@ -764,32 +746,17 @@ async function deleteIt() {
 
     </view>
 
-    <!-- ============ Tab 3: 成长(北极星 + 被见证叙事) ============ -->
-    <!-- (2026-05-14 删工具箱 tab,Nikita audit:AI 对话天然不需要收藏)-->
-    <view v-if="activeTab === 'grow'" class="content">
-      <!-- 北极星三段式:学会聊天 · 学会相处 · 学会好好爱人 — 来自练爱官方简介 -->
-      <view class="section">
-        <text class="section-title">练爱的方向</text>
-        <view class="north-star">
-          <text class="north-star-line">学会聊天</text>
-          <text class="north-star-dot">·</text>
-          <text class="north-star-line">学会相处</text>
-          <text class="north-star-dot">·</text>
-          <text class="north-star-line">学会好好爱人</text>
-        </view>
+    <!-- 2026-05-14 删成长 tab — M3.2 接 milestone-extractor 真做"被见证型叙事"再加回 -->
+    <!-- 北极星 + tagline 搬到底部 footer 做品牌存在感(不抢用户注意) -->
+    <view class="brand-tail">
+      <view class="north-star">
+        <text class="north-star-line">学会聊天</text>
+        <text class="north-star-dot">·</text>
+        <text class="north-star-line">学会相处</text>
+        <text class="north-star-dot">·</text>
+        <text class="north-star-line">学会好好爱人</text>
       </view>
-
-      <!-- 老白寄语卡片(复用 .narrative 样式 — 卡片 + accent 边线) -->
-      <view class="narrative grow-narrative">
-        <view class="narrative-head">
-          <text class="narrative-label">老白看你</text>
-          <text class="narrative-date">认识 {{ daysSinceCreated }} 天</text>
-        </view>
-        <text class="narrative-text">{{ growthNarrative }}</text>
-      </view>
-
-      <!-- 老白尾巴 -->
-      <text class="grow-tail">成长得慢,但一定有。</text>
+      <text class="brand-tail-tagline">成长得慢,但一定有。</text>
     </view>
 
     <!-- 添加 chip 的底部 modal(轻量,替代跳 edit 表单) -->
@@ -1422,22 +1389,23 @@ async function deleteIt() {
   font-size: 28rpx;
   color: $color-text-disabled;
 }
-// grow-narrative 复用 .narrative,但用 primary-deep 边线区分(跟"我们" accent 边线分开)
-.grow-narrative {
-  border-left-color: $color-primary-deep;
-  margin-top: 16rpx;
+/* 2026-05-14 删成长 tab 后:北极星 + tagline 搬到 detail 底部做品牌 footer */
+.brand-tail {
+  padding: 48rpx 32rpx 32rpx;
+  border-top: 1rpx solid $color-divider;
+  margin-top: 40rpx;
 }
-.grow-tail {
+.brand-tail-tagline {
   display: block;
   text-align: center;
-  margin-top: 48rpx;
-  font-size: 26rpx;
+  margin-top: 16rpx;
+  font-size: 24rpx;
   color: $color-text-tertiary;
   font-style: italic;
   letter-spacing: 0.5rpx;
 }
 
-/* 2026-05-14 工具箱 Tab CSS 死代码已删(empty-line / saved-card / saved-text 等)*/
+/* 2026-05-14 工具箱 + 成长 Tab CSS 死代码已删(grow-narrative / grow-tail / saved-card 等)*/
 .saved-planning-title {
   display: block;
   font-size: 32rpx;
