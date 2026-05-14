@@ -616,6 +616,9 @@ const formattedViewingDate = computed(() => {
   flex: 1;
   padding: 16rpx 24rpx;
   overflow-y: auto;
+  overflow-x: hidden;
+  width: 100%;
+  box-sizing: border-box;
 }
 .history-loading,
 .history-empty {
@@ -628,12 +631,14 @@ const formattedViewingDate = computed(() => {
   color: $color-text-tertiary;
 }
 .history-item {
+  width: 100%;
   padding: 24rpx 20rpx;
   border-bottom: 1rpx solid $color-border;
   display: flex;
   flex-direction: column;
   gap: 8rpx;
   transition: background 0.15s;
+  box-sizing: border-box;
 }
 .history-item:active {
   background: $color-surface-subtle;

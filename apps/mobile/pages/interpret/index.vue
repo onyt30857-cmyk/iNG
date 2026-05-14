@@ -130,7 +130,7 @@ function goBack() {
       <!-- 输入态 -->
       <view v-if="!result" class="input-card">
         <view class="laoke-row">
-          <LaokeAvatar :size="40" />
+          <LaokeAvatar :size="72" />
           <text class="laoke-hint">把她说的话贴这,我看看</text>
         </view>
 
@@ -180,7 +180,7 @@ function goBack() {
       <view v-else class="result">
         <!-- 主推回复(big) -->
         <view class="laoke-row">
-          <LaokeAvatar :size="40" />
+          <LaokeAvatar :size="72" />
           <text class="laoke-hint">这么回:</text>
         </view>
         <view class="main-reply-card">
