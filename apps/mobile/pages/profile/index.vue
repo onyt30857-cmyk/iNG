@@ -5,6 +5,7 @@ import { useUserStore } from '../../stores/user'
 import { usePointsStore } from '../../stores/points'
 import { useAppSettingsStore } from '../../stores/app-settings'
 import { useAppDialog } from '../../composables/useAppDialog'
+import { getBalance, type BillingBalance } from '../../api/billing.api'
 
 const userStore = useUserStore()
 const pointsStore = usePointsStore()
@@ -15,9 +16,32 @@ const profileAvatarUrl = computed(() =>
   appSettings.resolveUserAvatar(userStore.user?.avatar_url),
 )
 
+// Phase 1 P1.2 — 三层余额(daily free + purchased + subscription)
+const balance = ref<BillingBalance | null>(null)
+async function refreshBalance() {
+  const res = await getBalance()
+  if (res.ok) balance.value = res.data
+}
+
 onMounted(() => {
   void pointsStore.refresh(true)
+  void refreshBalance()
 })
+
+const subscriptionLabel = computed(() => {
+  if (!balance.value?.has_active_subscription || !balance.value.subscription_expires_at) return null
+  const expires = new Date(balance.value.subscription_expires_at)
+  const daysLeft = Math.ceil((expires.getTime() - Date.now()) / 86400_000)
+  return {
+    plan: balance.value.subscription_plan ?? 'YEARLY',
+    daysLeft,
+    expires: expires.toLocaleDateString('zh-CN'),
+  }
+})
+
+function goBilling() {
+  uni.navigateTo({ url: '/pages/billing/products/index' })
+}
 
 const pointsDisplay = computed(() => {
   const s = pointsStore.status
@@ -189,6 +213,38 @@ async function onConfirmRecover() {
         <text class="section-tip">说一句话 5 / 截图复盘 20 / 深度画像 30</text>
       </view>
 
+      <!-- Phase 1 P1.2:三层余额(免费 + 充值 + 订阅)+ 充值入口 -->
+      <view class="section" v-if="balance">
+        <text class="section-title">余额 · 订阅</text>
+
+        <!-- 订阅卡(有订阅时显示)-->
+        <view v-if="subscriptionLabel" class="sub-card">
+          <view class="sub-card-head">
+            <text class="sub-card-title">年费 Pro · 进行中</text>
+            <text class="sub-card-tag">无限用</text>
+          </view>
+          <text class="sub-card-detail">
+            还有 {{ subscriptionLabel.daysLeft }} 天 · {{ subscriptionLabel.expires }} 到期
+          </text>
+        </view>
+
+        <!-- 购买积分余额 -->
+        <view class="balance-card" @tap="goBilling">
+          <view class="balance-row">
+            <text class="balance-label">购买积分</text>
+            <text class="balance-value">{{ balance.purchased_points }}</text>
+          </view>
+          <text class="balance-hint">
+            免费用完后自动扣这里 · 点这里加积分 / 开年费
+          </text>
+        </view>
+
+        <!-- 充值 CTA -->
+        <view v-if="!subscriptionLabel" class="billing-cta" @tap="goBilling">
+          <text class="billing-cta-text">看看老白这有啥(¥19 起)</text>
+        </view>
+      </view>
+
       <!-- 当前账户信息 -->
       <view class="section">
         <text class="section-title">当前账户</text>
@@ -333,6 +389,83 @@ async function onConfirmRecover() {
   color: $color-text-tertiary;
   margin-top: 12rpx;
   font-style: italic;
+}
+
+/* === Phase 1 P1.2:余额 + 订阅卡 === */
+.sub-card {
+  padding: 24rpx 28rpx;
+  background: linear-gradient(135deg, $color-primary 0%, $color-primary-gradient-end 100%);
+  border-radius: 20rpx;
+  margin-bottom: 16rpx;
+  box-shadow: 0 8rpx 20rpx rgba(255, 125, 149, 0.25);
+}
+.sub-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8rpx;
+}
+.sub-card-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #fff;
+}
+.sub-card-tag {
+  font-size: 22rpx;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.22);
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+}
+.sub-card-detail {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.balance-card {
+  padding: 24rpx 28rpx;
+  background: $color-surface;
+  border-radius: 24rpx;
+  box-shadow: $shadow-sm;
+  transition: transform 0.15s;
+}
+.balance-card:active {
+  transform: scale(0.98);
+}
+.balance-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 4rpx;
+}
+.balance-label {
+  font-size: 26rpx;
+  color: $color-text-secondary;
+}
+.balance-value {
+  font-size: 44rpx;
+  font-weight: 700;
+  color: $color-primary-deep;
+}
+.balance-hint {
+  font-size: 22rpx;
+  color: $color-text-tertiary;
+}
+
+.billing-cta {
+  margin-top: 16rpx;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: $color-primary;
+  border-radius: 9999rpx;
+  box-shadow: 0 8rpx 20rpx rgba(255, 125, 149, 0.25);
+}
+.billing-cta-text {
+  color: #fff;
+  font-size: 28rpx;
+  font-weight: 600;
 }
 
 .info-card {
