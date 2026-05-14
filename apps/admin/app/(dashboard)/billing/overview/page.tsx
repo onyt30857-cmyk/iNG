@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { LayoutGrid, AlertCircle, MessageCircle, Eye, CreditCard, Users, Coins, Undo2 } from 'lucide-react'
+import { LayoutGrid, AlertCircle, MessageCircle, Eye, CreditCard, Users, Coins, Undo2, CheckCircle2, XCircle } from 'lucide-react'
 import { adminGet } from '@/lib/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
@@ -39,6 +39,7 @@ interface RecentRefund {
 }
 
 interface OverviewData {
+  mock_payment_mode: boolean
   products: BillingProduct[]
   recent_payments: RecentPayment[]
   recent_refunds: RecentRefund[]
@@ -101,6 +102,42 @@ export default function BillingOverviewPage() {
 
       {data && (
         <>
+          {/* Mock 模式状态(影响 mobile 端能否跑完整购买流程)*/}
+          <div
+            className={`rounded-lg border-2 p-4 flex items-start gap-3 ${
+              data.mock_payment_mode
+                ? 'border-green-300 bg-green-50/50 dark:bg-green-950/20'
+                : 'border-amber-300 bg-amber-50/50 dark:bg-amber-950/20'
+            }`}
+          >
+            {data.mock_payment_mode ? (
+              <CheckCircle2 className="h-5 w-5 text-green-700 dark:text-green-400 shrink-0 mt-0.5" />
+            ) : (
+              <XCircle className="h-5 w-5 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
+            )}
+            <div className="space-y-1 text-sm">
+              <div className="font-medium">
+                {data.mock_payment_mode
+                  ? '🟢 Mock 支付模式已开启 — Mobile 可跑完整购买'
+                  : '🟡 Mock 支付模式未开 — Mobile 购买会拿到 NOT_IMPLEMENTED'}
+              </div>
+              <div className="text-muted-foreground">
+                {data.mock_payment_mode ? (
+                  <>
+                    Mobile 端用户点商品 → create-order 返 fake prepay_id → 弹"模拟支付完成"按钮 → 真实发货(Subscription / 积分)。
+                    DB 流水跟真支付完全一致(只是不调微信 API)。
+                  </>
+                ) : (
+                  <>
+                    要让 Mobile 端跑完整购买:在 Railway → API service → Variables 加{' '}
+                    <code className="px-1 py-0.5 bg-muted rounded text-xs">MOCK_PAYMENT_MODE=true</code> 即可。
+                    保留 false 时商品 / 退款管理仍可用,但 Mobile 端 create-order 会被 stub 拦下。
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* KPI 行 */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <KpiCard

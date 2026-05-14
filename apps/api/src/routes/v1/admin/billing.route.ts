@@ -8,6 +8,7 @@ import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { requireAdmin } from '../../../middleware/admin-auth.js'
 import { prisma } from '../../../lib/prisma.js'
+import { config } from '../../../config/index.js'
 import { invalidateProductsCache } from '../../../services/billing/billing-products.service.js'
 
 const updateProductSchema = z.object({
@@ -98,6 +99,7 @@ export async function adminBillingRoutes(app: FastifyInstance): Promise<void> {
     return {
       ok: true,
       data: {
+        mock_payment_mode: config.MOCK_PAYMENT_MODE === true,
         products,
         recent_payments: recentPayments,
         recent_refunds: recentRefunds,
