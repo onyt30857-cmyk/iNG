@@ -130,30 +130,7 @@ export async function callClaude(
   const start = Date.now()
   const model = params.model ?? config.CLAUDE_MODEL_ID
 
-  // === pre-call audit:跨关系泄漏 ===
-  if (params.otherIdentifiers && params.otherIdentifiers.length > 0) {
-    const auditTarget = composeAuditTarget(params)
-    const auditOpts: AuditOptions = {
-      otherIdentifiers: params.otherIdentifiers,
-    }
-    try {
-      assertNoLeak(auditTarget, auditOpts)
-    } catch (e) {
-      if (e instanceof PromptLeakError) {
-        logger.error(
-          {
-            event: 'ai.callClaude.leak',
-            scene: ctx.scene,
-            user_id: ctx.user_id,
-            relationship_id: ctx.relationship_id,
-            leaks: e.leaks,
-          },
-          'Prompt 跨关系泄漏被拦截',
-        )
-      }
-      throw e
-    }
-  }
+  handlePreCallAudit(ctx, params, 'ai.callClaude.leak')
 
   const client = getAnthropicClient()
 
@@ -169,76 +146,30 @@ export async function callClaude(
     throw wrapSdkError(ctx, 'ai.callClaude.api_error', '老白这边出了点意外,你重新试一下', err)
   }
 
-  // 解析响应文本(只拿 text block,忽略 tool_use 等)
   const text = response.content
     .filter((b) => b.type === 'text')
     .map((b) => (b as Anthropic.TextBlock).text)
     .join('')
 
-  // === post-call persona check ===
-  const persona_check = params.skipPersonaCheck
-    ? { passed: true, violations: [] }
-    : checkPersona(text)
-
-  if (!persona_check.passed) {
-    // 不阻断,但记录给后续打磨用
-    logger.warn(
-      {
-        event: 'ai.callClaude.persona_violation',
-        scene: ctx.scene,
-        user_id: ctx.user_id,
-        relationship_id: ctx.relationship_id,
-        violations: persona_check.violations,
-      },
-      '老白输出有违规词,prompt 需要打磨',
-    )
-  }
-
+  const persona_check = checkPersonaAndLog(ctx, text, params, 'ai.callClaude')
   const duration_ms = Date.now() - start
-
-  // Item 2 prompt cache 监控(Item 1 Scope 4 提炼)
   const { cache_creation, cache_read } = extractCacheUsage(response.usage)
 
-  logger.info(
+  recordCallTelemetry(
+    ctx,
+    model,
     {
-      event: 'ai.callClaude.done',
-      scene: ctx.scene,
-      user_id: ctx.user_id,
-      relationship_id: ctx.relationship_id,
-      session_id: ctx.session_id,
-      model,
+      call_id: response.id,
       input_tokens: response.usage.input_tokens,
       output_tokens: response.usage.output_tokens,
-      cache_creation_input_tokens: cache_creation,
-      cache_read_input_tokens: cache_read,
-      duration_ms,
-      persona_passed: persona_check.passed,
-    },
-    'Claude 调用完成',
-  )
-
-  // spec-013 LLMOps:fire-and-forget 落 AiCallLog(永不抛,不阻塞)
-  void recordAiCallLog({
-    call_id: response.id,
-    user_id: ctx.user_id,
-    relationship_id: ctx.relationship_id,
-    session_id: ctx.session_id,
-    scene: ctx.scene,
-    model,
-    input_tokens: response.usage.input_tokens,
-    output_tokens: response.usage.output_tokens,
-    cache_creation_input_tokens: cache_creation,
-    cache_read_input_tokens: cache_read,
-    cost_usd: estimateCostUsd(
-      model,
-      response.usage.input_tokens,
-      response.usage.output_tokens,
       cache_creation,
       cache_read,
-    ),
+    },
+    persona_check.passed,
     duration_ms,
-    persona_passed: persona_check.passed,
-  })
+    'ai.callClaude.done',
+    'Claude 调用完成',
+  )
 
   return {
     text,
@@ -270,26 +201,7 @@ export async function callClaudeStream(
   const start = Date.now()
   const model = params.model ?? config.CLAUDE_MODEL_ID
 
-  if (params.otherIdentifiers && params.otherIdentifiers.length > 0) {
-    const auditTarget = composeAuditTarget(params)
-    try {
-      assertNoLeak(auditTarget, { otherIdentifiers: params.otherIdentifiers })
-    } catch (e) {
-      if (e instanceof PromptLeakError) {
-        logger.error(
-          {
-            event: 'ai.callClaudeStream.leak',
-            scene: ctx.scene,
-            user_id: ctx.user_id,
-            relationship_id: ctx.relationship_id,
-            leaks: e.leaks,
-          },
-          'Prompt 跨关系泄漏被拦截(stream)',
-        )
-      }
-      throw e
-    }
-  }
+  handlePreCallAudit(ctx, params, 'ai.callClaudeStream.leak')
 
   const client = getAnthropicClient() as Anthropic
 
@@ -318,7 +230,6 @@ export async function callClaudeStream(
         handlers.onChunk(chunk)
       } else if (event.type === 'message_start') {
         inputTokens = event.message.usage.input_tokens
-        // Item 2 prompt cache 监控(Item 1 Scope 4 提炼)
         const cache = extractCacheUsage(event.message.usage)
         cacheCreation = cache.cache_creation
         cacheRead = cache.cache_read
@@ -331,46 +242,24 @@ export async function callClaudeStream(
     throw wrapSdkError(ctx, 'ai.callClaudeStream.api_error', '老白这边出了点意外,你重新试一下', err)
   }
 
-  const persona_check = params.skipPersonaCheck
-    ? { passed: true, violations: [] }
-    : checkPersona(fullText)
-
+  const persona_check = checkPersonaAndLog(ctx, fullText, params, 'ai.callClaudeStream')
   const duration_ms = Date.now() - start
 
-  logger.info(
+  recordCallTelemetry(
+    ctx,
+    model,
     {
-      event: 'ai.callClaudeStream.done',
-      scene: ctx.scene,
-      user_id: ctx.user_id,
-      relationship_id: ctx.relationship_id,
-      session_id: ctx.session_id,
-      model,
+      call_id: messageId || `stream-fallback-${Date.now()}`,
       input_tokens: inputTokens,
       output_tokens: outputTokens,
-      cache_creation_input_tokens: cacheCreation,
-      cache_read_input_tokens: cacheRead,
-      duration_ms,
-      persona_passed: persona_check.passed,
+      cache_creation: cacheCreation,
+      cache_read: cacheRead,
     },
+    persona_check.passed,
+    duration_ms,
+    'ai.callClaudeStream.done',
     'Claude Stream 调用完成',
   )
-
-  // spec-013 LLMOps:fire-and-forget 落 AiCallLog
-  void recordAiCallLog({
-    call_id: messageId || `stream-fallback-${Date.now()}`,
-    user_id: ctx.user_id,
-    relationship_id: ctx.relationship_id,
-    session_id: ctx.session_id,
-    scene: ctx.scene,
-    model,
-    input_tokens: inputTokens,
-    output_tokens: outputTokens,
-    cache_creation_input_tokens: cacheCreation,
-    cache_read_input_tokens: cacheRead,
-    cost_usd: estimateCostUsd(model, inputTokens, outputTokens, cacheCreation, cacheRead),
-    duration_ms,
-    persona_passed: persona_check.passed,
-  })
 
   return {
     text: fullText,
@@ -388,6 +277,129 @@ export async function callClaudeStream(
  */
 function composeAuditTarget(params: CallClaudeParams): string {
   return params.messages.map((m) => m.content).join('\n')
+}
+
+/**
+ * pre-call 跨关系泄漏审计(M3.0 Item 1 Scope 4 提炼)
+ * callClaude / callClaudeStream 共用。空 otherIdentifiers 直接跳过。
+ */
+function handlePreCallAudit(
+  ctx: AiCallContext,
+  params: CallClaudeParams,
+  eventName: string,
+): void {
+  if (!params.otherIdentifiers || params.otherIdentifiers.length === 0) return
+
+  const auditTarget = composeAuditTarget(params)
+  const auditOpts: AuditOptions = { otherIdentifiers: params.otherIdentifiers }
+  try {
+    assertNoLeak(auditTarget, auditOpts)
+  } catch (e) {
+    if (e instanceof PromptLeakError) {
+      logger.error(
+        {
+          event: eventName,
+          scene: ctx.scene,
+          user_id: ctx.user_id,
+          relationship_id: ctx.relationship_id,
+          leaks: e.leaks,
+        },
+        'Prompt 跨关系泄漏被拦截',
+      )
+    }
+    throw e
+  }
+}
+
+/**
+ * post-call persona check + violation log(M3.0 Item 1 Scope 4 提炼)
+ * 返回 persona check 结果。skipPersonaCheck=true 时直接 pass(测试用)。
+ */
+function checkPersonaAndLog(
+  ctx: AiCallContext,
+  text: string,
+  params: CallClaudeParams,
+  eventPrefix: string,
+): PersonaCheckResult {
+  const result = params.skipPersonaCheck
+    ? { passed: true, violations: [] }
+    : checkPersona(text)
+
+  if (!result.passed) {
+    logger.warn(
+      {
+        event: `${eventPrefix}.persona_violation`,
+        scene: ctx.scene,
+        user_id: ctx.user_id,
+        relationship_id: ctx.relationship_id,
+        violations: result.violations,
+      },
+      '老白输出有违规词,prompt 需要打磨',
+    )
+  }
+  return result
+}
+
+/**
+ * 写 logger.info + 落 AiCallLog(M3.0 Item 1 Scope 4 提炼)
+ * callClaude / callClaudeStream 共用。fire-and-forget 落库永不抛。
+ */
+interface AiCallTelemetry {
+  call_id: string
+  input_tokens: number
+  output_tokens: number
+  cache_creation: number
+  cache_read: number
+}
+
+function recordCallTelemetry(
+  ctx: AiCallContext,
+  model: string,
+  t: AiCallTelemetry,
+  personaPassed: boolean,
+  duration_ms: number,
+  eventName: string,
+  doneMsg: string,
+): void {
+  logger.info(
+    {
+      event: eventName,
+      scene: ctx.scene,
+      user_id: ctx.user_id,
+      relationship_id: ctx.relationship_id,
+      session_id: ctx.session_id,
+      model,
+      input_tokens: t.input_tokens,
+      output_tokens: t.output_tokens,
+      cache_creation_input_tokens: t.cache_creation,
+      cache_read_input_tokens: t.cache_read,
+      duration_ms,
+      persona_passed: personaPassed,
+    },
+    doneMsg,
+  )
+
+  void recordAiCallLog({
+    call_id: t.call_id,
+    user_id: ctx.user_id,
+    relationship_id: ctx.relationship_id,
+    session_id: ctx.session_id,
+    scene: ctx.scene,
+    model,
+    input_tokens: t.input_tokens,
+    output_tokens: t.output_tokens,
+    cache_creation_input_tokens: t.cache_creation,
+    cache_read_input_tokens: t.cache_read,
+    cost_usd: estimateCostUsd(
+      model,
+      t.input_tokens,
+      t.output_tokens,
+      t.cache_creation,
+      t.cache_read,
+    ),
+    duration_ms,
+    persona_passed: personaPassed,
+  })
 }
 
 /**
