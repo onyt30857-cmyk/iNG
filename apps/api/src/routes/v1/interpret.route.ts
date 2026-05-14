@@ -6,6 +6,7 @@ import type { FastifyInstance } from 'fastify'
 import { requireAuth } from '../../middleware/auth.js'
 import { createInterpretSession, runInterpret } from '../../services/interpret/interpret.service.js'
 import { prisma } from '../../lib/prisma.js'
+import { errors } from '../../lib/error.js'
 
 const createSchema = z.object({
   relationship_id: z.string().optional(),
@@ -43,10 +44,11 @@ export async function interpretRoutes(app: FastifyInstance): Promise<void> {
 
   // GET /v1/interpret/messages — 当前用户最近 N 条解读历史
   // session 30min 过期但 message 永久保留,用户能回看以前的解读
+  // 2026-05-14 提 max 50→200,Sam 数据壁垒优先
   app.get('/v1/interpret/messages', async (request) => {
     const userId = request.user!.id
     const q = (request.query as { limit?: string }) || {}
-    const limit = q.limit ? Math.min(parseInt(q.limit, 10) || 10, 50) : 10
+    const limit = q.limit ? Math.min(parseInt(q.limit, 10) || 20, 200) : 20
 
     const messages = await prisma.interpretMessage.findMany({
       where: { interpret_session: { user_id: userId } },
@@ -61,5 +63,21 @@ export async function interpretRoutes(app: FastifyInstance): Promise<void> {
       },
     })
     return { ok: true, data: messages }
+  })
+
+  // DELETE /v1/interpret/messages/:id — 真删一条解读历史
+  // 校验 ownership 通过 interpret_session.user_id 反查
+  app.delete('/v1/interpret/messages/:id', async (request) => {
+    const userId = request.user!.id
+    const { id } = z.object({ id: z.string().min(1) }).parse(request.params)
+
+    const msg = await prisma.interpretMessage.findFirst({
+      where: { id, interpret_session: { user_id: userId } },
+      select: { id: true },
+    })
+    if (!msg) throw errors.notFound('解读消息不存在')
+
+    await prisma.interpretMessage.delete({ where: { id } })
+    return { ok: true, data: { deleted: id } }
   })
 }

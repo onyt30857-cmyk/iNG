@@ -3,10 +3,11 @@
 // 不关联关系也能用,纯输入对方原话 + 可选上下文 → 老白返回主推回复 + 备选 + why
 // 流程:进页面 → POST /sessions 创建 30min session → 用户输入 → POST /run → 展示结果
 
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import LaokeAvatar from '../../components/LaokeAvatar.vue'
 import {
   createInterpretSession,
+  deleteInterpretMessage,
   getInterpretHistory,
   runInterpret,
   type InterpretMessage,
@@ -36,7 +37,7 @@ onMounted(() => {
 async function openHistory() {
   historyOpen.value = true
   historyLoading.value = true
-  const res = await getInterpretHistory(20)
+  const res = await getInterpretHistory(50)
   historyLoading.value = false
   if (res.ok) {
     history.value = res.data
@@ -56,6 +57,63 @@ function viewHistoryItem(m: InterpretMessage) {
     showContext.value = true
   }
   historyOpen.value = false
+}
+
+/**
+ * 时间分组:今天 / 昨天 / 前 7 天 / 前 30 天 / 更早
+ */
+const groupedHistory = computed(() => {
+  const now = new Date()
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const dayMs = 86400_000
+
+  type Group = { label: string; items: InterpretMessage[] }
+  const groups: Group[] = [
+    { label: '今天', items: [] },
+    { label: '昨天', items: [] },
+    { label: '前 7 天', items: [] },
+    { label: '前 30 天', items: [] },
+    { label: '更早', items: [] },
+  ]
+
+  for (const m of history.value) {
+    const mTime = new Date(m.created_at).getTime()
+    const diffDays = Math.floor((todayStart - mTime) / dayMs)
+    if (diffDays < 0) groups[0]!.items.push(m)
+    else if (diffDays === 0) groups[0]!.items.push(m)
+    else if (diffDays === 1) groups[1]!.items.push(m)
+    else if (diffDays <= 7) groups[2]!.items.push(m)
+    else if (diffDays <= 30) groups[3]!.items.push(m)
+    else groups[4]!.items.push(m)
+  }
+
+  return groups.filter((g) => g.items.length > 0)
+})
+
+// 长按历史条目 → actionSheet → 删除
+async function longPressHistoryItem(m: InterpretMessage) {
+  const res = await uni.showActionSheet({
+    itemList: ['删了这条'],
+    itemColor: '#F53F3F',
+  })
+  if (res.tapIndex !== 0) return
+
+  const confirm = await uni.showModal({
+    title: '删了这条解读?',
+    content: '当时贴的话 + 老白给的回复 都没了 · 找不回',
+    confirmText: '删',
+    cancelText: '不删',
+    confirmColor: '#F53F3F',
+  })
+  if (!confirm.confirm) return
+
+  const del = await deleteInterpretMessage(m.id)
+  if (del.ok) {
+    history.value = history.value.filter((x) => x.id !== m.id)
+    uni.showToast({ title: '删了', icon: 'none', duration: 1200 })
+  } else {
+    runError.value = del.error.message
+  }
 }
 
 async function initSession() {
@@ -254,15 +312,19 @@ function goBack() {
             <text class="history-empty-text">还没看过几段。先贴一段让老白看看。</text>
           </view>
 
-          <view
-            v-for="m in history"
-            :key="m.id"
-            class="history-item"
-            @tap="viewHistoryItem(m)"
-          >
-            <text class="history-her">{{ m.user_input.her_text }}</text>
-            <text class="history-reply">→ {{ m.output_interpretation.suggested_reply }}</text>
-            <text class="history-time">{{ new Date(m.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) }}</text>
+          <view v-for="g in groupedHistory" :key="g.label" class="history-group">
+            <text class="history-group-label">{{ g.label }}</text>
+            <view
+              v-for="m in g.items"
+              :key="m.id"
+              class="history-item"
+              @tap="viewHistoryItem(m)"
+              @longpress="longPressHistoryItem(m)"
+            >
+              <text class="history-her">{{ m.user_input.her_text }}</text>
+              <text class="history-reply">→ {{ m.output_interpretation.suggested_reply }}</text>
+              <text class="history-time">{{ new Date(m.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) }}</text>
+            </view>
           </view>
         </scroll-view>
       </view>
@@ -394,6 +456,18 @@ function goBack() {
   padding: 16rpx 24rpx;
   overflow-y: auto;
 }
+.history-group {
+  margin-bottom: 8rpx;
+}
+.history-group-label {
+  display: block;
+  padding: 16rpx 20rpx 8rpx;
+  font-size: 22rpx;
+  color: $color-text-tertiary;
+  font-weight: 500;
+  letter-spacing: 1rpx;
+}
+
 .history-loading,
 .history-empty {
   padding: 80rpx 32rpx;

@@ -2,7 +2,7 @@
 // 跟老白聊心情,无 relationship 关联,跨自然日(Asia/Shanghai)新建 session
 // 见 lianai-phase1-spec-v2/01-SPEC-P1.1-DATA-SKELETON.md
 
-import { apiGet, apiPost } from './client'
+import { apiGet, apiPost, request } from './client'
 import { useUserStore } from '../stores/user'
 
 // 复用 relationship.api.ts 的 authToken 模式:无 token 不要 fallback 到 DEV_TOKEN
@@ -51,6 +51,14 @@ export function getTreeHoleSessions() {
 /** GET /v1/tree-hole/sessions/:id/messages — 某天的对话历史 */
 export function getTreeHoleMessages(sessionId: string) {
   return apiGet<TreeHoleMessage[]>(`/tree-hole/sessions/${sessionId}/messages`, {
+    token: authToken(),
+  })
+}
+
+/** DELETE /v1/tree-hole/sessions/:id — 真删 session + 级联删 messages */
+export function deleteTreeHoleSession(sessionId: string) {
+  return request<{ deleted: string }>(`/tree-hole/sessions/${sessionId}`, {
+    method: 'DELETE',
     token: authToken(),
   })
 }

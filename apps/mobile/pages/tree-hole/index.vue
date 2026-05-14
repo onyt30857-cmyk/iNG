@@ -14,6 +14,7 @@ import LaokeAvatar from '../../components/LaokeAvatar.vue'
 import LaokeBubble from '../../components/conversation/LaokeBubble.vue'
 import UserBubble from '../../components/conversation/UserBubble.vue'
 import {
+  deleteTreeHoleSession,
   getTreeHoleMessages,
   getTreeHoleSessions,
   postTreeHoleTurn,
@@ -193,6 +194,67 @@ async function openHistory() {
   historyLoading.value = false
 }
 
+/**
+ * 时间分组:今天 / 昨天 / 前 7 天 / 前 30 天 / 更早
+ * 用 dayDiff(today - date)分桶
+ */
+const groupedHistory = computed(() => {
+  const todayStr = shanghaiDateStr()
+  const today = new Date(todayStr + 'T00:00:00Z').getTime()
+  const dayMs = 86400_000
+
+  type Group = { label: string; items: typeof historySessions.value }
+  const groups: Group[] = [
+    { label: '今天', items: [] },
+    { label: '昨天', items: [] },
+    { label: '前 7 天', items: [] },
+    { label: '前 30 天', items: [] },
+    { label: '更早', items: [] },
+  ]
+
+  for (const item of historySessions.value) {
+    const itemTime = new Date(item.date + 'T00:00:00Z').getTime()
+    const diff = Math.round((today - itemTime) / dayMs)
+    if (diff <= 0) groups[0]!.items.push(item)
+    else if (diff === 1) groups[1]!.items.push(item)
+    else if (diff <= 7) groups[2]!.items.push(item)
+    else if (diff <= 30) groups[3]!.items.push(item)
+    else groups[4]!.items.push(item)
+  }
+
+  return groups.filter((g) => g.items.length > 0)
+})
+
+// 长按 session → 弹 actionSheet → 删除
+async function longPressSession(item: { id: string; date: string }) {
+  const res = await uni.showActionSheet({
+    itemList: ['删除这天'],
+    itemColor: '#F53F3F',
+  })
+  if (res.tapIndex !== 0) return
+
+  const confirm = await uni.showModal({
+    title: `删了 ${item.date} 的对话?`,
+    content: '当天写的全没了 · 找不回',
+    confirmText: '删',
+    cancelText: '不删',
+    confirmColor: '#F53F3F',
+  })
+  if (!confirm.confirm) return
+
+  const del = await deleteTreeHoleSession(item.id)
+  if (del.ok) {
+    historySessions.value = historySessions.value.filter((s) => s.id !== item.id)
+    uni.showToast({ title: '删了', icon: 'none', duration: 1200 })
+    // 删的是当前 readonly 看着的 → 回今天
+    if (viewingSessionDate.value === item.date) {
+      void backToToday()
+    }
+  } else {
+    errorMsg.value = del.error.message
+  }
+}
+
 function closeHistory() {
   historyOpen.value = false
 }
@@ -363,18 +425,21 @@ const formattedViewingDate = computed(() => {
             <text class="history-empty-text">还没写过几次。今天就当第一次。</text>
           </view>
 
-          <view
-            v-for="item in historySessions"
-            :key="item.id"
-            class="history-item"
-            @tap="viewHistorySession(item)"
-          >
-            <view class="history-item-head">
-              <text class="history-date">{{ item.date }}</text>
-              <text v-if="item.isToday" class="history-today-tag">今天</text>
-              <text class="history-count">{{ item.count }} 条</text>
+          <view v-for="g in groupedHistory" :key="g.label" class="history-group">
+            <text class="history-group-label">{{ g.label }}</text>
+            <view
+              v-for="item in g.items"
+              :key="item.id"
+              class="history-item"
+              @tap="viewHistorySession(item)"
+              @longpress="longPressSession(item)"
+            >
+              <view class="history-item-head">
+                <text class="history-date">{{ item.date }}</text>
+                <text class="history-count">{{ item.count }} 条</text>
+              </view>
+              <text class="history-preview">{{ item.preview }}</text>
             </view>
-            <text class="history-preview">{{ item.preview }}</text>
           </view>
         </scroll-view>
       </view>
@@ -622,6 +687,18 @@ const formattedViewingDate = computed(() => {
   width: 100%;
   box-sizing: border-box;
 }
+.history-group {
+  margin-bottom: 8rpx;
+}
+.history-group-label {
+  display: block;
+  padding: 16rpx 20rpx 8rpx;
+  font-size: 22rpx;
+  color: $color-text-tertiary;
+  font-weight: 500;
+  letter-spacing: 1rpx;
+}
+
 .history-loading,
 .history-empty {
   padding: 80rpx 32rpx;
