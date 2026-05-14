@@ -3,6 +3,13 @@
 // 见 lianai-phase1-spec-v2/01-SPEC-P1.1-DATA-SKELETON.md
 
 import { apiGet, apiPost } from './client'
+import { useUserStore } from '../stores/user'
+
+// 复用 relationship.api.ts 的 authToken 模式:无 token 不要 fallback 到 DEV_TOKEN
+function authToken(): string | undefined {
+  const store = useUserStore()
+  return store.token ?? undefined
+}
 
 export interface TreeHoleTurnResult {
   session_id: string
@@ -31,15 +38,19 @@ export interface TreeHoleMessage {
 
 /** POST /v1/tree-hole/turn — 发一句给老白,等回应(非流式) */
 export function postTreeHoleTurn(userText: string) {
-  return apiPost<TreeHoleTurnResult>('/tree-hole/turn', { user_text: userText })
+  return apiPost<TreeHoleTurnResult>('/tree-hole/turn', { user_text: userText }, {
+    token: authToken(),
+  })
 }
 
 /** GET /v1/tree-hole/sessions — 最近 30 天 session 列表 */
 export function getTreeHoleSessions() {
-  return apiGet<TreeHoleSession[]>('/tree-hole/sessions')
+  return apiGet<TreeHoleSession[]>('/tree-hole/sessions', { token: authToken() })
 }
 
 /** GET /v1/tree-hole/sessions/:id/messages — 某天的对话历史 */
 export function getTreeHoleMessages(sessionId: string) {
-  return apiGet<TreeHoleMessage[]>(`/tree-hole/sessions/${sessionId}/messages`)
+  return apiGet<TreeHoleMessage[]>(`/tree-hole/sessions/${sessionId}/messages`, {
+    token: authToken(),
+  })
 }

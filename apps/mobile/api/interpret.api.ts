@@ -3,6 +3,13 @@
 // 见 lianai-phase1-spec-v2/01-SPEC-P1.1-DATA-SKELETON.md
 
 import { apiPost } from './client'
+import { useUserStore } from '../stores/user'
+
+// 复用 relationship.api.ts 的 authToken 模式
+function authToken(): string | undefined {
+  const store = useUserStore()
+  return store.token ?? undefined
+}
 
 export interface InterpretSession {
   id: string
@@ -30,16 +37,24 @@ export interface InterpretMessage {
 
 /** POST /v1/interpret/sessions — 创建 30 分钟有效 session */
 export function createInterpretSession(relationshipId?: string) {
-  return apiPost<InterpretSession>('/interpret/sessions', {
-    ...(relationshipId ? { relationship_id: relationshipId } : {}),
-  })
+  return apiPost<InterpretSession>(
+    '/interpret/sessions',
+    {
+      ...(relationshipId ? { relationship_id: relationshipId } : {}),
+    },
+    { token: authToken() },
+  )
 }
 
 /** POST /v1/interpret/run — 解读一次(同步) */
 export function runInterpret(sessionId: string, herText: string, context?: string) {
-  return apiPost<InterpretMessage>('/interpret/run', {
-    session_id: sessionId,
-    her_text: herText,
-    ...(context ? { context } : {}),
-  })
+  return apiPost<InterpretMessage>(
+    '/interpret/run',
+    {
+      session_id: sessionId,
+      her_text: herText,
+      ...(context ? { context } : {}),
+    },
+    { token: authToken() },
+  )
 }
