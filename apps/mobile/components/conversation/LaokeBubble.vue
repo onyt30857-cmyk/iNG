@@ -69,8 +69,19 @@ interface Segment {
 }
 // 整行只有引号片段(允许两端空白)
 const FULL_QUOTE_LINE = /^[\s]*["""「『]([^"""「」『』\n]{2,200})["""」』][\s]*$/
+
+// 2026-05-14:Sam 反馈老白回复出现 ** 字符(LLM 残留 markdown)。
+// 显示前 strip:**bold** / __bold__ / *italic* / _italic_ 全去掉,只剩内容文字。
+function stripMd(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/\*([^*\n]+?)\*/g, '$1')
+    .replace(/(^|[^_\w])_([^_\n]+?)_(?=[^_\w]|$)/g, '$1$2')
+}
+
 const segments = computed<Segment[]>(() => {
-  const t = props.text
+  const t = stripMd(props.text || '')
   if (!t) return []
   const out: Segment[] = []
   const lines = t.split('\n')
@@ -215,7 +226,7 @@ async function onLongPress() {
     itemColor: '#1F2433',
   })
   if (res.tapIndex === 0) {
-    uni.setClipboardData({ data: props.text, showToast: false })
+    uni.setClipboardData({ data: stripMd(props.text), showToast: false })
     uni.showToast({ title: '已复制', icon: 'none', duration: 1200 })
   } else if (res.tapIndex === 1) {
     if (feedbackGiven.value !== 'dislike') {

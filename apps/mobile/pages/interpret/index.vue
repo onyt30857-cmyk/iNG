@@ -59,6 +59,28 @@ function viewHistoryItem(m: InterpretMessage) {
   historyOpen.value = false
 }
 
+// 2026-05-14:Sam 反馈老白回复有 ** 字符(LLM 残留 markdown),显示前 strip
+function stripMd(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/\*([^*\n]+?)\*/g, '$1')
+    .replace(/(^|[^_\w])_([^_\n]+?)_(?=[^_\w]|$)/g, '$1$2')
+}
+
+const cleanResult = computed(() => {
+  if (!result.value) return null
+  return {
+    suggested_reply: stripMd(result.value.suggested_reply),
+    why_brief: stripMd(result.value.why_brief),
+    detected_intent: result.value.detected_intent,
+    alternative_replies: result.value.alternative_replies.map((a) => ({
+      intent: a.intent,
+      text: stripMd(a.text),
+    })),
+  }
+})
+
 /**
  * 时间分组:今天 / 昨天 / 前 7 天 / 前 30 天 / 更早
  */
@@ -234,8 +256,8 @@ function goBack() {
         </view>
       </view>
 
-      <!-- 结果态 -->
-      <view v-else class="result">
+      <!-- 结果态(2026-05-14:用 cleanResult,显示前 strip 老白的 markdown 残留)-->
+      <view v-else-if="cleanResult" class="result">
         <!-- 用户当初贴的"她说的"原文回显(看完老白回答能记起当时问的啥)-->
         <view class="quote-card">
           <text class="quote-label">她说的</text>
@@ -252,8 +274,8 @@ function goBack() {
           <text class="laoke-hint">这么回:</text>
         </view>
         <view class="main-reply-card">
-          <text class="main-reply-text">{{ result.suggested_reply }}</text>
-          <view class="copy-btn" @tap="copyReply(result.suggested_reply)">
+          <text class="main-reply-text">{{ cleanResult.suggested_reply }}</text>
+          <view class="copy-btn" @tap="copyReply(cleanResult.suggested_reply)">
             <text class="copy-btn-text">复制</text>
           </view>
         </view>
@@ -261,14 +283,14 @@ function goBack() {
         <!-- why -->
         <view class="why-card">
           <text class="why-label">为什么这么说</text>
-          <text class="why-text">{{ result.why_brief }}</text>
+          <text class="why-text">{{ cleanResult.why_brief }}</text>
         </view>
 
         <!-- 备选 -->
-        <view v-if="result.alternative_replies.length > 0" class="alts">
+        <view v-if="cleanResult.alternative_replies.length > 0" class="alts">
           <text class="alts-label">换个语气也行</text>
           <view
-            v-for="(alt, i) in result.alternative_replies"
+            v-for="(alt, i) in cleanResult.alternative_replies"
             :key="i"
             class="alt-card"
           >
@@ -282,8 +304,8 @@ function goBack() {
           </view>
         </view>
 
-        <view v-if="result.detected_intent" class="intent-tag">
-          <text class="intent-text">老白看出来:{{ result.detected_intent }}</text>
+        <view v-if="cleanResult.detected_intent" class="intent-tag">
+          <text class="intent-text">老白看出来:{{ cleanResult.detected_intent }}</text>
         </view>
 
         <view class="reset-btn" @tap="handleReset">
@@ -322,7 +344,7 @@ function goBack() {
               @longpress="longPressHistoryItem(m)"
             >
               <text class="history-her">{{ m.user_input.her_text }}</text>
-              <text class="history-reply">→ {{ m.output_interpretation.suggested_reply }}</text>
+              <text class="history-reply">→ {{ stripMd(m.output_interpretation.suggested_reply) }}</text>
               <text class="history-time">{{ new Date(m.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) }}</text>
             </view>
           </view>
