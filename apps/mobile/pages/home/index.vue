@@ -130,15 +130,20 @@ function goInterpret() {
   uni.navigateTo({ url: '/pages/interpret/index' })
 }
 
-// Nikita 建议 #4(2026-05-14):顶部 + 收纳 3 个入口,不让用户在 home 做 mode switch
-async function openAddSheet() {
-  const res = await uni.showActionSheet({
-    itemList: ['跟老白说说心情', '帮我看看一段话', '记一段新关系'],
-    itemColor: '#1D2129',
-  })
-  if (res.tapIndex === 0) goTreeHole()
-  else if (res.tapIndex === 1) goInterpret()
-  else if (res.tapIndex === 2) goCreate()
+// Nikita 建议 #4(2026-05-14):顶部 + 收纳 3 个入口,自定义 bottomsheet 跟项目设计规范一致
+const addSheetOpen = ref(false)
+
+function openAddSheet() {
+  addSheetOpen.value = true
+}
+function closeAddSheet() {
+  addSheetOpen.value = false
+}
+function pickAddSheet(action: 'tree-hole' | 'interpret' | 'create') {
+  addSheetOpen.value = false
+  if (action === 'tree-hole') goTreeHole()
+  else if (action === 'interpret') goInterpret()
+  else if (action === 'create') goCreate()
 }
 
 // spec-006 之后 home 不再做"复盘入口",所有 OCR 上传 / 复盘流程都在每段关系的
@@ -284,6 +289,58 @@ const greeting = computed(() => {
     </view>
 
     <!-- spec-006 之后"复盘"融进每段关系对话页:点关系卡 → 进对话页 → + 按钮上传截图 / 粘贴对方原话 → 老白流式回应 -->
+
+    <!-- + 入口 bottomsheet(Nikita #4)— 跟翻翻 / 看过 sheet 同款 brand 风格 -->
+    <view v-if="addSheetOpen" class="add-mask" @tap="closeAddSheet">
+      <view class="add-sheet" @tap.stop>
+        <view class="add-handle"></view>
+        <text class="add-title">想干啥</text>
+
+        <view class="add-item add-item-tree-hole" @tap="pickAddSheet('tree-hole')">
+          <view class="add-item-icon add-icon-tree-hole">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </view>
+          <view class="add-item-body">
+            <text class="add-item-title">跟老白说说心情</text>
+            <text class="add-item-sub">今天怎么了 · 跟谁没关系</text>
+          </view>
+          <text class="add-item-arrow">›</text>
+        </view>
+
+        <view class="add-item add-item-interpret" @tap="pickAddSheet('interpret')">
+          <view class="add-item-icon add-icon-interpret">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/>
+            </svg>
+          </view>
+          <view class="add-item-body">
+            <text class="add-item-title">帮我看看一段话</text>
+            <text class="add-item-sub">不知道怎么回的时候,贴她说的</text>
+          </view>
+          <text class="add-item-arrow">›</text>
+        </view>
+
+        <view class="add-item add-item-create" @tap="pickAddSheet('create')">
+          <view class="add-item-icon add-icon-create">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </view>
+          <view class="add-item-body">
+            <text class="add-item-title">记一段新关系</text>
+            <text class="add-item-sub">老白长期陪你看她</text>
+          </view>
+          <text class="add-item-arrow">›</text>
+        </view>
+
+        <view class="add-cancel" @tap="closeAddSheet">
+          <text class="add-cancel-text">取消</text>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -563,4 +620,117 @@ const greeting = computed(() => {
 }
 
 // (dev-link 旧 CSS 已删,spec-006 后无 home 复盘入口)
+
+/* + 入口 bottomsheet(Nikita #4)— 跟项目设计规范一致:handle 条 + 圆角顶部 + 品牌色 icon */
+.add-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: flex-end;
+}
+.add-sheet {
+  width: 100%;
+  background: $color-background;
+  border-radius: 32rpx 32rpx 0 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0 24rpx calc(env(safe-area-inset-bottom, 24rpx) + 24rpx);
+  animation: add-sheet-slide-up 0.25s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@keyframes add-sheet-slide-up {
+  from { transform: translateY(100%); opacity: 0.6; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.add-handle {
+  width: 80rpx;
+  height: 6rpx;
+  background: $color-text-disabled;
+  border-radius: 9999rpx;
+  margin: 16rpx auto;
+}
+.add-title {
+  display: block;
+  text-align: center;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: $color-text-primary;
+  margin-bottom: 24rpx;
+  padding: 0 16rpx;
+}
+.add-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 20rpx;
+  padding: 24rpx 24rpx;
+  background: $color-surface;
+  border-radius: $radius-lg;
+  margin-bottom: 16rpx;
+  transition: transform 0.15s, background 0.2s;
+}
+.add-item:active {
+  transform: scale(0.985);
+  background: $color-surface-subtle;
+}
+.add-item-icon {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.add-icon-tree-hole {
+  background: $color-laoke-subtle;
+  color: $color-laoke-deep;
+}
+.add-icon-interpret {
+  background: $color-primary-subtle;
+  color: $color-primary-deep;
+}
+.add-icon-create {
+  background: rgba(255, 125, 149, 0.12);
+  color: $color-primary;
+}
+.add-item-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  min-width: 0;
+}
+.add-item-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: $color-text-primary;
+}
+.add-item-sub {
+  font-size: 24rpx;
+  color: $color-text-tertiary;
+}
+.add-item-arrow {
+  font-size: 36rpx;
+  color: $color-text-disabled;
+  flex-shrink: 0;
+}
+.add-cancel {
+  margin-top: 12rpx;
+  padding: 28rpx;
+  background: $color-surface;
+  border-radius: $radius-lg;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+.add-cancel:active {
+  background: $color-surface-subtle;
+}
+.add-cancel-text {
+  font-size: 30rpx;
+  color: $color-text-secondary;
+}
 </style>
