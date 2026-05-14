@@ -146,10 +146,12 @@ function packLabel(p: BillingProduct): string {
 
       <!-- 年费 Pro(主推大卡)-->
       <view v-if="yearly && !pendingPaymentId" class="hero-card" @tap="handleBuy('SUBSCRIPTION_YEARLY')">
-        <view class="hero-badge">
-          <text class="hero-badge-text">推荐</text>
+        <view class="hero-name-row">
+          <text class="hero-name">{{ yearly.name }}</text>
+          <view class="hero-badge">
+            <text class="hero-badge-text">推荐</text>
+          </view>
         </view>
-        <text class="hero-name">{{ yearly.name }}</text>
         <text class="hero-desc">{{ yearly.description }}</text>
         <view class="hero-price-row">
           <text class="hero-price-sign">¥</text>
@@ -160,6 +162,7 @@ function packLabel(p: BillingProduct): string {
           <text class="hero-cta-text">
             {{ orderingType === 'SUBSCRIPTION_YEARLY' ? '正在下单…' : '上年费' }}
           </text>
+          <text v-if="orderingType !== 'SUBSCRIPTION_YEARLY'" class="hero-cta-arrow">→</text>
         </view>
       </view>
 
@@ -307,7 +310,6 @@ function packLabel(p: BillingProduct): string {
 
 /* === 年费 Pro 主推大卡 === */
 .hero-card {
-  position: relative;
   padding: 40rpx 32rpx;
   background: linear-gradient(135deg, $color-primary 0%, $color-primary-gradient-end 100%);
   border-radius: $radius-xl;
@@ -320,28 +322,31 @@ function packLabel(p: BillingProduct): string {
   transform: scale(0.98);
 }
 
+/* 标题行:年费 Pro [推荐 inline tag] — 不再 absolute 右上角(避免视觉右偏) */
+.hero-name-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 12rpx;
+}
+
+.hero-name {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.2;
+}
+
 .hero-badge {
-  position: absolute;
-  top: 20rpx;
-  right: 20rpx;
-  padding: 8rpx 20rpx;
+  padding: 6rpx 18rpx;
   background: rgba(255, 255, 255, 0.25);
   border-radius: $radius-full;
-  backdrop-filter: blur(10rpx);
 }
 
 .hero-badge-text {
   font-size: 22rpx;
   color: #fff;
   font-weight: 600;
-}
-
-.hero-name {
-  display: block;
-  font-size: 40rpx;
-  font-weight: 700;
-  color: #fff;
-  margin-bottom: 12rpx;
 }
 
 .hero-desc {
@@ -385,12 +390,20 @@ function packLabel(p: BillingProduct): string {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 16rpx;
 }
 
 .hero-cta-text {
   color: $color-primary-deep;
   font-size: 30rpx;
   font-weight: 700;
+}
+
+.hero-cta-arrow {
+  color: $color-primary-deep;
+  font-size: 32rpx;
+  font-weight: 600;
+  line-height: 1;
 }
 
 /* === 积分包 grid === */
