@@ -432,12 +432,17 @@ function goBack() {
 
 .content {
   flex: 1;
+  width: 100%;
   padding: 32rpx 32rpx env(safe-area-inset-bottom, 32rpx);
   overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 /* === 输入卡 === */
 .input-card {
+  width: 100%;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 28rpx;
@@ -536,6 +541,8 @@ function goBack() {
 
 /* === 结果态 === */
 .result {
+  width: 100%;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 28rpx;
