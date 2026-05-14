@@ -7,7 +7,9 @@ import { onMounted, ref } from 'vue'
 import LaokeAvatar from '../../components/LaokeAvatar.vue'
 import {
   createInterpretSession,
+  getInterpretHistory,
   runInterpret,
+  type InterpretMessage,
   type InterpretOutput,
 } from '../../api/interpret.api'
 
@@ -22,9 +24,39 @@ const submitting = ref(false)
 const result = ref<InterpretOutput | null>(null)
 const runError = ref<string | null>(null)
 
+// 历史(我之前看过)
+const historyOpen = ref(false)
+const history = ref<InterpretMessage[]>([])
+const historyLoading = ref(false)
+
 onMounted(() => {
   void initSession()
 })
+
+async function openHistory() {
+  historyOpen.value = true
+  historyLoading.value = true
+  const res = await getInterpretHistory(20)
+  historyLoading.value = false
+  if (res.ok) {
+    history.value = res.data
+  }
+}
+
+function closeHistory() {
+  historyOpen.value = false
+}
+
+function viewHistoryItem(m: InterpretMessage) {
+  // 把历史条目"还原"到结果态:用户原话回填 + 直接显示老白当时给的输出
+  result.value = m.output_interpretation
+  herText.value = m.user_input.her_text
+  if (m.user_input.context) {
+    contextText.value = m.user_input.context
+    showContext.value = true
+  }
+  historyOpen.value = false
+}
 
 async function initSession() {
   const res = await createInterpretSession()
@@ -89,7 +121,9 @@ function goBack() {
         <text class="title-text">帮我看看这段</text>
         <text class="title-hint">不知道怎么回的时候,贴过来</text>
       </view>
-      <view class="header-spacer"></view>
+      <view class="header-history-btn" @tap="openHistory">
+        <text class="history-btn-text">看过</text>
+      </view>
     </view>
 
     <scroll-view class="content" scroll-y>
@@ -189,6 +223,40 @@ function goBack() {
         </view>
       </view>
     </scroll-view>
+
+    <!-- 历史 bottomsheet -->
+    <view v-if="historyOpen" class="history-mask" @tap="closeHistory">
+      <view class="history-sheet" @tap.stop>
+        <view class="history-handle"></view>
+        <view class="history-header">
+          <text class="history-title">看过</text>
+          <view class="history-close" @tap="closeHistory">
+            <text class="history-close-text">关</text>
+          </view>
+        </view>
+
+        <scroll-view class="history-scroll" scroll-y>
+          <view v-if="historyLoading" class="history-loading">
+            <text class="history-loading-text">翻翻你之前贴过的…</text>
+          </view>
+
+          <view v-else-if="history.length === 0" class="history-empty">
+            <text class="history-empty-text">还没看过几段。先贴一段让老白看看。</text>
+          </view>
+
+          <view
+            v-for="m in history"
+            :key="m.id"
+            class="history-item"
+            @tap="viewHistoryItem(m)"
+          >
+            <text class="history-her">{{ m.user_input.her_text }}</text>
+            <text class="history-reply">→ {{ m.output_interpretation.suggested_reply }}</text>
+            <text class="history-time">{{ new Date(m.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) }}</text>
+          </view>
+        </scroll-view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -247,6 +315,119 @@ function goBack() {
 
 .header-spacer {
   width: 60rpx;
+}
+
+.header-history-btn {
+  padding: 8rpx 20rpx;
+  background: $color-laoke-subtle;
+  border: 1rpx solid $color-laoke;
+  border-radius: $radius-full;
+}
+.history-btn-text {
+  font-size: 24rpx;
+  color: $color-laoke-deep;
+  font-weight: 500;
+}
+
+/* === 历史 bottomsheet === */
+.history-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: flex-end;
+}
+.history-sheet {
+  width: 100%;
+  max-height: 80vh;
+  background: $color-surface;
+  border-radius: 32rpx 32rpx 0 0;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom, 32rpx);
+}
+.history-handle {
+  width: 80rpx;
+  height: 6rpx;
+  background: $color-text-disabled;
+  border-radius: 9999rpx;
+  margin: 16rpx auto;
+}
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 32rpx;
+  border-bottom: 1rpx solid $color-border;
+}
+.history-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: $color-text-primary;
+}
+.history-close {
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 9999rpx;
+  background: $color-surface-subtle;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.history-close-text {
+  font-size: 24rpx;
+  color: $color-text-secondary;
+}
+.history-scroll {
+  flex: 1;
+  padding: 16rpx 24rpx;
+  overflow-y: auto;
+}
+.history-loading,
+.history-empty {
+  padding: 80rpx 32rpx;
+  text-align: center;
+}
+.history-loading-text,
+.history-empty-text {
+  font-size: 26rpx;
+  color: $color-text-tertiary;
+}
+.history-item {
+  padding: 24rpx 20rpx;
+  border-bottom: 1rpx solid $color-border;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  transition: background 0.15s;
+}
+.history-item:active {
+  background: $color-surface-subtle;
+}
+.history-her {
+  font-size: 28rpx;
+  color: $color-text-primary;
+  line-height: 1.5;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.history-reply {
+  font-size: 24rpx;
+  color: $color-laoke-deep;
+  line-height: 1.5;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.history-time {
+  font-size: 20rpx;
+  color: $color-text-tertiary;
 }
 
 .content {

@@ -2,7 +2,7 @@
 // 用户贴一段对方的话(可附 context),老白返回:1 主推回复 + 2-3 备选 + why 解释
 // 见 lianai-phase1-spec-v2/01-SPEC-P1.1-DATA-SKELETON.md
 
-import { apiPost } from './client'
+import { apiGet, apiPost } from './client'
 import { useUserStore } from '../stores/user'
 
 // 复用 relationship.api.ts 的 authToken 模式
@@ -57,4 +57,11 @@ export function runInterpret(sessionId: string, herText: string, context?: strin
     },
     { token: authToken() },
   )
+}
+
+/** GET /v1/interpret/messages — 最近 N 条解读历史 */
+export function getInterpretHistory(limit = 10) {
+  return apiGet<InterpretMessage[]>(`/interpret/messages?limit=${limit}`, {
+    token: authToken(),
+  })
 }
