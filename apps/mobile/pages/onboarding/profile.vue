@@ -104,10 +104,12 @@ async function finish(skipAvatar: boolean) {
     })
   }
 
-  // 1s 给收尾气泡留显示时间,然后跳 first-relationship 让用户建第一段关系
-  // (2026-05-12:之前直接跳 home 让用户落空状态,改成 Replika 模式 — onboarding 末尾建第一段关系产生 ownership)
+  // Nikita #1 FVM(2026-05-14):onboarding 末尾不再强制建关系,直接进 home
+  // home 空态有双 CTA(跟老白说说 / 记一段她),让用户 30 秒内得到老白第一句话
+  // first-relationship 页保留,home 空态副 CTA 触发(给"我想直接建档"的用户)
+  // 之前 2026-05-12 改 Replika 模式建关系产生 ownership → 现在反向:Nikita 视角"先得价值后建档"
   setTimeout(() => {
-    uni.reLaunch({ url: '/pages/onboarding/first-relationship' })
+    uni.reLaunch({ url: '/pages/home/index' })
   }, 1000)
 }
 

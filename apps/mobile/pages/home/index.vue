@@ -260,16 +260,19 @@ const greeting = computed(() => {
       </view>
     </view>
 
-    <!-- 0 关系空态 -->
+    <!-- 0 关系空态 — Nikita #1 FVM:双 CTA 让用户 30 秒得到老白第一句话(不强制先建档) -->
     <view v-else-if="store.listState !== 'loading'" class="empty">
       <view class="empty-icon">
         <text class="empty-icon-text">+</text>
       </view>
       <text class="empty-title">对着对话框删了又改?</text>
-      <text class="empty-hint">先记一段关系,我陪你慢慢看。</text>
-      <button class="empty-cta" @tap="goCreate">
-        <text class="empty-cta-text">新建第一段关系</text>
+      <text class="empty-hint">先跟老白说一句,他听着。</text>
+      <button class="empty-cta" @tap="goTreeHole">
+        <text class="empty-cta-text">跟老白说说</text>
       </button>
+      <view class="empty-cta-secondary" @tap="goCreate">
+        <text class="empty-cta-secondary-text">或者先记一段她</text>
+      </view>
     </view>
 
     <!-- 新建按钮(列表底部) -->
@@ -509,6 +512,17 @@ const greeting = computed(() => {
   color: $color-surface;
   font-weight: $weight-regular; // medium → regular
   letter-spacing: 1rpx;
+}
+
+/* Nikita #1 副 CTA — 文字链风,克制 */
+.empty-cta-secondary {
+  margin-top: 24rpx;
+  padding: 12rpx 24rpx;
+}
+.empty-cta-secondary-text {
+  font-size: 24rpx;
+  color: $color-text-tertiary;
+  letter-spacing: 0.5rpx;
 }
 
 // === 新建按钮(列表底部) ===
