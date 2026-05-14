@@ -43,4 +43,79 @@ export async function adminBillingRoutes(app: FastifyInstance): Promise<void> {
     invalidateProductsCache()
     return { ok: true, data: product }
   })
+
+  // GET /v1/admin/billing/overview — Phase 1 数据看板
+  // 4 商品状态 + 最近 5 Payment / Refund + 7d tree-hole / interpret 用量 + 订阅总数 + 总充值积分
+  app.get('/v1/admin/billing/overview', async () => {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86400_000)
+
+    const [
+      products,
+      recentPayments,
+      recentRefunds,
+      treeHoleSessions7d,
+      interpretSessions7d,
+      activeSubscriptions,
+      totalPurchasedPoints,
+      transactionsByType,
+    ] = await Promise.all([
+      prisma.billingProduct.findMany({ orderBy: { sort_order: 'asc' } }),
+      prisma.payment.findMany({
+        orderBy: { created_at: 'desc' },
+        take: 5,
+        select: {
+          id: true,
+          user_id: true,
+          amount: true,
+          status: true,
+          product_type: true,
+          credit_pack_size: true,
+          created_at: true,
+        },
+      }),
+      prisma.refundTicket.findMany({
+        orderBy: { created_at: 'desc' },
+        take: 5,
+        include: {
+          payment: {
+            select: { product_type: true, amount: true },
+          },
+        },
+      }),
+      prisma.treeHoleSession.count({ where: { created_at: { gte: sevenDaysAgo } } }),
+      prisma.interpretSession.count({ where: { created_at: { gte: sevenDaysAgo } } }),
+      prisma.subscription.count({
+        where: { status: 'ACTIVE', expires_at: { gt: new Date() } },
+      }),
+      prisma.user.aggregate({ _sum: { purchased_points: true } }),
+      prisma.creditTransaction.groupBy({
+        by: ['type'],
+        _count: true,
+        where: { created_at: { gte: sevenDaysAgo } },
+      }),
+    ])
+
+    return {
+      ok: true,
+      data: {
+        products,
+        recent_payments: recentPayments,
+        recent_refunds: recentRefunds,
+        usage_7d: {
+          tree_hole_sessions: treeHoleSessions7d,
+          interpret_sessions: interpretSessions7d,
+        },
+        subscriptions: {
+          active_count: activeSubscriptions,
+        },
+        credits: {
+          total_purchased_points: totalPurchasedPoints._sum.purchased_points ?? 0,
+          transactions_by_type_7d: transactionsByType.map((t) => ({
+            type: t.type,
+            count: t._count,
+          })),
+        },
+      },
+    }
+  })
 }

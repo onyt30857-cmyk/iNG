@@ -22,6 +22,7 @@ import {
   ShieldAlert,
   ShoppingBag,
   Undo2,
+  LayoutGrid,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -78,6 +79,7 @@ const NAV_GROUPS: NavGroup[] = [
     group: '营收',
     hint: '商品 / 退款 / API 余额',
     items: [
+      { href: '/billing/overview', label: 'Phase 1 概览', icon: LayoutGrid },
       { href: '/billing/products', label: '商品定价', icon: ShoppingBag },
       { href: '/billing/refunds', label: '退款工单', icon: Undo2 },
       { href: '/settings/billing', label: 'Claude 余额', icon: Wallet },
