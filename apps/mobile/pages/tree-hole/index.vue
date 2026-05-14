@@ -391,7 +391,7 @@ const formattedViewingDate = computed(() => {
         <input
           v-model="inputText"
           class="input"
-          placeholder="想说什么,慢慢说"
+          placeholder="跟老白说说今天..."
           :disabled="sending"
           @confirm="handleSend"
         />

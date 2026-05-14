@@ -5,10 +5,10 @@ import { ref, computed, watch, nextTick } from 'vue'
 const props = withDefaults(defineProps<{
   presetText?: string
   uploading?: boolean
-  /** 主输入框占位文案,默认"想到啥说啥",新关系冷启动时父组件可传"先和老白说说{name}" */
+  /** 主输入框占位文案,默认"跟老白说说...",新关系冷启动时父组件可传"先和老白说说{name}" */
   placeholder?: string
 }>(), {
-  placeholder: '想到啥说啥',
+  placeholder: '跟老白说说...',
 })
 
 // 主输入框 ref,父组件通过 defineExpose 调用 focus
