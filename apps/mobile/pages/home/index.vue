@@ -12,6 +12,7 @@ import { useUserStore } from '../../stores/user'
 import { useAppSettingsStore } from '../../stores/app-settings'
 import { useConversationStore } from '../../stores/conversation'
 import RelationshipCard from '../../components/RelationshipCard.vue'
+import LaokeAvatar from '../../components/LaokeAvatar.vue'
 
 const store = useRelationshipStore()
 const userStore = useUserStore()
@@ -229,12 +230,18 @@ const greeting = computed(() => {
 
     <!-- 老白上次说 banner(Nikita #2 retention 钩子)— 仅在有 laoke message 的关系时显示 -->
     <view v-if="retentionBanner" class="banner" @tap="tapRetentionBanner">
-      <view class="banner-tag">
-        <text class="banner-tag-text">老白上次说</text>
+      <view class="banner-avatar">
+        <LaokeAvatar :size="64" />
       </view>
-      <text class="banner-text">
-        <text class="banner-name">{{ retentionBanner.name }}:</text>{{ retentionBanner.text }}
-      </text>
+      <view class="banner-body">
+        <view class="banner-head">
+          <text class="banner-tag-text">老白上次跟你聊</text>
+          <text class="banner-dot">·</text>
+          <text class="banner-name">{{ retentionBanner.name }}</text>
+        </view>
+        <text class="banner-text">{{ retentionBanner.text }}</text>
+      </view>
+      <text class="banner-arrow">›</text>
     </view>
 
     <!-- 引导 -->
@@ -429,34 +436,64 @@ const greeting = computed(() => {
 
 
 // === 引导 ===
-/* 老白上次说 retention banner(Nikita #2)— 薄荷蓝渐变 + 点击跳关系页 */
+/* 老白上次说 retention banner(Nikita #2)— 升级:头像 + 引用感 + 右箭头 */
 .banner {
-  margin: 0 8rpx 16rpx;
-  padding: 20rpx 24rpx;
+  margin: 0 8rpx 20rpx;
+  padding: 24rpx 28rpx;
   background: linear-gradient(135deg, $color-laoke-subtle 0%, $color-surface 100%);
-  border-left: 4rpx solid $color-laoke;
-  border-radius: $radius-lg;
+  border-radius: $radius-xl;
+  box-shadow: 0 4rpx 16rpx rgba(125, 211, 230, 0.18);
   display: flex;
-  flex-direction: column;
-  gap: 8rpx;
-  transition: transform 0.15s;
+  flex-direction: row;
+  align-items: center;
+  gap: 20rpx;
+  transition: transform 0.15s, box-shadow 0.2s;
 }
 .banner:active {
   transform: scale(0.985);
+  box-shadow: 0 2rpx 8rpx rgba(125, 211, 230, 0.12);
 }
-.banner-tag {
-  align-self: flex-start;
-  padding: 4rpx 14rpx;
-  background: $color-laoke;
+.banner-avatar {
+  flex-shrink: 0;
+  position: relative;
   border-radius: 9999rpx;
+  background: $color-surface;
+  padding: 4rpx;
+  box-shadow: 0 2rpx 8rpx rgba(125, 211, 230, 0.3);
+}
+.banner-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  min-width: 0;
+}
+.banner-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8rpx;
+  font-size: 22rpx;
+  color: $color-laoke-deep;
+  font-weight: 500;
+  letter-spacing: 0.5rpx;
 }
 .banner-tag-text {
-  font-size: 20rpx;
-  color: #fff;
+  font-size: 22rpx;
+  color: $color-laoke-deep;
   font-weight: 500;
 }
+.banner-dot {
+  color: $color-text-disabled;
+  font-size: 22rpx;
+}
+.banner-name {
+  color: $color-primary-deep;
+  font-weight: 600;
+  font-size: 22rpx;
+}
 .banner-text {
-  font-size: 26rpx;
+  font-size: 28rpx;
   line-height: 1.5;
   color: $color-text-primary;
   word-break: break-word;
@@ -465,10 +502,12 @@ const greeting = computed(() => {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.banner-name {
-  font-weight: 600;
-  color: $color-laoke-deep;
-  margin-right: 4rpx;
+.banner-arrow {
+  flex-shrink: 0;
+  font-size: 40rpx;
+  color: $color-laoke;
+  align-self: center;
+  font-weight: 300;
 }
 
 .hint {
