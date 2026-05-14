@@ -217,8 +217,12 @@ const isEmpty = computed(() => !loading.value && messages.value.length === 0)
 .page {
   display: flex;
   flex-direction: column;
+  /* 100dvh 在现代 mobile webview 已支持(动态视口,iOS 14.5+ Safari + Chrome 108+),
+     回落 100vh 给老版本。dvh 自动剔除 home indicator 区 */
   height: 100vh;
+  height: 100dvh;
   background: $color-background;
+  overflow: hidden;
 }
 
 .header {
@@ -378,7 +382,10 @@ const isEmpty = computed(() => !loading.value && messages.value.length === 0)
   display: flex;
   align-items: center;
   gap: 16rpx;
-  padding: 16rpx 24rpx env(safe-area-inset-bottom, 16rpx);
+  padding: 16rpx 24rpx;
+  /* iOS Safari 100vh 包含 home indicator,env() 在 uni-app x H5 不可靠 →
+     显式给足底部 padding(80rpx 覆盖 iPhone 标准 home indicator 34pt 区)+ env() 兜底 */
+  padding-bottom: calc(80rpx + env(safe-area-inset-bottom, 0px));
   background: rgba(255, 255, 255, 0.95);
   border-top: 1rpx solid $color-border;
 }

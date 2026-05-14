@@ -120,7 +120,7 @@ function goBack() {
           <textarea
             v-model="contextText"
             class="textarea"
-            placeholder="例:认识 3 个月,上次见面是 2 周前,昨晚我发了'在吗'她没回"
+            placeholder="例:认识 3 个月,昨晚发了'在吗'她没回"
             :maxlength="2000"
             auto-height
           />
@@ -199,6 +199,7 @@ function goBack() {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh; /* iOS Safari 动态视口,自动剔除 home indicator 区 */
   background: $color-background;
 }
 
@@ -296,6 +297,10 @@ function goBack() {
   color: $color-text-primary;
   border: 1rpx solid $color-border;
   box-sizing: border-box;
+  /* 长 placeholder / 长内容必须 wrap,不能溢出右边界 */
+  word-break: break-word;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
 }
 
 .add-context {
@@ -318,11 +323,15 @@ function goBack() {
   background: $color-primary;
   border-radius: $radius-full;
   margin-top: 16rpx;
-  transition: background 0.2s;
+  transition: opacity 0.2s, background 0.2s;
+  box-shadow: 0 8rpx 24rpx rgba(255, 125, 149, 0.25);
 }
 
+/* disabled:保留主色但降透明度 + 去阴影,视觉明确"未激活但是个按钮" */
 .cta-disabled {
-  background: $color-primary-soft;
+  background: $color-primary;
+  opacity: 0.4;
+  box-shadow: none;
 }
 
 .cta-text {
