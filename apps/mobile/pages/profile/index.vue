@@ -1,14 +1,14 @@
 <script setup lang="ts">
-// 账户 / 设置页 — 备份码生成 + 恢复 + 积分(spec-019)
+// 账户 / 设置页 — 备份码生成 + 恢复 + 余额展示
+// 2026-05-14 整合:profile 页直接用 P1.2 /v1/billing/balance,
+// 不再调 spec-019 /users/me/points(其他页 conversation/tree-hole 仍用 pointsStore,这里不删 store)
 import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '../../stores/user'
-import { usePointsStore } from '../../stores/points'
 import { useAppSettingsStore } from '../../stores/app-settings'
 import { useAppDialog } from '../../composables/useAppDialog'
 import { getBalance, type BillingBalance } from '../../api/billing.api'
 
 const userStore = useUserStore()
-const pointsStore = usePointsStore()
 const appSettings = useAppSettingsStore()
 const dialog = useAppDialog()
 // 没设头像 → admin 配的全局默认头像 → 都没就 null,fallback 显示昵称首字
@@ -16,7 +16,7 @@ const profileAvatarUrl = computed(() =>
   appSettings.resolveUserAvatar(userStore.user?.avatar_url),
 )
 
-// Phase 1 P1.2 — 三层余额(daily free + purchased + subscription)
+// Phase 1 P1.2 — 三层余额(daily free + purchased + subscription + bypass 开关)
 const balance = ref<BillingBalance | null>(null)
 async function refreshBalance() {
   const res = await getBalance()
@@ -24,7 +24,6 @@ async function refreshBalance() {
 }
 
 onMounted(() => {
-  void pointsStore.refresh(true)
   void refreshBalance()
 })
 
@@ -43,15 +42,17 @@ function goBilling() {
   uni.navigateTo({ url: '/pages/billing/products/index' })
 }
 
+// 今日积分显示三态:bypass / 订阅 / 普通(remaining/limit)
+// 数据源全用 balance(P1.2),不再依赖 pointsStore
 const pointsDisplay = computed(() => {
-  const s = pointsStore.status
-  if (!s) return null
-  if (s.bypass) return { label: '内测期 · 无限用', detail: '系统 bypass 中', accent: false }
-  if (s.subscribed) return { label: '订阅中 · 无限用', detail: '感谢支持', accent: false }
+  const b = balance.value
+  if (!b) return null
+  if (b.quota_bypass_enabled) return { label: '内测期 · 无限用', detail: '系统 bypass 中', accent: false }
+  if (b.has_active_subscription) return { label: '订阅中 · 无限用', detail: '感谢支持', accent: false }
   return {
-    label: `${s.points_remaining} / ${s.points_limit}`,
+    label: `${b.daily_free_remaining} / ${b.daily_free_limit}`,
     detail: '明早 0 点回血',
-    accent: s.points_remaining < 20,
+    accent: b.daily_free_remaining < 20,
   }
 })
 

@@ -70,6 +70,8 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
         has_active_subscription: !!subscription,
         subscription_expires_at: subscription?.expires_at ?? null,
         subscription_plan: subscription?.plan ?? null,
+        // M1 内测期"全局 bypass"开关(spec-019)— 开时所有用户无限用,UI 显示"内测期 · 无限用"
+        quota_bypass_enabled: config.quota_bypass_enabled,
       },
     }
   })

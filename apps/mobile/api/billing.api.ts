@@ -19,6 +19,8 @@ export interface BillingBalance {
   has_active_subscription: boolean
   subscription_expires_at: string | null
   subscription_plan: 'SINGLE' | 'MONTHLY' | 'YEARLY' | null
+  /** M1 内测期"全局 bypass"开关(spec-019)— 开时所有用户无限用 */
+  quota_bypass_enabled: boolean
 }
 
 export interface CreditTransaction {
