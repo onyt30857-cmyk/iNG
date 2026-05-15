@@ -308,7 +308,7 @@ async function onConfirmRecover() {
       <!-- v4 (2026-05-11):品牌 footer,slogan 强化记忆 -->
       <!-- 2026-05-12:在 slogan 顶上加一行反话术 tagline,作为品牌主张 -->
       <view class="brand-footer">
-        <text class="brand-footer-tagline">话术能学,口气得自己长。</text>
+        <text class="brand-footer-tagline">练的不是话术,是你那张嘴。</text>
         <text class="brand-footer-slogan">想脱单,先练爱</text>
         <text class="brand-footer-mark">练爱 · 老白陪你慢慢看</text>
       </view>
